@@ -1,0 +1,16 @@
+outputs/*.mp4
+outputs/*.webm
+outputs/*_track.json
+temp/
+logs/
+*.mp4
+*.webm
+*.pt
+yolov8n.pt
+input.webm
+vision_test.mp4
+vision_tracked.mp4
+__pycache__/
+*.pyc
+node_modules/
+.next/
