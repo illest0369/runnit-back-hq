@@ -2,9 +2,9 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "rewrites": [
-    { "source": "/dashboard.html", "destination": "/dashboard.html" },
-    { "source": "/clip.html", "destination": "/clip.html" }
+  "redirects": [
+    { "source": "/dashboard.html", "destination": "/dashboard", "permanent": false },
+    { "source": "/clip.html",      "destination": "/clip",      "permanent": false }
   ],
   "headers": [
     {
