@@ -16,5 +16,15 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard.html", "/clip.html"],
+  matcher: [
+    "/dashboard",
+    "/clip",
+    "/intake",
+    "/queue",
+    "/publish",
+    "/performance",
+    // Keep legacy HTML routes protected too
+    "/dashboard.html",
+    "/clip.html",
+  ],
 };

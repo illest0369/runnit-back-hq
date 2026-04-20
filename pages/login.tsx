@@ -72,7 +72,7 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password: op.serverPwd }),
       });
       if (!res.ok) { doShake("Auth error — contact admin"); setBusy(false); return; }
-      window.location.href = "/dashboard.html";
+      window.location.href = "/dashboard";
     } catch { doShake("Connection error"); setBusy(false); }
   }
 
