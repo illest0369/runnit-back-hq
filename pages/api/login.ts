@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { encodeSession, getSessionCookieName, readUsers } from "@/lib/auth";
+import { encodeSession, getSessionCookieName } from "@/lib/auth";
+import { USERS } from "@/config/users";
 
 type LoginBody = {
   username?: string;
@@ -19,8 +20,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(400).json({ error: "Missing credentials" });
   }
 
-  const users = readUsers();
-  const user = users[username];
+  const user = USERS[username];
 
   if (!user || user.password !== password) {
     return res.status(401).json({ error: "Invalid username or password" });

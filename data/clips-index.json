@@ -1,0 +1,296 @@
+[
+  {
+    "post_id": "arena_001",
+    "platform": "tiktok",
+    "channel": "arena",
+    "operator": "matt",
+    "input_file": "temp/arena_001_1776135957.webm",
+    "timestamp_range": "00:00:10-00:00:30",
+    "output_file": "outputs/arena_001_tiktok_1776135995_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/arena/matt/arena_001_tiktok_1776135995_tracked.mp4",
+    "status": "uploaded",
+    "score": 71,
+    "decision": "approve_queue",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "moderate_transcript_spike"
+    ]
+  },
+  {
+    "post_id": "arena_001",
+    "platform": "tiktok",
+    "channel": "arena",
+    "operator": "matt",
+    "input_file": "temp/arena_001_1776138261.webm",
+    "timestamp_range": "00:00:10-00:00:30",
+    "output_file": "outputs/arena_001_tiktok_1776138303_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/arena/matt/arena_001_tiktok_1776138303_tracked.mp4",
+    "status": "uploaded",
+    "score": 71,
+    "decision": "approve_queue",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "moderate_transcript_spike"
+    ]
+  },
+  {
+    "post_id": "clip_001",
+    "platform": "tiktok",
+    "input_file": "temp/clip_001_1776133411.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/clip_001_tiktok_1776133426_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/maly/clip_001_tiktok_1776133426_tracked.mp4",
+    "status": "uploaded"
+  },
+  {
+    "post_id": "combat_001",
+    "platform": "tiktok",
+    "channel": "combat",
+    "operator": "agent",
+    "input_file": "temp/combat_001.webm",
+    "timestamp_range": "00:00:08-00:00:28",
+    "output_file": "outputs/combat_001_tiktok_1776200000_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/combat/agent/combat_001_tiktok_1776200000_tracked.mp4",
+    "status": "uploaded",
+    "score": 75,
+    "decision": "approve_queue",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "title_has_conflict_or_reaction_terms",
+      "moderate_transcript_spike"
+    ]
+  },
+  {
+    "post_id": "combat_002",
+    "platform": "tiktok",
+    "channel": "combat",
+    "operator": "agent",
+    "input_file": "temp/combat_002.webm",
+    "timestamp_range": "00:00:05-00:00:22",
+    "output_file": "outputs/combat_002_tiktok_1776200100_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/combat/agent/combat_002_tiktok_1776200100_tracked.mp4",
+    "status": "uploaded",
+    "score": 62,
+    "decision": "hold",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "moderate_transcript_spike"
+    ]
+  },
+  {
+    "post_id": "full_test",
+    "platform": "tiktok",
+    "input_file": "input.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/full_test_tiktok_1776131775_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/maly/full_test_tiktok_1776131775_tracked.mp4",
+    "status": "uploaded"
+  },
+  {
+    "post_id": "sports_001",
+    "platform": "tiktok",
+    "input_file": "temp/sports_001_1776135315.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/sports_001_tiktok_1776135328_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776135328_tracked.mp4",
+    "status": "uploaded"
+  },
+  {
+    "post_id": "sports_001",
+    "platform": "tiktok",
+    "channel": "sports",
+    "operator": "manny",
+    "input_file": "temp/sports_001_1776135405.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/sports_001_tiktok_1776135415_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776135415_tracked.mp4",
+    "status": "uploaded",
+    "score": 65,
+    "decision": "hold",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "light_transcript_signal"
+    ]
+  },
+  {
+    "post_id": "sports_001",
+    "platform": "tiktok",
+    "channel": "sports",
+    "operator": "manny",
+    "input_file": "temp/sports_001_1776135530.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/sports_001_tiktok_1776135542_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776135542_tracked.mp4",
+    "status": "uploaded",
+    "score": 65,
+    "decision": "hold",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "light_transcript_signal"
+    ]
+  },
+  {
+    "post_id": "sports_001",
+    "platform": "tiktok",
+    "channel": "sports",
+    "operator": "manny",
+    "input_file": "temp/sports_001_1776135608.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/sports_001_tiktok_1776135621_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776135621_tracked.mp4",
+    "status": "uploaded",
+    "score": 65,
+    "decision": "hold",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "light_transcript_signal"
+    ]
+  },
+  {
+    "post_id": "sports_001",
+    "platform": "tiktok",
+    "channel": "sports",
+    "operator": "manny",
+    "input_file": "temp/sports_001_1776135738.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/sports_001_tiktok_1776135755_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776135755_tracked.mp4",
+    "status": "uploaded",
+    "score": 65,
+    "decision": "hold",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "light_transcript_signal"
+    ]
+  },
+  {
+    "post_id": "sports_001",
+    "platform": "tiktok",
+    "channel": "sports",
+    "operator": "manny",
+    "input_file": "temp/sports_001_1776135840.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/sports_001_tiktok_1776135854_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776135854_tracked.mp4",
+    "status": "uploaded",
+    "score": 65,
+    "decision": "hold",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "light_transcript_signal"
+    ]
+  },
+  {
+    "post_id": "sports_001",
+    "platform": "tiktok",
+    "channel": "sports",
+    "operator": "manny",
+    "input_file": "temp/sports_001_1776135918.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/sports_001_tiktok_1776135928_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776135928_tracked.mp4",
+    "status": "uploaded",
+    "score": 65,
+    "decision": "hold",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "light_transcript_signal"
+    ]
+  },
+  {
+    "post_id": "sports_001",
+    "platform": "tiktok",
+    "channel": "sports",
+    "operator": "manny",
+    "input_file": "temp/sports_001_1776138223.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/sports_001_tiktok_1776138232_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776138232_tracked.mp4",
+    "status": "uploaded",
+    "score": 65,
+    "decision": "hold",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "light_transcript_signal"
+    ]
+  },
+  {
+    "post_id": "test_dist_001",
+    "platform": "tiktok",
+    "channel": "sports",
+    "operator": "manny",
+    "input_file": "temp/test_dist_001_1776181471.webm",
+    "timestamp_range": "00:00:06-00:00:26",
+    "output_file": "outputs/test_dist_001_tiktok_1776181481_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/test_dist_001_tiktok_1776181481_tracked.mp4",
+    "status": "uploaded",
+    "score": 65,
+    "decision": "hold",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "light_transcript_signal"
+    ]
+  },
+  {
+    "post_id": "women_001",
+    "platform": "tiktok",
+    "channel": "women",
+    "operator": "maly",
+    "input_file": "temp/women_001_1776136024.webm",
+    "timestamp_range": "00:00:05-00:00:25",
+    "output_file": "outputs/women_001_tiktok_1776136053_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/women/maly/women_001_tiktok_1776136053_tracked.mp4",
+    "status": "uploaded",
+    "score": 71,
+    "decision": "approve_queue",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "moderate_transcript_spike"
+    ]
+  },
+  {
+    "post_id": "women_001",
+    "platform": "tiktok",
+    "channel": "women",
+    "operator": "maly",
+    "input_file": "temp/women_001_1776138333.webm",
+    "timestamp_range": "00:00:05-00:00:25",
+    "output_file": "outputs/women_001_tiktok_1776138367_tracked.mp4",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/women/maly/women_001_tiktok_1776138367_tracked.mp4",
+    "status": "uploaded",
+    "score": 71,
+    "decision": "approve_queue",
+    "reasons": [
+      "strong_channel_fit",
+      "medium_priority_source",
+      "target_duration",
+      "moderate_transcript_spike"
+    ]
+  }
+]
