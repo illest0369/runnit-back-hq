@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-const WEBHOOK_URL = "http://127.0.0.1:5678/webhook/approval";
+// Set N8N_WEBHOOK_URL in Vercel env vars for production n8n integration
+const WEBHOOK_URL = process.env.N8N_WEBHOOK_URL ?? "http://127.0.0.1:5678/webhook/approval";
 const SAFE_POST_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
 
 type ApprovalRequestBody = {
