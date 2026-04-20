@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
 import type { Clip } from "./api/clips";
 import BottomNav from "@/components/BottomNav";
+import NotificationBell from "@/components/NotificationBell";
 
 const PIPELINE = ["trim", "track", "render", "upload", "score", "meta", "queue", "dedup"];
 const GRADIENTS = [
@@ -365,6 +366,7 @@ export default function Dashboard() {
             {(auth.username[0] || "?").toUpperCase()}
           </span>
         </div>
+        <div style={{ pointerEvents: "auto" }}><NotificationBell /></div>
         <button onClick={toggleTheme} style={{
           pointerEvents: "auto",
           background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)",
