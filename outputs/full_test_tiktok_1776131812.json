@@ -1,0 +1,9 @@
+{
+  "post_id": "full_test",
+  "platform": "tiktok",
+  "input_file": "input.webm",
+  "timestamp_range": "00:00:06-00:00:26",
+  "output_file": "outputs/full_test_tiktok_1776131775_tracked.mp4",
+  "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/maly/full_test_tiktok_1776131775_tracked.mp4",
+  "status": "uploaded"
+}

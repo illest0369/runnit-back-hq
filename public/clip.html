@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Clip — RUNNIT BACK HQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+:root{--bg:#080808;--bg2:#111;--bg3:#1a1a1a;--fg:#f5f5f0;--fg2:rgba(245,245,240,0.5);--fg3:rgba(245,245,240,0.2);--accent:#39ff14;--accent-fg:#000;--border:rgba(245,245,240,0.1);--reject:#ff3b30;--approve:#39ff14}
+:root.light{--bg:#f0ede6;--bg2:#fff;--bg3:#e8e4dc;--fg:#080808;--fg2:rgba(8,8,8,0.5);--fg3:rgba(8,8,8,0.15);--accent:#1adb00;--accent-fg:#fff;--border:rgba(8,8,8,0.12)}
+body{font-family:'Inter',sans-serif;color:var(--fg)}
+.bb{font-family:'Bebas Neue',sans-serif}.mono{font-family:'JetBrains Mono',monospace}
+#app{position:fixed;inset:0;background:#000}
+#vbg{position:absolute;inset:0}
+#vbg video{width:100%;height:100%;object-fit:cover;display:block}
+#vbg svg{position:absolute;inset:0;width:100%;height:100%}
+#grad{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.6) 0%,transparent 30%,transparent 50%,rgba(0,0,0,.85) 100%);pointer-events:none}
+#status{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:12px 20px 4px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--fg2)}
+#top-meta{position:absolute;top:44px;left:0;right:0;z-index:20;display:flex;align-items:center;gap:12px;padding:0 20px}
+#back-btn{width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.45);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0}
+#clip-ref{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);letter-spacing:1px}
+#clip-tag{font-size:13px;color:rgba(255,255,255,.9);font-weight:500;margin-top:2px}
+#play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:72px;height:72px;border-radius:50%;cursor:pointer;z-index:10;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;transition:opacity .2s}
+#play-btn.hidden{opacity:0;pointer-events:none}
+.play-tri{width:0;height:0;border-top:16px solid transparent;border-bottom:16px solid transparent;border-left:23px solid #fff;margin-left:6px}
+#sheet{position:absolute;bottom:0;left:0;right:0;z-index:20;background:var(--bg2);border-radius:20px 20px 0 0;border:1px solid var(--border);border-bottom:none;transform:translateY(calc(100% - 120px));transition:transform .4s cubic-bezier(.25,.46,.45,.94);max-height:75vh;display:flex;flex-direction:column;overflow:hidden}
+#sheet.open{transform:translateY(0)}
+#handle-wrap{padding:12px 0 8px;display:flex;justify-content:center;cursor:pointer;flex-shrink:0}
+#handle{width:40px;height:4px;border-radius:4px;background:var(--fg3)}
+#sheet-hook{padding:0 20px 16px;flex-shrink:0}
+.sl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--fg2);letter-spacing:2px;margin-bottom:6px}
+#hook-text{font-size:17px;font-weight:700;line-height:1.3;color:var(--fg)}
+#sheet-scores{padding:0 20px;overflow-y:auto;flex-shrink:0}
+.sr{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sk{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--fg2);width:80px;flex-shrink:0}
+.st{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden;position:relative}
+.sf{position:absolute;top:0;bottom:0;border-radius:3px;transition:width .5s ease}
+.sf.pos{background:var(--accent)}.sf.neg{background:var(--reject)}
+.sv{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--fg);width:34px;text-align:right}
+#sheet-actions{padding:16px 20px 32px;display:flex;gap:10px;flex-shrink:0}
+#btn-reject{flex:1;height:54px;border-radius:12px;background:rgba(255,59,48,.12);border:1px solid var(--reject);color:var(--reject);cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px}
+#btn-approve{flex:2;height:54px;border-radius:12px;background:var(--accent);border:none;color:var(--accent-fg);cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;box-shadow:0 0 24px rgba(57,255,20,.3)}
+button:disabled{opacity:.45;cursor:not-allowed}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="vbg"></div>
+  <div id="grad"></div>
+  <div id="status">
+    <span id="time">9:41</span>
+    <span class="mono" style="font-size:10px;color:var(--accent);letter-spacing:2px">RB·HQ</span>
+    <button id="theme-btn" style="background:none;border:1px solid var(--border);border-radius:999px;color:var(--fg2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;cursor:pointer;letter-spacing:1px">☾ DARK</button>
+  </div>
+  <div id="top-meta">
+    <a id="back-btn" href="/dashboard.html">←</a>
+    <div style="flex:1"><div id="clip-ref">—</div><div id="clip-tag">—</div></div>
+    <div id="ring-wrap"></div>
+  </div>
+  <div id="play-btn"><div class="play-tri"></div></div>
+  <div id="sheet">
+    <div id="handle-wrap"><div id="handle"></div></div>
+    <div id="sheet-hook"><div class="sl">HOOK</div><div id="hook-text">—</div></div>
+    <div id="sheet-scores"><div class="sl" id="score-lbl">SCORE BREAKDOWN</div></div>
+    <div id="sheet-actions">
+      <button id="btn-reject">✕ SKIP</button>
+      <button id="btn-approve">✓ POST IT</button>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+const GRADIENTS=[['#1a1a2e','#16213e','#0f3460'],['#2d1b00','#4a2e00','#1a0d00'],['#0d1f0a','#1a3a14','#0a150a'],['#1f0a0a','#3a1414','#150a0a'],['#001a1a','#003333','#001010']];
+function p(k){return new URLSearchParams(location.search).get(k)||''}
+function scoreColor(n){return n>=70?'#39ff14':n>=50?'#ffb400':'#ff3b30'}
+let theme=localStorage.getItem('rb_theme')||'dark';
+let playing=false;
+function applyTheme(){document.documentElement.className=theme==='light'?'light':'';document.getElementById('theme-btn').textContent=theme==='dark'?'☀ LIGHT':'☾ DARK'}
+function tick(){const n=new Date();document.getElementById('time').textContent=`${n.getHours()%12||12}:${String(n.getMinutes()).padStart(2,'0')}`}
+tick();setInterval(tick,30000);
+function ring(score,size){const r=(size-6)/2,circ=2*Math.PI*r,off=circ-(score/100)*circ,col=scoreColor(score);return`<svg width="${size}" height="${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="3"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${col}" stroke-width="3" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" stroke-linecap="round" transform="rotate(-90 ${size/2} ${size/2})"/><text x="${size/2}" y="${size/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="Bebas Neue" font-size="${Math.round(size*.3)}" fill="${col}">${score}</text></svg>`}
+function placeholderSVG(id,channel){const[g1,g2,g3]=GRADIENTS[Math.abs((id.charCodeAt(3)||0))%GRADIENTS.length],s=(id||'x').replace(/[^a-z0-9]/gi,'');return`<svg width="100%" height="100%" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="gcp${s}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${g1}"/><stop offset="50%" stop-color="${g2}"/><stop offset="100%" stop-color="${g3}"/></linearGradient><linearGradient id="gop${s}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="transparent"/><stop offset="100%" stop-color="rgba(0,0,0,0.75)"/></linearGradient></defs><rect width="360" height="640" fill="url(#gcp${s})"/><rect width="360" height="640" fill="url(#gop${s})"/><ellipse cx="180" cy="240" rx="60" ry="80" fill="rgba(255,255,255,0.04)"/><rect x="120" y="320" width="120" height="160" rx="2" fill="rgba(255,255,255,0.03)"/><text x="16" y="20" font-family="JetBrains Mono" font-size="8" fill="rgba(255,255,255,0.3)">r2://${channel||'hq'}/${id}</text></svg>`}
+async function doAction(action){
+  const id=p('id');const ba=document.getElementById('btn-approve');const br=document.getElementById('btn-reject');
+  ba.disabled=true;br.disabled=true;
+  const btn=action==='approve'?ba:br;const orig=btn.textContent;btn.textContent='…';
+  try{const r=await fetch('/api/approval',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({post_id:id,action})});
+    if(r.ok){document.getElementById('clip-tag').textContent=action==='approve'?'posted ✓':'skipped ✕';setTimeout(()=>{window.location.href='/dashboard.html'},500);return}}catch{}
+  btn.textContent=orig;ba.disabled=false;br.disabled=false;
+}
+async function init(){
+  applyTheme();
+  try{const r=await fetch('/api/session',{credentials:'same-origin'});if(!r.ok){window.location.href='/login';return}}catch{window.location.href='/login';return}
+  const id=p('id'),url=p('url'),score=Number(p('score'))||0,decision=p('decision'),hook=p('hook')||'tap anywhere to play';
+  const kw=Number(p('kw'))||0,fit=Number(p('fit'))||0,dur=Number(p('dur'))||0,tx=Number(p('tx'))||0,dup=Number(p('dup'))||0;
+  const channel=p('channel')||'';
+  const vbg=document.getElementById('vbg');
+  if(url){const vid=document.createElement('video');vid.src=url;vid.loop=true;vid.playsInline=true;vid.muted=false;vid.style.cssText='width:100%;height:100%;object-fit:cover;display:block';vbg.appendChild(vid);
+    document.getElementById('play-btn').addEventListener('click',()=>{if(playing){vid.pause();playing=false;document.getElementById('play-btn').classList.remove('hidden')}else{vid.play();playing=true;document.getElementById('play-btn').classList.add('hidden')}});
+  }else{vbg.innerHTML=placeholderSVG(id,channel);document.getElementById('play-btn').addEventListener('click',()=>document.getElementById('sheet').classList.toggle('open'))}
+  document.getElementById('clip-ref').textContent=id;
+  document.getElementById('clip-tag').textContent=(decision||'').replace(/_/g,' ');
+  document.getElementById('ring-wrap').innerHTML=ring(score,48);
+  document.getElementById('hook-text').textContent=hook;
+  document.getElementById('score-lbl').textContent=`SCORE BREAKDOWN · ${score}`;
+  const sc=document.getElementById('sheet-scores');
+  [['keyword',kw],['channel fit',fit],['duration',dur],['transcript',tx],['dup penalty',dup]].forEach(([lbl,val])=>{
+    const neg=val<0,fw=neg?Math.abs(val)*50:val*100,fl=neg?`${50+val*50}%`:'0';
+    const row=document.createElement('div');row.className='sr';
+    row.innerHTML=`<span class="sk">${lbl}</span><div class="st"><div class="sf ${neg?'neg':'pos'}" style="left:${fl};width:${fw}%"></div></div><span class="sv">${val>0?'+':''}${Number(val).toFixed(2)}</span>`;
+    sc.appendChild(row);
+  });
+  document.getElementById('btn-approve').addEventListener('click',()=>doAction('approve'));
+  document.getElementById('btn-reject').addEventListener('click',()=>doAction('reject'));
+  document.getElementById('handle-wrap').addEventListener('click',()=>document.getElementById('sheet').classList.toggle('open'));
+  document.getElementById('theme-btn').addEventListener('click',()=>{theme=theme==='dark'?'light':'dark';localStorage.setItem('rb_theme',theme);applyTheme()});
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,68 @@
+[
+  {
+    "post_id": "test_dist_001",
+    "channel": "sports",
+    "operator": "manny",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/test_dist_001_tiktok_1776181481_tracked.mp4",
+    "created_at": 1776181514,
+    "views": 4821,
+    "likes": 312,
+    "shares": 87,
+    "comments": 43
+  },
+  {
+    "post_id": "sports_001",
+    "channel": "sports",
+    "operator": "manny",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776135542_tracked.mp4",
+    "created_at": 1776135571,
+    "views": 2103,
+    "likes": 189,
+    "shares": 34,
+    "comments": 21
+  },
+  {
+    "post_id": "arena_001",
+    "channel": "arena",
+    "operator": "matt",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/arena/matt/arena_001_tiktok_1776135995_tracked.mp4",
+    "created_at": 1776136024,
+    "views": 7654,
+    "likes": 891,
+    "shares": 203,
+    "comments": 118
+  },
+  {
+    "post_id": "women_001",
+    "channel": "women",
+    "operator": "maly",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/women/maly/women_001_tiktok_1776136053_tracked.mp4",
+    "created_at": 1776136077,
+    "views": 5432,
+    "likes": 621,
+    "shares": 145,
+    "comments": 88
+  },
+  {
+    "post_id": "combat_001",
+    "channel": "combat",
+    "operator": "agent",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/combat/agent/combat_001_tiktok_1776200000_tracked.mp4",
+    "created_at": 1776200000,
+    "views": 3210,
+    "likes": 445,
+    "shares": 98,
+    "comments": 67
+  },
+  {
+    "post_id": "combat_002",
+    "channel": "combat",
+    "operator": "agent",
+    "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/combat/agent/combat_002_tiktok_1776200100_tracked.mp4",
+    "created_at": 1776200100,
+    "views": 1876,
+    "likes": 234,
+    "shares": 51,
+    "comments": 29
+  }
+]

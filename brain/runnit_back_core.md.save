@@ -1,0 +1,287 @@
+# RUNNIT BACK — CORE SYSTEM
+
+## PURPOSE
+Build a high-performance sports clip network optimized for:
+- attention
+- retention
+- monetization
+
+---
+
+## CORE RULES
+
+1. CONTENT FIRST
+- Quality over quantity
+- No weak clips
+
+2. MANUAL APPROVAL REQUIRED
+- Nothing gets posted automatically
+
+3. ONE OPERATOR = ONE CHANNEL
+- No overlap
+- Clear ownership
+
+4. FORMAT LOCK
+- 9:16 only
+- No 16:9 inside vertical
+
+5. SPEED WITH CONTROL
+- Fast pipeline
+- Strict validation
+
+---
+
+## PIPELINE
+
+1. SOURCE → find clip
+2. SELECT → choose best segment
+3. HOOK → create hook
+4. CAPTION → format caption
+5. BOARD → multi-angle evaluation
+6. APPROVAL → human decision
+7. TRIM → cut clip
+8. FORMAT → 9:16 conversion
+9. EXPORT → generate file
+10. SCHEDULE → send to Buffer
+11. ANALYZE → performance feedback
+
+---
+
+## HARD REJECTION RULES
+
+Reject immediately if:
+
+- weak or unclear hook
+- slow or boring segment
+- no emotional trigger
+- overused content
+- bad format (aspect ratio)
+
+---
+
+## SUCCESS SIGNALS
+
+- strong first 2 seconds
+- clear tension or payoff
+- recognizable moment
+- loopable ending
+
+---
+
+## DATA STRUCTURE
+
+Every clip must include:
+
+post_id:
+channel:
+sport:
+source_url:
+
+hook:
+caption:
+hashtags:
+
+timestamp_range:
+duration:
+aspect_ratio:
+
+status:
+owner:
+created_at:
+
+---
+
+## ENFORCEMENT RULES
+
+- Hooks must be under 8 words when possible
+- Captions must not exceed 2 short lines
+- Hashtags must be 4–6 only
+- Board must include at least one negative or risk note
+- Weak clips must be rejected, not improved
+
+---
+
+## CLIP EXECUTION RULES
+
+- Every approved clip must include a precise timestamp range
+- Default clip length: 6–15 seconds
+- Clip must start immediately at action (no dead air)
+- Clip must end on payoff or loop point
+- If full arc is stronger than short cut, allow extended segment
+
+---
+
+## EXPORT REQUIREMENTS
+
+Every APPROVED clip must include:
+
+- post_id
+- timestamp_range
+- duration
+- aspect_ratio = 9:16
+- file name format: post_id_platform_version.mp4
+
+---
+
+## SYSTEM LIMITATION (CURRENT)
+
+- System identifies and prepares clips
+- System does NOT yet automatically trim video
+- System does NOT yet push to Buffer automatically
+- Requires backend integration (ffmpeg + Buffer API)
+
+---
+
+## SYSTEM RULE
+
+If a mistake happens twice:
+→ add a new rule here
+→ keep it short and enforceable
+## ENFORCEMENT RULES
+
+- Hooks must be under 8 words when possible
+- Captions must not exceed 2 short lines
+- Hashtags must be 4–6 only
+- Board must include at least one negative or risk note
+- Weak clips must be rejected, not improved
+
+---
+
+## CLIP EXECUTION RULES
+
+- Every approved clip must include a precise timestamp range
+- Default clip length: 6–15 seconds
+- Clip must start immediately at action (no dead air)
+- Clip must end on payoff or loop point
+- If full arc is stronger than short cut, allow extended segment
+
+---
+
+## EXPORT REQUIREMENTS
+
+Every APPROVED clip must be prepared for export with:
+
+- post_id
+- final timestamp range
+- duration (seconds)
+- aspect_ratio = 9:16
+- file name format: post_id_platform_version.mp4
+
+---
+
+## PIPELINE EXTENSION
+
+After APPROVAL:
+
+7. TRIM → cut clip using timestamp range  
+8. FORMAT → convert to 9:16 if needed  
+9. EXPORT → generate final file  
+10. SCHEDULE → send to Buffer (manual or API)  
+
+---
+
+## SYSTEM LIMITATION (CURRENT)
+
+- System identifies and prepares clips
+- System does NOT yet automatically trim video
+- System does NOT yet push to Buffer automatically
+- These steps require backend integration (ffmpeg + Buffer API)# RUNNIT BACK — CORE SYSTEM
+
+## PURPOSE
+Build a high-performance sports clip network optimized for:
+- attention
+- retention
+- monetization
+
+---
+
+## CORE RULES
+
+1. CONTENT FIRST
+- Quality over quantity
+- No weak clips
+
+2. MANUAL APPROVAL REQUIRED
+- Nothing gets posted automatically
+
+3. ONE OPERATOR = ONE CHANNEL
+- No overlap
+- Clear ownership
+
+4. FORMAT LOCK
+- 9:16 only
+- No 16:9 inside vertical
+
+5. SPEED WITH CONTROL
+- Fast pipeline
+- Strict validation
+
+---
+
+## PIPELINE
+
+1. SOURCE → find clip
+2. SELECT → choose best segment
+3. HOOK → create hook
+4. CAPTION → format caption
+5. BOARD → multi-angle evaluation
+6. APPROVAL → human decision
+7. EXPORT → finalize clip
+8. PUBLISH → post
+9. ANALYZE → performance feedback
+
+---
+
+## HARD REJECTION RULES
+
+Reject immediately if:
+
+- weak or unclear hook
+- slow or boring segment
+- no emotional trigger
+- overused content
+- bad format (aspect ratio)
+
+---
+
+## SUCCESS SIGNALS
+
+- strong first 2 seconds
+- clear tension or payoff
+- recognizable moment
+- loopable ending
+
+---
+
+## DATA STRUCTURE
+
+Every clip must include:
+
+post_id:
+channel:
+sport:
+source_url:
+
+hook:
+caption:
+hashtags:
+
+duration:
+aspect_ratio:
+
+status:
+owner:
+created_at:
+
+---
+
+## SYSTEM RULE
+
+If a mistake happens twice:
+→ add a new rule here
+→ keep it short and enforceable
+nano brain/runnit_back_core.md
+
+
+
+

@@ -1,0 +1,9 @@
+{
+  "post_id": "sports_001",
+  "platform": "tiktok",
+  "input_file": "temp/sports_001_1776135315.webm",
+  "timestamp_range": "00:00:06-00:00:26",
+  "output_file": "outputs/sports_001_tiktok_1776135328_tracked.mp4",
+  "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776135328_tracked.mp4",
+  "status": "uploaded"
+}

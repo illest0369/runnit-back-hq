@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>RUNNIT BACK HQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{width:100%;height:100%;overflow:hidden;background:#000}
+:root{
+  --bg:#080808;--bg2:#111;--bg3:#1a1a1a;
+  --fg:#f5f5f0;--fg2:rgba(245,245,240,0.5);--fg3:rgba(245,245,240,0.2);
+  --accent:#39ff14;--accent-fg:#000;
+  --border:rgba(245,245,240,0.1);--reject:#ff3b30;--approve:#39ff14;
+}
+:root.light{
+  --bg:#f0ede6;--bg2:#fff;--bg3:#e8e4dc;
+  --fg:#080808;--fg2:rgba(8,8,8,0.5);--fg3:rgba(8,8,8,0.15);
+  --accent:#1adb00;--accent-fg:#fff;--border:rgba(8,8,8,0.12);
+}
+body{font-family:'Inter',sans-serif;color:var(--fg)}
+.bb{font-family:'Bebas Neue',sans-serif}
+.mono{font-family:'JetBrains Mono',monospace}
+#app{position:fixed;inset:0;background:#000}
+#stack-container{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+#stack{position:relative;height:100%;width:100%;max-width:calc(100vh * 9 / 16)}
+.card{position:absolute;inset:0;border-radius:20px;overflow:hidden;background:var(--bg2);border:1px solid var(--border);cursor:grab;user-select:none;transition:transform .35s cubic-bezier(.25,.46,.45,.94);touch-action:none}
+.card.dragging{transition:none;cursor:grabbing}
+.card-video{position:absolute;inset:0}
+.card-video video{width:100%;height:100%;object-fit:cover;display:block}
+.card-video svg{position:absolute;inset:0;width:100%;height:100%}
+.card-ov-approve{position:absolute;inset:0;pointer-events:none;opacity:0;display:flex;align-items:center;justify-content:flex-start;padding-left:32px;background:linear-gradient(to right,rgba(57,255,20,.25),transparent)}
+.card-ov-reject{position:absolute;inset:0;pointer-events:none;opacity:0;display:flex;align-items:center;justify-content:flex-end;padding-right:32px;background:linear-gradient(to left,rgba(255,59,48,.25),transparent)}
+.stamp{border-width:3px;border-style:solid;border-radius:8px;padding:6px 18px}
+.stamp-post{border-color:var(--approve);transform:rotate(-12deg)}
+.stamp-skip{border-color:var(--reject);transform:rotate(12deg)}
+.card-play{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);width:64px;height:64px;border-radius:50%;background:rgba(0,0,0,.5);backdrop-filter:blur(8px);border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;pointer-events:none}
+.play-tri{width:0;height:0;border-top:14px solid transparent;border-bottom:14px solid transparent;border-left:20px solid #fff;margin-left:5px}
+.card-bottom{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.9) 0%,transparent 100%);padding:60px 20px 20px}
+.card-meta-row{display:flex;align-items:flex-end;justify-content:space-between}
+.card-tag{font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.5);margin-bottom:4px;letter-spacing:1px}
+.card-hook{font-size:14px;font-weight:600;color:#fff;line-height:1.3;max-width:85%}
+.card-foot{font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,.35);margin-top:8px}
+#top-chrome{position:absolute;top:0;left:0;right:0;z-index:30;background:linear-gradient(to bottom,rgba(0,0,0,.7) 0%,transparent 100%);padding:10px 16px 24px;display:flex;align-items:center;gap:10px}
+#channel-name{font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;letter-spacing:1px;color:#fff;flex:1}
+#last-action{font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 10px;border-radius:999px;display:none}
+#user-avatar{width:32px;height:32px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+#user-avatar span{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--accent-fg);line-height:1}
+#theme-btn{background:rgba(0,0,0,.4);border:1px solid rgba(255,255,255,.2);border-radius:999px;color:rgba(255,255,255,.7);font-family:'JetBrains Mono',monospace;font-size:9px;padding:3px 8px;cursor:pointer}
+#bottom-chrome{position:absolute;bottom:0;left:0;right:0;z-index:30;background:linear-gradient(to top,rgba(0,0,0,.85) 0%,transparent 100%);padding:24px 20px 12px}
+#swipe-hints{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+#pipe-row{display:flex;align-items:center;gap:8px}
+.pipe-seg{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.15)}
+.pipe-seg.done{background:var(--accent)}
+.pipe-seg.active{background:rgba(57,255,20,.35)}
+#empty-state{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#loading-state{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stack-container">
+    <div id="stack">
+      <div id="loading-state">
+        <div class="mono" style="font-size:12px;color:rgba(255,255,255,0.4);letter-spacing:2px">LOADING QUEUE…</div>
+      </div>
+      <div id="empty-state">
+        <div class="bb" style="font-size:64px;color:var(--accent);letter-spacing:2px">ALL CLEAR</div>
+        <div class="mono" style="font-size:12px;color:rgba(255,255,255,0.5);letter-spacing:1px">queue empty · good work</div>
+      </div>
+    </div>
+  </div>
+  <div id="top-chrome">
+    <div id="channel-name">HQ<span style="color:var(--accent)">.</span></div>
+    <div id="last-action"></div>
+    <div id="user-avatar"><span>?</span></div>
+    <button id="theme-btn">☾</button>
+  </div>
+  <div id="bottom-chrome">
+    <div id="swipe-hints">
+      <span class="mono" style="font-size:9px;color:rgba(255,59,48,0.8);letter-spacing:1px">← SKIP</span>
+      <span class="mono" id="queue-count" style="font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:1px">—</span>
+      <span class="mono" style="font-size:9px;color:rgba(57,255,20,0.8);letter-spacing:1px">POST →</span>
+    </div>
+    <div id="pipe-row">
+      <span class="mono" style="font-size:8px;color:rgba(255,255,255,0.3);letter-spacing:1px">PIPE</span>
+      <div style="flex:1;display:flex;gap:2px" id="pipe-track"></div>
+      <span class="mono" style="font-size:8px;color:rgba(255,255,255,0.3)" id="pipe-label">—</span>
+    </div>
+  </div>
+</div>
+<script>
+'use strict';
+const PIPELINE=['trim','track','render','upload','score','meta','queue','dedup'];
+const GRADIENTS=[['#1a1a2e','#16213e','#0f3460'],['#2d1b00','#4a2e00','#1a0d00'],['#0d1f0a','#1a3a14','#0a150a'],['#1f0a0a','#3a1414','#150a0a'],['#001a1a','#003333','#001010']];
+let auth={username:'',channel:''};
+let clips=[];
+let theme=localStorage.getItem('rb_theme')||'dark';
+function scoreColor(n){return n>=70?'#39ff14':n>=50?'#ffb400':'#ff3b30'}
+function applyTheme(){document.documentElement.className=theme==='light'?'light':'';document.getElementById('theme-btn').textContent=theme==='dark'?'☀':'☾';localStorage.setItem('rb_theme',theme)}
+function ring(score,size){const r=(size-6)/2,circ=2*Math.PI*r,off=circ-(score/100)*circ,col=scoreColor(score);return`<svg width="${size}" height="${size}" style="flex-shrink:0"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#1a1a1a" stroke-width="3"/><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${col}" stroke-width="3" stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" stroke-linecap="round" transform="rotate(-90 ${size/2} ${size/2})"/><text x="${size/2}" y="${size/2+1}" text-anchor="middle" dominant-baseline="middle" font-family="Bebas Neue" font-size="${Math.round(size*.3)}" fill="${col}">${score}</text></svg>`}
+function placeholder(clip,gi){const[g1,g2,g3]=GRADIENTS[gi%GRADIENTS.length],s=clip.id.replace(/[^a-z0-9]/gi,'');return`<svg width="100%" height="100%" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="gc${s}" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${g1}"/><stop offset="50%" stop-color="${g2}"/><stop offset="100%" stop-color="${g3}"/></linearGradient><linearGradient id="go${s}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="transparent"/><stop offset="100%" stop-color="rgba(0,0,0,0.75)"/></linearGradient></defs><rect width="360" height="640" fill="url(#gc${s})"/><rect width="360" height="640" fill="url(#go${s})"/><ellipse cx="180" cy="240" rx="60" ry="80" fill="rgba(255,255,255,0.04)"/><rect x="120" y="320" width="120" height="160" rx="2" fill="rgba(255,255,255,0.03)"/><text x="16" y="20" font-family="JetBrains Mono" font-size="8" fill="rgba(255,255,255,0.3)">r2://${clip.channel}/${clip.id}</text><text x="344" y="632" text-anchor="end" font-family="JetBrains Mono" font-size="8" fill="rgba(255,255,255,0.4)">${clip.duration||''}</text></svg>`}
+function buildCard(clip,si,gi){
+  const div=document.createElement('div');div.className='card';div.dataset.clipId=clip.id;
+  div.style.transform=`scale(${1-si*.035}) translateY(${si*14}px)`;div.style.zIndex=10-si;
+  const tag=clip.decision==='approve_queue'?'APPROVE QUEUE':clip.decision.replace(/_/g,' ').toUpperCase();
+  const vid=clip.cdn_url?`<video src="${clip.cdn_url}" loop playsinline muted preload="none"></video>`:'';
+  div.innerHTML=`<div class="card-video">${vid}${placeholder(clip,gi)}</div>
+    <div class="card-ov-approve"><div class="stamp stamp-post"><span class="bb" style="font-size:48px;color:var(--approve);letter-spacing:2px">POST</span></div></div>
+    <div class="card-ov-reject"><div class="stamp stamp-skip"><span class="bb" style="font-size:48px;color:var(--reject);letter-spacing:2px">SKIP</span></div></div>
+    ${si===0?'<div class="card-play"><div class="play-tri"></div></div>':''}
+    <div class="card-bottom"><div class="card-meta-row"><div><div class="card-tag">${tag}</div><div class="card-hook">${clip.hook||'—'}</div></div>${ring(clip.score,50)}</div><div class="card-foot">${clip.id} · ${clip.duration||'—'} · score ${clip.score}</div></div>`;
+  if(si===0)attachDrag(div,clip);
+  return div;
+}
+function attachDrag(card,clip){
+  let sx=0,cx=0,moved=false,active=false;
+  const T=100;
+  const xy=e=>e.touches?{x:e.touches[0].clientX}:{x:e.clientX};
+  const onStart=e=>{sx=xy(e).x;cx=0;moved=false;active=true;card.classList.add('dragging')};
+  const onMove=e=>{if(!active)return;cx=xy(e).x-sx;if(Math.abs(cx)>5)moved=true;card.style.transform=`translateX(${cx}px) rotate(${cx/18}deg) scale(1)`;card.querySelector('.card-ov-approve').style.opacity=Math.max(0,Math.min(1,cx/T));card.querySelector('.card-ov-reject').style.opacity=Math.max(0,Math.min(1,-cx/T));e.preventDefault()};
+  const onEnd=()=>{if(!active)return;active=false;card.classList.remove('dragging');if(!moved){openDetail(clip);card.style.transform='';return}if(cx>T){card.style.transform='translateX(600px) rotate(30deg)';setTimeout(()=>finishAction(clip,'approve'),350)}else if(cx<-T){card.style.transform='translateX(-600px) rotate(-30deg)';setTimeout(()=>finishAction(clip,'reject'),350)}else{card.style.transform='';card.querySelector('.card-ov-approve').style.opacity=0;card.querySelector('.card-ov-reject').style.opacity=0}};
+  card.addEventListener('mousedown',onStart);card.addEventListener('mousemove',onMove);card.addEventListener('mouseup',onEnd);card.addEventListener('mouseleave',onEnd);
+  card.addEventListener('touchstart',onStart,{passive:false});card.addEventListener('touchmove',onMove,{passive:false});card.addEventListener('touchend',onEnd);
+}
+function openDetail(clip){
+  const p=new URLSearchParams({id:clip.id,url:clip.cdn_url||'',score:clip.score,decision:clip.decision,hook:clip.hook||'',kw:clip.kw,fit:clip.fit,dur:clip.dur_score,tx:clip.tx,dup:clip.dup});
+  window.location.href='/clip.html?'+p;
+}
+function finishAction(clip,action){
+  clips=clips.filter(c=>c.id!==clip.id);showLastAction(clip.id,action);renderStack();
+  fetch('/api/approval',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({post_id:clip.id,action})}).catch(()=>{});
+}
+function showLastAction(id,action){
+  const el=document.getElementById('last-action');el.style.display='block';
+  const p=action==='approve';
+  el.style.background=p?'rgba(57,255,20,0.25)':'rgba(255,59,48,0.2)';
+  el.style.color=p?'#39ff14':'#ff3b30';
+  el.style.border=`1px solid ${p?'rgba(57,255,20,0.5)':'rgba(255,59,48,0.4)'}`;
+  el.textContent=`${p?'POST':'SKIP'} ${id}`;
+  clearTimeout(el._timer);el._timer=setTimeout(()=>{el.style.display='none'},3000);
+}
+function renderStack(){
+  document.getElementById('stack').querySelectorAll('.card').forEach(c=>c.remove());
+  document.getElementById('loading-state').style.display='none';
+  document.getElementById('queue-count').textContent=clips.length===0?'queue empty':`${clips.length} in queue`;
+  if(clips.length===0){document.getElementById('empty-state').style.display='flex';return}
+  document.getElementById('empty-state').style.display='none';
+  const vis=clips.slice(0,3);
+  vis.slice().reverse().forEach((clip,ri)=>{
+    const si=vis.length-1-ri;
+    document.getElementById('stack').appendChild(buildCard(clip,si,clips.indexOf(clip)));
+  });
+  const ps=Math.min(6,Math.max(3,8-clips.length));
+  document.getElementById('pipe-track').innerHTML=PIPELINE.map((s,i)=>`<div class="pipe-seg ${i<ps?'done':i===ps?'active':''}" title="${s}"></div>`).join('');
+  document.getElementById('pipe-label').textContent=`${ps}/8`;
+}
+async function init(){
+  applyTheme();
+  try{const r=await fetch('/api/session',{credentials:'same-origin'});if(!r.ok){window.location.href='/login';return}const s=await r.json();auth.username=s.username||'';auth.channel=s.channel||''}catch{window.location.href='/login';return}
+  document.getElementById('channel-name').innerHTML=`${auth.channel.toUpperCase()}<span style="color:var(--accent)">.</span>`;
+  document.getElementById('user-avatar').innerHTML=`<span>${(auth.username[0]||'?').toUpperCase()}</span>`;
+  try{const r=await fetch('/api/clips',{credentials:'same-origin'});if(!r.ok)throw new Error();const d=await r.json();clips=d.clips||[]}catch{clips=[]}
+  renderStack();
+  document.getElementById('theme-btn').addEventListener('click',()=>{theme=theme==='dark'?'light':'dark';applyTheme()});
+}
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "post_id": "combat_002",
+  "platform": "tiktok",
+  "channel": "combat",
+  "operator": "agent",
+  "input_file": "temp/combat_002.webm",
+  "timestamp_range": "00:00:05-00:00:22",
+  "output_file": "outputs/combat_002_tiktok_1776200100_tracked.mp4",
+  "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/combat/agent/combat_002_tiktok_1776200100_tracked.mp4",
+  "status": "uploaded",
+  "score": 62,
+  "decision": "hold",
+  "reasons": [
+    "strong_channel_fit",
+    "medium_priority_source",
+    "target_duration",
+    "moderate_transcript_spike"
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "post_id": "sports_001",
+  "platform": "tiktok",
+  "channel": "sports",
+  "operator": "manny",
+  "input_file": "temp/sports_001_1776135840.webm",
+  "timestamp_range": "00:00:06-00:00:26",
+  "output_file": "outputs/sports_001_tiktok_1776135854_tracked.mp4",
+  "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/sports_001_tiktok_1776135854_tracked.mp4",
+  "status": "uploaded",
+  "score": 65,
+  "decision": "hold",
+  "reasons": [
+    "strong_channel_fit",
+    "medium_priority_source",
+    "target_duration",
+    "light_transcript_signal"
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "post_id": "clip_001",
+  "platform": "tiktok",
+  "input_file": "temp/clip_001_1776133411.webm",
+  "timestamp_range": "00:00:06-00:00:26",
+  "output_file": "outputs/clip_001_tiktok_1776133426_tracked.mp4",
+  "cdn_url": "https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/maly/clip_001_tiktok_1776133426_tracked.mp4",
+  "status": "uploaded"
+}

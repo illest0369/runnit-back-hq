@@ -1,0 +1,55 @@
+{
+  "sports": [
+    { "name": "Cam Newton", "type": "youtube", "url": "https://www.youtube.com/@CamNewton", "priority": "high" },
+    { "name": "Club Shay Shay", "type": "youtube", "url": "https://www.youtube.com/@ClubShayShay", "priority": "high" },
+    { "name": "I AM ATHLETE", "type": "youtube", "url": "https://www.youtube.com/@IAMATHLETEpodcast", "priority": "high" },
+    { "name": "First Take", "type": "youtube", "url": "https://www.youtube.com/@FirstTake", "priority": "high" },
+    { "name": "Pat McAfee Show", "type": "youtube", "url": "https://www.youtube.com/@ThePatMcAfeeShow", "priority": "high" },
+    { "name": "The Volume", "type": "youtube", "url": "https://www.youtube.com/@TheVolumeSports", "priority": "high" },
+    { "name": "All The Smoke", "type": "youtube", "url": "https://www.youtube.com/@AllTheSmokeProductions", "priority": "high" },
+    { "name": "Pivot Podcast", "type": "youtube", "url": "https://www.youtube.com/@ThePivotPodcast", "priority": "high" },
+    { "name": "Gil's Arena", "type": "youtube", "url": "https://www.youtube.com/@GilsArena", "priority": "high" },
+    { "name": "Undisputed", "type": "youtube", "url": "https://www.youtube.com/@undisputedonfs1", "priority": "high" },
+    { "name": "NBA Interviews", "type": "youtube", "url": "https://www.youtube.com/@NBA", "priority": "medium" },
+    { "name": "NFL Mic'd Up", "type": "youtube", "url": "https://www.youtube.com/@NFL", "priority": "medium" },
+    { "name": "House of Highlights", "type": "youtube", "url": "https://www.youtube.com/@HouseofHighlights", "priority": "high" },
+    { "name": "Overtime", "type": "youtube", "url": "https://www.youtube.com/@Overtime", "priority": "high" },
+    { "name": "Bleacher Report", "type": "youtube", "url": "https://www.youtube.com/@BleacherReport", "priority": "high" }
+  ],
+
+  "arena": [
+    { "name": "Kai Cenat", "type": "youtube", "url": "https://www.youtube.com/@KaiCenat", "priority": "S" },
+    { "name": "xQc", "type": "youtube", "url": "https://www.youtube.com/@xQcOW", "priority": "S" },
+    { "name": "Jynxzi", "type": "youtube", "url": "https://www.youtube.com/@Jynxzi", "priority": "S" },
+    { "name": "CaseOh", "type": "youtube", "url": "https://www.youtube.com/@CaseOh_", "priority": "S" },
+    { "name": "Fanum", "type": "youtube", "url": "https://www.youtube.com/@Fanum", "priority": "S" },
+
+    { "name": "Adin Ross", "type": "youtube", "url": "https://www.youtube.com/@AdinRoss", "priority": "S" },
+    { "name": "IShowSpeed", "type": "youtube", "url": "https://www.youtube.com/@IShowSpeed", "priority": "S" },
+    { "name": "AMP", "type": "youtube", "url": "https://www.youtube.com/@AMP", "priority": "S" },
+
+    { "name": "Nickmercs", "type": "youtube", "url": "https://www.youtube.com/@Nickmercs", "priority": "A" },
+    { "name": "TimTheTatman", "type": "youtube", "url": "https://www.youtube.com/@TimTheTatman", "priority": "A" },
+    { "name": "Clix", "type": "youtube", "url": "https://www.youtube.com/@Clix", "priority": "A" },
+    { "name": "Ludwig", "type": "youtube", "url": "https://www.youtube.com/@Ludwig", "priority": "A" },
+    { "name": "Tyler1", "type": "youtube", "url": "https://www.youtube.com/@loltyler1", "priority": "A" },
+
+    { "name": "Sykkuno", "type": "youtube", "url": "https://www.youtube.com/@Sykkuno", "priority": "A" },
+    { "name": "Disguised Toast", "type": "youtube", "url": "https://www.youtube.com/@DisguisedToast", "priority": "A" },
+    { "name": "Valkyrae", "type": "youtube", "url": "https://www.youtube.com/@Valkyrae", "priority": "A" },
+    { "name": "Pokimane", "type": "youtube", "url": "https://www.youtube.com/@Pokimane", "priority": "A" }
+  ],
+
+  "women": [
+    { "name": "Angel Reese", "type": "youtube", "url": "https://www.youtube.com/@AngelReese", "priority": "high" },
+    { "name": "Caitlin Clark Coverage", "type": "youtube", "url": "https://www.youtube.com/results?search_query=caitlin+clark+interview", "priority": "high" },
+    { "name": "WNBA", "type": "youtube", "url": "https://www.youtube.com/@WNBA", "priority": "medium" },
+    { "name": "Women’s Sports Network", "type": "youtube", "url": "https://www.youtube.com/@WomensSportsNetwork", "priority": "medium" },
+    { "name": "House of Highlights", "type": "youtube", "url": "https://www.youtube.com/@HouseofHighlights", "priority": "high" },
+    { "name": "ESPNW", "type": "youtube", "url": "https://www.youtube.com/@espnW", "priority": "medium" },
+    { "name": "Overtime WBB", "type": "youtube", "url": "https://www.youtube.com/@Overtime", "priority": "medium" },
+    { "name": "LSU Women’s Basketball", "type": "youtube", "url": "https://www.youtube.com/@LSUwbkb", "priority": "medium" },
+    { "name": "Iowa Women’s Basketball", "type": "youtube", "url": "https://www.youtube.com/@IowaWBB", "priority": "medium" },
+    { "name": "Bleacher Report Women", "type": "youtube", "url": "https://www.youtube.com/@BleacherReport", "priority": "medium" }
+  ]
+}

@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>RUNNIT BACK HQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+:root {
+  --bg: #080808; --bg2: #111; --bg3: #1a1a1a;
+  --fg: #f5f5f0; --fg2: rgba(245,245,240,0.5); --fg3: rgba(245,245,240,0.2);
+  --accent: #39ff14; --accent-dim: rgba(57,255,20,0.12); --accent-fg: #000;
+  --border: rgba(245,245,240,0.1); --reject: #ff3b30; --approve: #39ff14;
+}
+:root.light {
+  --bg: #f0ede6; --bg2: #fff; --bg3: #e8e4dc;
+  --fg: #080808; --fg2: rgba(8,8,8,0.5); --fg3: rgba(8,8,8,0.15);
+  --accent: #1adb00; --accent-dim: rgba(26,219,0,0.1); --accent-fg: #fff;
+  --border: rgba(8,8,8,0.12);
+}
+body { font-family: 'Inter', sans-serif; color: var(--fg); }
+.bb  { font-family: 'Bebas Neue', sans-serif; }
+.mono{ font-family: 'JetBrains Mono', monospace; }
+
+#app { position: fixed; inset: 0; background: #000; }
+
+/* ── Card stack ── */
+#stack-container {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+#stack {
+  position: relative;
+  height: 100%; width: 100%;
+  max-width: calc(100vh * 9 / 16);
+}
+.card {
+  position: absolute; inset: 0;
+  border-radius: 20px; overflow: hidden;
+  background: var(--bg2); border: 1px solid var(--border);
+  cursor: grab; user-select: none;
+  transition: transform 0.35s cubic-bezier(0.25,0.46,0.45,0.94);
+  touch-action: none;
+}
+.card.dragging { transition: none; cursor: grabbing; }
+
+.card-video { position: absolute; inset: 0; }
+
+.card-overlay-approve {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  display: flex; align-items: center; justify-content: flex-start; padding-left: 32px;
+  background: linear-gradient(to right, rgba(57,255,20,0.25), transparent);
+  transition: opacity 0.1s;
+}
+.card-overlay-reject {
+  position: absolute; inset: 0; pointer-events: none; opacity: 0;
+  display: flex; align-items: center; justify-content: flex-end; padding-right: 32px;
+  background: linear-gradient(to left, rgba(255,59,48,0.25), transparent);
+  transition: opacity 0.1s;
+}
+.stamp {
+  border-width: 3px; border-style: solid; border-radius: 8px; padding: 6px 18px;
+}
+.stamp-post { border-color: var(--approve); transform: rotate(-12deg); }
+.stamp-skip { border-color: var(--reject); transform: rotate(12deg); }
+
+.card-play {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-60%);
+  width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+  border: 2px solid rgba(255,255,255,0.4);
+  display: flex; align-items: center; justify-content: center;
+  pointer-events: none;
+}
+.play-tri {
+  width: 0; height: 0;
+  border-top: 14px solid transparent; border-bottom: 14px solid transparent;
+  border-left: 20px solid #fff; margin-left: 5px;
+}
+.card-bottom {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, transparent 100%);
+  padding: 60px 20px 20px;
+}
+.card-meta-row { display: flex; align-items: flex-end; justify-content: space-between; }
+.card-tag { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.5); margin-bottom: 4px; letter-spacing: 1px; }
+.card-hook { font-size: 14px; font-weight: 600; color: #fff; line-height: 1.3; max-width: 85%; }
+.card-footer { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: rgba(255,255,255,0.35); margin-top: 8px; }
+
+/* Score ring */
+.score-ring { flex-shrink: 0; }
+
+/* ── Top chrome ── */
+#top-chrome {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 30;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+  padding: 10px 16px 24px;
+  display: flex; align-items: center; gap: 10px;
+}
+#channel-name { font-family: 'Bebas Neue', sans-serif; font-size: 28px; line-height: 1; letter-spacing: 1px; color: #fff; }
+#last-action {
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  padding: 3px 10px; border-radius: 999px; display: none;
+}
+#user-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--accent); display: flex; align-items: center; justify-content: center;
+}
+#user-avatar span { font-family: 'Bebas Neue', sans-serif; font-size: 18px; color: var(--accent-fg); line-height: 1; }
+#theme-btn {
+  background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.2); border-radius: 999px;
+  color: rgba(255,255,255,0.7); font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  padding: 3px 8px; cursor: pointer;
+}
+
+/* ── Bottom chrome ── */
+#bottom-chrome {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 30;
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%);
+  padding: 24px 20px 12px;
+}
+#swipe-hints {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+}
+#pipe-row { display: flex; align-items: center; gap: 8px; }
+.pipe-seg { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.15); }
+.pipe-seg.done { background: var(--accent); }
+.pipe-seg.active { background: rgba(57,255,20,0.35); }
+
+/* ── Empty state ── */
+#empty-state {
+  display: none; flex-direction: column; align-items: center; gap: 16px;
+}
+
+/* ── Embedded data ── */
+#clip-data { display: none; }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- Card stack -->
+  <div id="stack-container">
+    <div id="stack">
+      <!-- cards injected by JS -->
+      <div id="empty-state">
+        <div class="bb" style="font-size:64px;color:var(--accent);letter-spacing:2px">ALL CLEAR</div>
+        <div class="mono" style="font-size:12px;color:rgba(255,255,255,0.5);letter-spacing:1px">queue empty · good work</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Top chrome -->
+  <div id="top-chrome">
+    <div style="flex:1">
+      <div id="channel-name">HQ<span style="color:var(--accent)">.</span></div>
+    </div>
+    <div id="last-action"></div>
+    <div id="user-avatar"><span>?</span></div>
+    <button id="theme-btn">☾</button>
+  </div>
+
+  <!-- Bottom chrome -->
+  <div id="bottom-chrome">
+    <div id="swipe-hints">
+      <span class="mono" style="font-size:9px;color:rgba(255,59,48,0.8);letter-spacing:1px">← SKIP</span>
+      <span class="mono" id="queue-count" style="font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:1px">— in queue</span>
+      <span class="mono" style="font-size:9px;color:rgba(57,255,20,0.8);letter-spacing:1px">POST →</span>
+    </div>
+    <div id="pipe-row">
+      <span class="mono" style="font-size:8px;color:rgba(255,255,255,0.3);letter-spacing:1px">PIPE</span>
+      <div style="flex:1;display:flex;gap:2px" id="pipe-track"></div>
+      <span class="mono" style="font-size:8px;color:rgba(255,255,255,0.3)" id="pipe-label">3/8</span>
+    </div>
+  </div>
+</div>
+
+<!-- Embedded clip data -->
+<div id="clip-data">
+  <div data-post-id="test_dist_001" data-channel="sports" data-score="0" data-decision="hold"
+    data-url="https://runnit-clips.f943c121ddf36401ad23dcd781228cb2.r2.dev/sports/manny/test_dist_001_tiktok_1776181481_tracked.mp4"
+    data-hook="Check this out" data-kw="0.62" data-fit="0.50" data-dur="0.70" data-tx="0.45" data-dup="0.00" data-duration="0:20"></div>
+</div>
+
+<script>
+'use strict';
+
+/* ── Palette ── */
+const CHANNEL_CFG = {
+  sports: { color:'#39ff14', fg:'#000', sigil:'S', label:'SPORTS' },
+  arena:  { color:'#39ff14', fg:'#000', sigil:'A', label:'ARENA'  },
+  women:  { color:'#39ff14', fg:'#000', sigil:'W', label:'WOMEN'  },
+  combat: { color:'#39ff14', fg:'#000', sigil:'C', label:'COMBAT' },
+};
+
+const PIPELINE = ['trim','track','render','upload','score','meta','queue','dedup'];
+const GRADIENTS = [
+  ['#1a1a2e','#16213e','#0f3460'],
+  ['#2d1b00','#4a2e00','#1a0d00'],
+  ['#0d1f0a','#1a3a14','#0a150a'],
+  ['#1f0a0a','#3a1414','#150a0a'],
+  ['#001a1a','#003333','#001010'],
+];
+
+/* ── State ── */
+let auth = { username:'', channel:'' };
+let clips = [];
+let theme = localStorage.getItem('rb_theme') || 'dark';
+let pipeStage = 3;
+
+/* ── Helpers ── */
+function scoreColor(n) { return n >= 70 ? '#39ff14' : n >= 50 ? '#ffb400' : '#ff3b30'; }
+
+function applyTheme() {
+  document.documentElement.className = theme === 'light' ? 'light' : '';
+  document.getElementById('theme-btn').textContent = theme === 'dark' ? '☀' : '☾';
+  localStorage.setItem('rb_theme', theme);
+}
+
+function buildScoreRingSVG(score, size) {
+  const r = (size - 6) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (score / 100) * circ;
+  const col = scoreColor(score);
+  return `<svg width="${size}" height="${size}" class="score-ring">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#1a1a1a" stroke-width="3"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${col}" stroke-width="3"
+      stroke-dasharray="${circ}" stroke-dashoffset="${offset}"
+      stroke-linecap="round"
+      transform="rotate(-90 ${size/2} ${size/2})"/>
+    <text x="${size/2}" y="${size/2+1}" text-anchor="middle" dominant-baseline="middle"
+      font-family="Bebas Neue" font-size="${size*0.3}" fill="${col}">${score}</text>
+  </svg>`;
+}
+
+function buildVideoSVG(clip, gradIdx) {
+  const [g1, g2, g3] = GRADIENTS[gradIdx % GRADIENTS.length];
+  const id = clip.id.replace(/[^a-z0-9]/gi,'');
+  return `<svg width="100%" height="100%" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice" style="position:absolute;inset:0">
+    <defs>
+      <linearGradient id="g${id}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${g1}"/>
+        <stop offset="50%" stop-color="${g2}"/>
+        <stop offset="100%" stop-color="${g3}"/>
+      </linearGradient>
+      <linearGradient id="ov${id}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="transparent"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0.75)"/>
+      </linearGradient>
+    </defs>
+    <rect width="360" height="640" fill="url(#g${id})"/>
+    <rect width="360" height="640" fill="url(#ov${id})"/>
+    <ellipse cx="180" cy="240" rx="60" ry="80" fill="rgba(255,255,255,0.04)"/>
+    <rect x="120" y="320" width="120" height="160" rx="2" fill="rgba(255,255,255,0.03)"/>
+    <text x="16" y="20" font-family="JetBrains Mono" font-size="8" fill="rgba(255,255,255,0.3)">r2://${auth.channel}/${clip.id}</text>
+    <text x="344" y="632" text-anchor="end" font-family="JetBrains Mono" font-size="8" fill="rgba(255,255,255,0.4)">${clip.duration || ''}</text>
+  </svg>`;
+}
+
+/* ── Card rendering ── */
+function buildCard(clip, stackIndex, total, gradIdx) {
+  const div = document.createElement('div');
+  div.className = 'card';
+  div.dataset.clipId = clip.id;
+
+  const scale = 1 - stackIndex * 0.035;
+  const ty = stackIndex * 14;
+  div.style.transform = `scale(${scale}) translateY(${ty}px)`;
+  div.style.zIndex = 10 - stackIndex;
+
+  const tag = clip.decision === 'approve_queue' ? 'APPROVE QUEUE' :
+              clip.decision === 'hold' ? 'HOLD' : clip.decision.toUpperCase();
+
+  div.innerHTML = `
+    <div class="card-video">${buildVideoSVG(clip, gradIdx)}</div>
+    <div class="card-overlay-approve">
+      <div class="stamp stamp-post">
+        <span class="bb" style="font-size:48px;color:var(--approve);letter-spacing:2px">POST</span>
+      </div>
+    </div>
+    <div class="card-overlay-reject">
+      <div class="stamp stamp-skip">
+        <span class="bb" style="font-size:48px;color:var(--reject);letter-spacing:2px">SKIP</span>
+      </div>
+    </div>
+    ${stackIndex === 0 ? `<div class="card-play"><div class="play-tri"></div></div>` : ''}
+    <div class="card-bottom">
+      <div class="card-meta-row">
+        <div>
+          <div class="card-tag">${tag}</div>
+          <div class="card-hook">${clip.hook || '—'}</div>
+        </div>
+        ${buildScoreRingSVG(clip.score, 50)}
+      </div>
+      <div class="card-footer">${clip.id} · ${clip.duration || ''} · kw ${clip.kw}</div>
+    </div>
+  `;
+
+  if (stackIndex === 0) {
+    attachDrag(div, clip);
+  }
+
+  return div;
+}
+
+/* ── Drag / swipe ── */
+function attachDrag(card, clip) {
+  let startX = 0, startY = 0, currentX = 0, moved = false, active = false;
+  const THRESHOLD = 100;
+
+  function getXY(e) {
+    return e.touches ? { x: e.touches[0].clientX, y: e.touches[0].clientY }
+                     : { x: e.clientX, y: e.clientY };
+  }
+
+  function onStart(e) {
+    const pos = getXY(e);
+    startX = pos.x; startY = pos.y; currentX = 0; moved = false; active = true;
+    card.classList.add('dragging');
+  }
+
+  function onMove(e) {
+    if (!active) return;
+    const pos = getXY(e);
+    const dx = pos.x - startX;
+    if (Math.abs(dx) > 5) moved = true;
+    currentX = dx;
+    const rotate = dx / 18;
+    card.style.transform = `translateX(${dx}px) rotate(${rotate}deg) scale(1)`;
+    const approveOvr = card.querySelector('.card-overlay-approve');
+    const rejectOvr = card.querySelector('.card-overlay-reject');
+    approveOvr.style.opacity = Math.max(0, Math.min(1, dx / THRESHOLD));
+    rejectOvr.style.opacity  = Math.max(0, Math.min(1, -dx / THRESHOLD));
+    e.preventDefault();
+  }
+
+  function onEnd() {
+    if (!active) return;
+    active = false;
+    card.classList.remove('dragging');
+    if (!moved) { onTap(clip); card.style.transform = ''; return; }
+    if (currentX > THRESHOLD) {
+      card.style.transform = `translateX(600px) rotate(30deg)`;
+      setTimeout(() => finishAction(clip, 'approve'), 350);
+    } else if (currentX < -THRESHOLD) {
+      card.style.transform = `translateX(-600px) rotate(-30deg)`;
+      setTimeout(() => finishAction(clip, 'reject'), 350);
+    } else {
+      card.style.transform = '';
+      card.querySelector('.card-overlay-approve').style.opacity = 0;
+      card.querySelector('.card-overlay-reject').style.opacity  = 0;
+    }
+  }
+
+  card.addEventListener('mousedown', onStart);
+  card.addEventListener('mousemove', onMove);
+  card.addEventListener('mouseup', onEnd);
+  card.addEventListener('mouseleave', onEnd);
+  card.addEventListener('touchstart', onStart, { passive: false });
+  card.addEventListener('touchmove', onMove, { passive: false });
+  card.addEventListener('touchend', onEnd);
+}
+
+function onTap(clip) {
+  const url = `/data/clip.html?id=${encodeURIComponent(clip.id)}&url=${encodeURIComponent(clip.url||'')}&score=${clip.score}&decision=${encodeURIComponent(clip.decision)}&hook=${encodeURIComponent(clip.hook||'')}&kw=${clip.kw}&fit=${clip.fit}&dur=${clip.dur}&tx=${clip.tx}&dup=${clip.dup}`;
+  window.location.href = url;
+}
+
+function finishAction(clip, action) {
+  clips = clips.filter(c => c.id !== clip.id);
+  showLastAction(clip, action);
+  renderStack();
+
+  fetch('/api/approval', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ post_id: clip.id, action }),
+  }).catch(() => {});
+}
+
+function showLastAction(clip, action) {
+  const el = document.getElementById('last-action');
+  el.style.display = 'block';
+  const isPost = action === 'approve';
+  el.style.background = isPost ? 'rgba(57,255,20,0.25)' : 'rgba(255,59,48,0.2)';
+  el.style.color = isPost ? '#39ff14' : '#ff3b30';
+  el.style.border = `1px solid ${isPost ? 'rgba(57,255,20,0.5)' : 'rgba(255,59,48,0.4)'}`;
+  el.textContent = `${isPost ? 'POST' : 'SKIP'} ${clip.id}`;
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.display = 'none'; }, 3000);
+}
+
+/* ── Stack render ── */
+function renderStack() {
+  const stack = document.getElementById('stack');
+  const empty = document.getElementById('empty-state');
+  const hints = document.getElementById('swipe-hints');
+  const countEl = document.getElementById('queue-count');
+
+  // Remove old cards
+  stack.querySelectorAll('.card').forEach(c => c.remove());
+
+  countEl.textContent = `${clips.length} in queue`;
+
+  if (clips.length === 0) {
+    empty.style.display = 'flex';
+    hints.style.display = 'none';
+    return;
+  }
+
+  empty.style.display = 'none';
+  hints.style.display = 'flex';
+
+  const visible = clips.slice(0, 3);
+  visible.slice().reverse().forEach((clip, ri) => {
+    const stackIndex = visible.length - 1 - ri;
+    const gradIdx = clips.indexOf(clip);
+    const card = buildCard(clip, stackIndex, visible.length, gradIdx);
+    stack.appendChild(card);
+  });
+}
+
+/* ── Pipeline ── */
+function renderPipeline() {
+  const track = document.getElementById('pipe-track');
+  track.innerHTML = PIPELINE.map((s, i) => `<div class="pipe-seg ${i < pipeStage ? 'done' : i === pipeStage ? 'active' : ''}" title="${s}"></div>`).join('');
+  document.getElementById('pipe-label').textContent = `${pipeStage}/8`;
+}
+
+/* ── Init ── */
+async function init() {
+  applyTheme();
+
+  try {
+    const res = await fetch('/api/session', { credentials: 'same-origin' });
+    if (!res.ok) { window.location.href = '/login'; return; }
+    const session = await res.json();
+    auth.username = session.username || '';
+    auth.channel = session.channel || '';
+  } catch { window.location.href = '/login'; return; }
+
+  // Update chrome
+  const cfg = CHANNEL_CFG[auth.channel] || CHANNEL_CFG.sports;
+  document.getElementById('channel-name').innerHTML = `${cfg.label}<span style="color:var(--accent)">.</span>`;
+  const av = document.getElementById('user-avatar');
+  av.innerHTML = `<span>${auth.username[0]?.toUpperCase() || '?'}</span>`;
+
+  // Load clips from embedded data
+  const rows = Array.from(document.querySelectorAll('#clip-data [data-post-id]'));
+  clips = rows
+    .filter(r => r.dataset.channel === auth.channel)
+    .map((r, i) => ({
+      id:       r.dataset.postId,
+      channel:  r.dataset.channel,
+      score:    Number(r.dataset.score) || 0,
+      decision: r.dataset.decision || 'hold',
+      url:      r.dataset.url || '',
+      hook:     r.dataset.hook || 'tap to review',
+      kw:       Number(r.dataset.kw) || 0,
+      fit:      Number(r.dataset.fit) || 0,
+      dur:      Number(r.dataset.dur) || 0,
+      tx:       Number(r.dataset.tx) || 0,
+      dup:      Number(r.dataset.dup) || 0,
+      duration: r.dataset.duration || '',
+    }))
+    .sort((a, b) => b.score - a.score);
+
+  renderStack();
+  renderPipeline();
+
+  document.getElementById('theme-btn').addEventListener('click', () => {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    applyTheme();
+  });
+}
+
+init();
+</script>
+</body>
+</html>

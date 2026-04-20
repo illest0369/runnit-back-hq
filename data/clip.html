@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Clip Detail — RUNNIT BACK HQ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+:root {
+  --bg: #080808; --bg2: #111; --bg3: #1a1a1a;
+  --fg: #f5f5f0; --fg2: rgba(245,245,240,0.5); --fg3: rgba(245,245,240,0.2);
+  --accent: #39ff14; --accent-fg: #000;
+  --border: rgba(245,245,240,0.1); --reject: #ff3b30; --approve: #39ff14;
+}
+:root.light {
+  --bg: #f0ede6; --bg2: #fff; --bg3: #e8e4dc;
+  --fg: #080808; --fg2: rgba(8,8,8,0.5); --fg3: rgba(8,8,8,0.15);
+  --accent: #1adb00; --accent-fg: #fff;
+  --border: rgba(8,8,8,0.12);
+}
+body { font-family: 'Inter', sans-serif; color: var(--fg); }
+.bb  { font-family: 'Bebas Neue', sans-serif; }
+.mono{ font-family: 'JetBrains Mono', monospace; }
+
+#app { position: fixed; inset: 0; background: #000; }
+
+/* Full-bleed video bg */
+#video-bg { position: absolute; inset: 0; }
+#video-bg video { width: 100%; height: 100%; object-fit: cover; display: block; }
+#video-bg svg  { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+/* Gradient overlays */
+#grad-top {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 30%, transparent 50%, rgba(0,0,0,0.85) 100%);
+  pointer-events: none;
+}
+
+/* Status bar */
+#status {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 20;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 20px 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--fg2);
+}
+
+/* Back + meta */
+#top-meta {
+  position: absolute; top: 44px; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: center; gap: 12px; padding: 0 20px;
+}
+#back-btn {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: rgba(0,0,0,0.45); backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.3);
+  color: #fff; font-size: 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  text-decoration: none;
+}
+#clip-ref   { font-family: 'JetBrains Mono', monospace; font-size: 10px; color: rgba(255,255,255,0.5); letter-spacing: 1px; }
+#clip-tag   { font-size: 13px; color: rgba(255,255,255,0.9); font-weight: 500; margin-top: 2px; }
+
+/* Play button */
+#play-btn {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+  width: 72px; height: 72px; border-radius: 50%; cursor: pointer; z-index: 10;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(8px);
+  border: 2px solid rgba(255,255,255,0.4);
+  display: flex; align-items: center; justify-content: center;
+  transition: opacity 0.2s;
+}
+#play-btn.hidden { opacity: 0; pointer-events: none; }
+.play-tri { width:0; height:0; border-top:16px solid transparent; border-bottom:16px solid transparent; border-left:23px solid #fff; margin-left:6px; }
+
+/* Bottom sheet */
+#sheet {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 20;
+  background: var(--bg2);
+  border-radius: 20px 20px 0 0;
+  border: 1px solid var(--border); border-bottom: none;
+  transform: translateY(calc(100% - 120px));
+  transition: transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94);
+  max-height: 75vh; display: flex; flex-direction: column; overflow: hidden;
+}
+#sheet.open { transform: translateY(0); }
+
+#sheet-handle-wrap {
+  padding: 12px 0 8px; display: flex; justify-content: center; cursor: pointer; flex-shrink: 0;
+}
+#sheet-handle { width: 40px; height: 4px; border-radius: 4px; background: var(--fg3); }
+
+#sheet-hook { padding: 0 20px 16px; flex-shrink: 0; }
+#hook-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--fg2); letter-spacing: 2px; margin-bottom: 6px; }
+#hook-text  { font-size: 17px; font-weight: 700; line-height: 1.3; color: var(--fg); }
+
+#sheet-scores { padding: 0 20px; overflow-y: auto; flex-shrink: 0; }
+#scores-label { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--fg2); letter-spacing: 2px; margin-bottom: 10px; }
+.score-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.score-key  { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--fg2); width: 80px; flex-shrink: 0; }
+.score-track { flex: 1; height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; position: relative; }
+.score-fill  { position: absolute; top: 0; bottom: 0; border-radius: 3px; transition: width 0.5s ease; }
+.score-fill.pos { background: var(--accent); }
+.score-fill.neg { background: var(--reject); }
+.score-val  { font-family: 'JetBrains Mono', monospace; font-size: 9px; color: var(--fg); width: 34px; text-align: right; }
+
+#sheet-actions { padding: 16px 20px 32px; display: flex; gap: 10px; flex-shrink: 0; }
+#btn-reject {
+  flex: 1; height: 54px; border-radius: 12px;
+  background: rgba(255,59,48,0.12); border: 1px solid var(--reject);
+  color: var(--reject); cursor: pointer;
+  font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px;
+}
+#btn-approve {
+  flex: 2; height: 54px; border-radius: 12px;
+  background: var(--accent); border: none;
+  color: var(--accent-fg); cursor: pointer;
+  font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px;
+  box-shadow: 0 0 24px rgba(57,255,20,0.3);
+}
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="video-bg">
+    <!-- SVG placeholder injected by JS; replaced by video if URL present -->
+  </div>
+  <div id="grad-top"></div>
+
+  <div id="status">
+    <span id="time">9:41</span>
+    <span class="mono" style="font-size:10px;color:var(--accent);letter-spacing:2px">RB·HQ</span>
+    <button id="theme-btn" style="background:none;border:1px solid var(--border);border-radius:999px;color:var(--fg2);font-family:'JetBrains Mono',monospace;font-size:10px;padding:2px 8px;cursor:pointer;letter-spacing:1px">☾ DARK</button>
+  </div>
+
+  <div id="top-meta">
+    <a id="back-btn" href="/data/dashboard.html">←</a>
+    <div style="flex:1">
+      <div id="clip-ref">—</div>
+      <div id="clip-tag">—</div>
+    </div>
+    <div id="score-ring-wrap"></div>
+  </div>
+
+  <div id="play-btn">
+    <div class="play-tri"></div>
+  </div>
+
+  <div id="sheet">
+    <div id="sheet-handle-wrap"><div id="sheet-handle"></div></div>
+    <div id="sheet-hook">
+      <div id="hook-label">HOOK</div>
+      <div id="hook-text">—</div>
+    </div>
+    <div id="sheet-scores">
+      <div id="scores-label">SCORE BREAKDOWN · —</div>
+      <!-- rows injected by JS -->
+    </div>
+    <div id="sheet-actions">
+      <button id="btn-reject">✕ SKIP</button>
+      <button id="btn-approve">✓ POST IT</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+const GRADIENTS = [
+  ['#1a1a2e','#16213e','#0f3460'],
+  ['#2d1b00','#4a2e00','#1a0d00'],
+  ['#0d1f0a','#1a3a14','#0a150a'],
+  ['#1f0a0a','#3a1414','#150a0a'],
+  ['#001a1a','#003333','#001010'],
+];
+
+function getParam(k) { return new URLSearchParams(location.search).get(k) || ''; }
+function scoreColor(n) { return n >= 70 ? '#39ff14' : n >= 50 ? '#ffb400' : '#ff3b30'; }
+
+let theme = localStorage.getItem('rb_theme') || 'dark';
+let playing = false;
+
+function applyTheme() {
+  document.documentElement.className = theme === 'light' ? 'light' : '';
+  document.getElementById('theme-btn').textContent = theme === 'dark' ? '☀ LIGHT' : '☾ DARK';
+}
+
+function updateTime() {
+  const now = new Date();
+  const h = now.getHours() % 12 || 12;
+  document.getElementById('time').textContent = `${h}:${String(now.getMinutes()).padStart(2,'0')}`;
+}
+updateTime();
+setInterval(updateTime, 30000);
+
+function buildScoreRingSVG(score, size) {
+  const r = (size - 6) / 2;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (score / 100) * circ;
+  const col = scoreColor(score);
+  return `<svg width="${size}" height="${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="3"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${col}" stroke-width="3"
+      stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round"
+      transform="rotate(-90 ${size/2} ${size/2})"/>
+    <text x="${size/2}" y="${size/2+1}" text-anchor="middle" dominant-baseline="middle"
+      font-family="Bebas Neue" font-size="${Math.round(size*0.3)}" fill="${col}">${score}</text>
+  </svg>`;
+}
+
+function buildPlaceholderSVG(id, channel) {
+  const [g1, g2, g3] = GRADIENTS[Math.abs(id.charCodeAt(3) || 0) % GRADIENTS.length];
+  const safe = (id||'x').replace(/[^a-z0-9]/gi,'');
+  return `<svg width="100%" height="100%" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <linearGradient id="gc${safe}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${g1}"/>
+        <stop offset="50%" stop-color="${g2}"/>
+        <stop offset="100%" stop-color="${g3}"/>
+      </linearGradient>
+      <linearGradient id="go${safe}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="transparent"/>
+        <stop offset="100%" stop-color="rgba(0,0,0,0.75)"/>
+      </linearGradient>
+    </defs>
+    <rect width="360" height="640" fill="url(#gc${safe})"/>
+    <rect width="360" height="640" fill="url(#go${safe})"/>
+    <ellipse cx="180" cy="240" rx="60" ry="80" fill="rgba(255,255,255,0.04)"/>
+    <rect x="120" y="320" width="120" height="160" rx="2" fill="rgba(255,255,255,0.03)"/>
+    <text x="16" y="20" font-family="JetBrains Mono" font-size="8" fill="rgba(255,255,255,0.3)">r2://${channel||'hq'}/${id}</text>
+  </svg>`;
+}
+
+async function doAction(action) {
+  const id = getParam('id');
+  const btnA = document.getElementById('btn-approve');
+  const btnR = document.getElementById('btn-reject');
+  btnA.disabled = true; btnR.disabled = true;
+
+  const btn = action === 'approve' ? btnA : btnR;
+  const orig = btn.textContent;
+  btn.textContent = '…';
+
+  try {
+    const res = await fetch('/api/approval', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ post_id: id, action }),
+    });
+    if (res.ok) {
+      document.getElementById('clip-tag').textContent = action === 'approve' ? 'posted ✓' : 'skipped ✕';
+      setTimeout(() => { window.location.href = '/data/dashboard.html'; }, 500);
+      return;
+    }
+  } catch {}
+
+  btn.textContent = orig;
+  btnA.disabled = false; btnR.disabled = false;
+}
+
+function toggleSheet() {
+  document.getElementById('sheet').classList.toggle('open');
+}
+
+function togglePlay() {
+  const vid = document.getElementById('main-video');
+  const btn = document.getElementById('play-btn');
+  if (!vid) return;
+  if (playing) { vid.pause(); playing = false; btn.classList.remove('hidden'); }
+  else { vid.play(); playing = true; btn.classList.add('hidden'); }
+}
+
+async function init() {
+  applyTheme();
+
+  try {
+    const res = await fetch('/api/session', { credentials: 'same-origin' });
+    if (!res.ok) { window.location.href = '/login'; return; }
+  } catch { window.location.href = '/login'; return; }
+
+  const id       = getParam('id');
+  const url      = getParam('url');
+  const score    = Number(getParam('score')) || 0;
+  const decision = getParam('decision');
+  const hook     = getParam('hook') || '"tap to review"';
+  const kw       = Number(getParam('kw')) || 0;
+  const fit      = Number(getParam('fit')) || 0;
+  const dur      = Number(getParam('dur')) || 0;
+  const tx       = Number(getParam('tx'))  || 0;
+  const dup      = Number(getParam('dup')) || 0;
+
+  // Detect channel from cookie for placeholder
+  const channel = document.cookie.split(';').reduce((acc, c) => {
+    const [k, v] = c.trim().split('=');
+    return acc; // channel comes from session, use empty for now
+  }, '') || '';
+
+  // Video or placeholder
+  const vbg = document.getElementById('video-bg');
+  if (url) {
+    const vid = document.createElement('video');
+    vid.id = 'main-video';
+    vid.src = url;
+    vid.loop = true;
+    vid.playsInline = true;
+    vid.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+    vbg.appendChild(vid);
+    document.getElementById('play-btn').addEventListener('click', togglePlay);
+  } else {
+    vbg.innerHTML = buildPlaceholderSVG(id, channel);
+    document.getElementById('play-btn').addEventListener('click', toggleSheet);
+  }
+
+  // Top meta
+  document.getElementById('clip-ref').textContent = id;
+  document.getElementById('clip-tag').textContent = (decision || '').replace(/_/g, ' ');
+  document.getElementById('score-ring-wrap').innerHTML = buildScoreRingSVG(score, 48);
+
+  // Sheet hook
+  document.getElementById('hook-text').textContent = hook;
+
+  // Score breakdown
+  document.getElementById('scores-label').textContent = `SCORE BREAKDOWN · ${score}`;
+  const scoresEl = document.getElementById('sheet-scores');
+  [['keyword', kw], ['channel fit', fit], ['duration', dur], ['transcript', tx], ['dup penalty', dup]].forEach(([label, val]) => {
+    const row = document.createElement('div');
+    row.className = 'score-row';
+    const isNeg = val < 0;
+    const fillW = isNeg ? Math.abs(val) * 50 : val * 100;
+    const fillL = isNeg ? `${50 + val * 50}%` : '0';
+    row.innerHTML = `
+      <span class="score-key">${label}</span>
+      <div class="score-track">
+        <div class="score-fill ${isNeg ? 'neg' : 'pos'}" style="left:${fillL};width:${fillW}%"></div>
+      </div>
+      <span class="score-val">${val > 0 ? '+' : ''}${Number(val).toFixed(2)}</span>
+    `;
+    scoresEl.appendChild(row);
+  });
+
+  // Actions
+  document.getElementById('btn-approve').addEventListener('click', () => doAction('approve'));
+  document.getElementById('btn-reject').addEventListener('click',  () => doAction('reject'));
+  document.getElementById('sheet-handle-wrap').addEventListener('click', toggleSheet);
+
+  // Theme toggle
+  document.getElementById('theme-btn').addEventListener('click', () => {
+    theme = theme === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('rb_theme', theme);
+    applyTheme();
+  });
+}
+
+init();
+</script>
+</body>
+</html>

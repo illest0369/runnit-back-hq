@@ -1,0 +1,27 @@
+{
+  "sports": [
+    "https://youtube.com/@CamNewton",
+    "https://youtube.com/@MarshawnLynch",
+    "https://youtube.com/@ShannonSharpe",
+    "https://youtube.com/@PatMcAfeeShow"
+  ],
+  "arena": [
+    "https://youtube.com/@KaiCenat",
+    "https://youtube.com/@xQc",
+    "https://youtube.com/@IShowSpeed",
+    "https://youtube.com/@AdinRoss"
+  ],
+  "women": [
+    "https://youtube.com/@WNBA",
+    "https://youtube.com/@ESPNW",
+    "https://youtube.com/@CaitlinClark22",
+    "https://youtube.com/@AngelReese"
+  ],
+  "combat": [
+    "https://youtube.com/@UFC",
+    "https://youtube.com/@DAZNBoxing",
+    "https://youtube.com/@BellatorMMA",
+    "https://youtube.com/@FrontStreetMedia",
+    "https://youtube.com/@MMAFighting"
+  ]
+}
