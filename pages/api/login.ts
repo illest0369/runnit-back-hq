@@ -12,29 +12,34 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const body = (req.body ?? {}) as LoginBody;
-  const username = body.username?.trim().toLowerCase();
-  const password = body.password ?? "";
+  try {
+    const body = (req.body ?? {}) as LoginBody;
+    const username = body.username?.trim().toLowerCase();
+    const password = body.password ?? "";
 
-  if (!username || !password) {
-    return res.status(400).json({ error: "Missing credentials" });
+    if (!username || !password) {
+      return res.status(400).json({ error: "Missing credentials" });
+    }
+
+    const user = USERS[username];
+
+    if (!user || user.password !== password) {
+      return res.status(401).json({ error: "Invalid username or password" });
+    }
+
+    const session = encodeSession({ username, channel: user.channel });
+    const cookie = [
+      `${getSessionCookieName()}=${session}`,
+      "Path=/",
+      "HttpOnly",
+      "SameSite=Lax",
+      "Max-Age=86400"
+    ].join("; ");
+
+    res.setHeader("Set-Cookie", cookie);
+    return res.status(200).json({ username, channel: user.channel });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return res.status(500).json({ error: "server_error", detail: msg });
   }
-
-  const user = USERS[username];
-
-  if (!user || user.password !== password) {
-    return res.status(401).json({ error: "Invalid username or password" });
-  }
-
-  const session = encodeSession({ username, channel: user.channel });
-  const cookie = [
-    `${getSessionCookieName()}=${session}`,
-    "Path=/",
-    "HttpOnly",
-    "SameSite=Lax",
-    "Max-Age=86400"
-  ].join("; ");
-
-  res.setHeader("Set-Cookie", cookie);
-  return res.status(200).json({ username, channel: user.channel });
 }
