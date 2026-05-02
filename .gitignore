@@ -1,4 +1,5 @@
 .env
+.env.local
 sessions/
 .next/
 node_modules/

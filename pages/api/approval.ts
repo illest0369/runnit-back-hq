@@ -84,7 +84,7 @@ interface Notification {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   const cookies = parseCookies(req.headers.cookie);
@@ -93,7 +93,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
 
   const { post_id, action, channel } = (req.body ?? {}) as {
     post_id?: string;
-    action?: string;
+    action?; string;
     channel?: string;
   };
 
@@ -155,21 +155,38 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     // Keep last 100 notifications
     writeJson("notifications.json", notifications.slice(0, 100));
 
-    // 4. Forward to posting server if approved (fire-and-forget, non-blocking)
+    // 4. Forward to posting server if approved, then write back posted status
     const postingUrl = process.env.POSTING_SERVER_URL;
     if (action === "approve" && postingUrl && clipMeta?.cdn_url) {
       const ch = channel ?? clipMeta.channel ?? "";
-      fetch(`${postingUrl}/post-${ch}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          post_id,
-          video_url: clipMeta.cdn_url,
-          caption: `${post_id} | ${ch}`,
-          channel: ch,
-          status: "approved",
-        }),
-      }).catch(() => {/* posting server optional — doesn't block the HQ */});
+      try {
+        const postRes = await fetch(`${postingUrl}/post-${ch}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            post_id,
+            video_url: clipMeta.cdn_url,
+            caption: `${post_id} | ${ch}`,
+            channel: ch,
+            status: "approved",
+          }),
+        });
+        const result: { status?: string; ok?: boolean } = await postRes.json();
+        if (result?.status === "posted" || result?.ok) {
+          const latest = readJson<ClipMeta[]>("clips-index.json", []);
+          const now = Math.floor(Date.now() / 1000);
+          writeJson(
+            "clips-index.json",
+            latest.map(c =>
+              c.post_id === post_id
+                ? { ...c, status: "posted", posted_at: now }
+                : c
+            )
+          );
+        }
+      } catch (err) {
+        console.error("Posting server failed:", err);
+      }
     }
 
     return res.status(200).json({ success: true, action, post_id });
