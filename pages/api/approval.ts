@@ -93,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { post_id, action, channel } = (req.body ?? {}) as {
     post_id?: string;
-    action?; string;
+    action?: string;
     channel?: string;
   };
 
