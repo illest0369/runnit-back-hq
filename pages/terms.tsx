@@ -118,7 +118,7 @@ export default function TermsPage() {
         <section>
           <h2>9. Contact</h2>
           <p>
-            For questions about these terms, contact: <strong>support@runnit.local</strong>
+            For questions about these terms, contact: <strong><a href="mailto:legal@runnitbackhq.com">legal@runnitbackhq.com</a></strong>
           </p>
         </section>
 

@@ -93,7 +93,7 @@ export default function PrivacyPage() {
         <section>
           <h2>Contact</h2>
           <p>
-            For privacy questions or data access requests, contact: <strong>support@runnit.local</strong>
+            For privacy questions or data access requests, contact: <strong><a href="mailto:legal@runnitbackhq.com">legal@runnitbackhq.com</a></strong>
           </p>
         </section>
 
