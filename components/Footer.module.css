@@ -1,0 +1,50 @@
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 2rem 1rem;
+  margin-top: 3rem;
+  background: var(--bg);
+  color: var(--fg3);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.links {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.links a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: opacity 200ms ease;
+  padding: 0.25rem 0.5rem;
+}
+
+.links a:hover {
+  opacity: 0.8;
+}
+
+.links span {
+  color: var(--fg3);
+}
+
+.copyright {
+  margin: 0;
+  color: var(--fg3);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 640px) {
+  .footer {
+    padding: 1.5rem 1rem;
+    margin-top: 2rem;
+  }
+
+  .links {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}
