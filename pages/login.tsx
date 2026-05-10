@@ -1,25 +1,13 @@
 import { useState, useCallback, useEffect } from "react";
 
-const DEFAULT_PIN = "000000";
 const PAD = [[1,2,3],[4,5,6],[7,8,9],[null,0,"⌫"]] as const;
 
-function getStoredPin(): string | null {
-  try { return localStorage.getItem("rb_owner_pin"); } catch { return null; }
-}
-function savePin(pin: string) {
-  try { localStorage.setItem("rb_owner_pin", pin); } catch {}
-}
-
-type Step = "passcode" | "set_pin" | "confirm_pin";
-
 export default function LoginPage() {
-  const [step,    setStep]    = useState<Step>("passcode");
-  const [dots,    setDots]    = useState<number[]>([]);
-  const [newPin,  setNewPin]  = useState("");
-  const [hint,    setHint]    = useState(() => getStoredPin() ? "" : `Default PIN: ${DEFAULT_PIN}`);
-  const [shake,   setShake]   = useState(false);
-  const [busy,    setBusy]    = useState(false);
-  const [dark,    setDark]    = useState(true);
+  const [dots,  setDots]  = useState<number[]>([]);
+  const [hint,  setHint]  = useState("");
+  const [shake, setShake] = useState(false);
+  const [busy,  setBusy]  = useState(false);
+  const [dark,  setDark]  = useState(true);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
@@ -30,7 +18,7 @@ export default function LoginPage() {
     setTimeout(() => setShake(false), 520);
   }
 
-  async function loginToServer(pin: string) {
+  async function submit(pin: string) {
     setBusy(true);
     try {
       const res = await fetch("/api/login", {
@@ -62,55 +50,19 @@ export default function LoginPage() {
     setDots(prev => {
       if (prev.length >= 6) return prev;
       const next = [...prev, k as number];
-      if (next.length < 6) return next;
-      const entered = next.join("");
-
-      if (step === "passcode") {
-        const localPin = getStoredPin() ?? DEFAULT_PIN;
-        if (entered !== localPin) {
-          setTimeout(() => doShake("Wrong PIN"), 0);
-          return next;
-        }
-        if (!getStoredPin()) {
-          setTimeout(() => { setDots([]); setHint(""); setStep("set_pin"); }, 200);
-        } else {
-          setTimeout(() => void loginToServer(entered), 100);
-        }
+      if (next.length === 6) {
+        setTimeout(() => void submit(next.join("")), 80);
       }
-
-      if (step === "set_pin") {
-        if (entered === DEFAULT_PIN) {
-          setTimeout(() => doShake(`Can't use default PIN`), 0);
-          return next;
-        }
-        setTimeout(() => { setNewPin(entered); setDots([]); setHint("Confirm new PIN"); setStep("confirm_pin"); }, 200);
-      }
-
-      if (step === "confirm_pin") {
-        if (entered !== newPin) {
-          setTimeout(() => { doShake("PINs don't match"); setNewPin(""); setStep("set_pin"); }, 0);
-          return next;
-        }
-        savePin(entered);
-        setTimeout(() => { setHint("✓ PIN saved"); void loginToServer(entered); }, 200);
-      }
-
       return next;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busy, step, newPin]);
-
-  const STEP_LABEL: Record<Step, string> = {
-    passcode:    "OWNER PIN",
-    set_pin:     "SET NEW PIN",
-    confirm_pin: "CONFIRM PIN",
-  };
+  }, [busy]);
 
   return (
     <Shell dark={dark} onToggleTheme={() => setDark(d => !d)}>
       <div style={s.centerLabel}>RB·HQ OWNER ACCESS</div>
 
-      <div style={s.stepLabel}>{STEP_LABEL[step]}</div>
+      <div style={s.stepLabel}>ENTER PIN</div>
 
       <div style={{ ...s.dotsRow, animation: shake ? "shake 0.52s ease" : "none" }}>
         {Array.from({ length: 6 }).map((_, i) => (
@@ -126,7 +78,7 @@ export default function LoginPage() {
       <div style={s.hintRow}>
         {hint && (
           <span style={{
-            color: hint.startsWith("✓") ? "var(--accent)" : hint.startsWith("Default") ? "var(--fg2)" : "var(--reject)",
+            color: hint.startsWith("✓") ? "var(--accent)" : "var(--reject)",
             fontFamily: "'JetBrains Mono',monospace", fontSize: 10, letterSpacing: 1,
           }}>{hint}</span>
         )}
@@ -144,19 +96,7 @@ export default function LoginPage() {
         ))}
       </div>
 
-      <div style={s.footer}>
-        {step === "passcode" && getStoredPin() && (
-          <button style={s.footerBtn} onClick={() => {
-            setDots([]); setNewPin(""); setHint(""); setStep("set_pin");
-          }}>Change PIN</button>
-        )}
-        {(step === "set_pin" || step === "confirm_pin") && (
-          <button style={s.footerBtn} onClick={() => {
-            setDots([]); setHint(""); setNewPin(""); setStep("passcode");
-          }}>Cancel</button>
-        )}
-      </div>
-
+      <div style={s.footer} />
     </Shell>
   );
 }
@@ -211,5 +151,4 @@ const s: Record<string, React.CSSProperties> = {
   padEmpty:    { flex:1, maxWidth:88 },
   padKey:      { flex:1, maxWidth:88, aspectRatio:"1 / 0.7", border:"1px solid var(--border)", borderRadius:14, display:"flex", alignItems:"center", justifyContent:"center", transition:"all 0.08s ease" },
   footer:      { display:"flex", justifyContent:"center", gap:32, padding:"6px 20px 20px", flexShrink:0 },
-  footerBtn:   { fontFamily:"'JetBrains Mono',monospace", fontSize:10, letterSpacing:1, color:"var(--fg2)", textDecoration:"underline", textDecorationColor:"var(--fg3)", padding:"4px 0" },
 };
