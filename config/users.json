@@ -1,18 +1,1 @@
-{
-  "manny": {
-    "password": "sports123",
-    "channel": "sports"
-  },
-  "matt": {
-    "password": "arena123",
-    "channel": "arena"
-  },
-  "maly": {
-    "password": "women123",
-    "channel": "women"
-  },
-  "agent": {
-    "password": "combat123",
-    "channel": "combat"
-  }
-}
+{}

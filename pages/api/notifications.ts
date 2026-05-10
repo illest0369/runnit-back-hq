@@ -6,7 +6,8 @@ const SESSION_COOKIE = "rb_session";
 const DATA_DIR = path.join(process.cwd(), "data");
 const FILE = path.join(DATA_DIR, "notifications.json");
 
-type SessionPayload = { username: string; channel: string };
+const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
+type SessionPayload = { username: string; channel: string; iat: number };
 
 function parseCookies(header?: string): Record<string, string> {
   if (!header) return {};
@@ -22,7 +23,8 @@ function decodeSession(value?: string): SessionPayload | null {
   try {
     const json = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
     const parsed = JSON.parse(json) as SessionPayload;
-    if (!parsed.username || !parsed.channel) return null;
+    if (!parsed.username || !parsed.channel || !parsed.iat) return null;
+    if (Date.now() - parsed.iat > SESSION_MAX_AGE_MS) return null;
     return parsed;
   } catch { return null; }
 }

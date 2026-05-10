@@ -1,14 +1,5 @@
-import type { UserRecord } from "@/lib/auth";
+// Auth is now handled via OWNER_PIN and OWNER_USERNAME environment variables.
+// No credentials are stored in code or config files.
+// See pages/api/login.ts for the single-owner auth implementation.
 
-/**
- * Static user config — bundled at build time so it's always available
- * in serverless functions without filesystem access.
- *
- * To add a user: add an entry here and redeploy.
- */
-export const USERS: Record<string, UserRecord> = {
-  manny: { password: "sports123", channel: "sports" },
-  matt:  { password: "arena123",  channel: "arena"  },
-  maly:  { password: "women123",  channel: "women"  },
-  agent: { password: "combat123", channel: "combat" },
-};
+export {};

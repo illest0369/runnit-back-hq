@@ -1,26 +1,16 @@
-import fs from "fs";
-import path from "path";
 import type { NextApiRequest } from "next";
-
-export type UserRecord = {
-  password: string;
-  channel: string;
-};
 
 export type SessionPayload = {
   username: string;
   channel: string;
+  iat: number;
 };
 
-const USERS_PATH = path.join(process.cwd(), "config", "users.json");
 const SESSION_COOKIE = "rb_session";
+const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000; // 8 hours
 
 export function getSessionCookieName() {
   return SESSION_COOKIE;
-}
-
-export function readUsers(): Record<string, UserRecord> {
-  return JSON.parse(fs.readFileSync(USERS_PATH, "utf8")) as Record<string, UserRecord>;
 }
 
 export function encodeSession(payload: SessionPayload): string {
@@ -28,17 +18,11 @@ export function encodeSession(payload: SessionPayload): string {
 }
 
 export function decodeSession(value?: string): SessionPayload | null {
-  if (!value) {
-    return null;
-  }
-
+  if (!value) return null;
   try {
     const parsed = JSON.parse(Buffer.from(value, "base64url").toString("utf8")) as SessionPayload;
-
-    if (!parsed.username || !parsed.channel) {
-      return null;
-    }
-
+    if (!parsed.username || !parsed.channel || !parsed.iat) return null;
+    if (Date.now() - parsed.iat > SESSION_MAX_AGE_MS) return null;
     return parsed;
   } catch {
     return null;
@@ -46,16 +30,10 @@ export function decodeSession(value?: string): SessionPayload | null {
 }
 
 export function parseCookies(cookieHeader?: string): Record<string, string> {
-  if (!cookieHeader) {
-    return {};
-  }
-
+  if (!cookieHeader) return {};
   return cookieHeader.split(";").reduce<Record<string, string>>((acc, part) => {
     const [rawKey, ...rest] = part.trim().split("=");
-    if (!rawKey) {
-      return acc;
-    }
-
+    if (!rawKey) return acc;
     acc[rawKey] = rest.join("=");
     return acc;
   }, {});

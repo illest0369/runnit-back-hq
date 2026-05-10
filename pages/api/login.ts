@@ -1,46 +1,108 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
-// Inline session encoding — no fs or path needed
 const SESSION_COOKIE = "rb_session";
+const SESSION_MAX_AGE_S = 8 * 60 * 60; // 8 hours
 
-const USERS: Record<string, { password: string; channel: string }> = {
-  manny: { password: "sports123", channel: "sports" },
-  matt:  { password: "arena123",  channel: "arena"  },
-  maly:  { password: "women123",  channel: "women"  },
-  agent: { password: "combat123", channel: "combat" },
-};
+// ── Brute-force protection (in-memory, resets on cold start) ─────────────────
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MS = 5 * 60 * 1000; // 5 minutes
 
-function encodeSession(payload: { username: string; channel: string }): string {
+interface AttemptRecord {
+  count: number;
+  lockedUntil: number;
+}
+const attempts = new Map<string, AttemptRecord>();
+
+function getClientIp(req: NextApiRequest): string {
+  const forwarded = req.headers["x-forwarded-for"];
+  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
+  return req.socket?.remoteAddress ?? "unknown";
+}
+
+function checkRateLimit(ip: string): { blocked: boolean; remainingMs: number } {
+  const record = attempts.get(ip);
+  if (!record) return { blocked: false, remainingMs: 0 };
+  if (record.lockedUntil > Date.now()) {
+    return { blocked: true, remainingMs: record.lockedUntil - Date.now() };
+  }
+  return { blocked: false, remainingMs: 0 };
+}
+
+function recordFailure(ip: string) {
+  const record = attempts.get(ip) ?? { count: 0, lockedUntil: 0 };
+  record.count += 1;
+  if (record.count >= MAX_ATTEMPTS) {
+    record.lockedUntil = Date.now() + LOCKOUT_MS;
+    record.count = 0;
+  }
+  attempts.set(ip, record);
+}
+
+function clearAttempts(ip: string) {
+  attempts.delete(ip);
+}
+
+// ── Session encoding ──────────────────────────────────────────────────────────
+function encodeSession(payload: { username: string; channel: string; iat: number }): string {
   return Buffer.from(JSON.stringify(payload)).toString("base64url");
 }
 
-type LoginBody = { username?: string; password?: string };
+// ── Handler ───────────────────────────────────────────────────────────────────
+type LoginBody = { pin?: string };
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
+  const ownerPin = process.env.OWNER_PIN;
+  const ownerUsername = process.env.OWNER_USERNAME;
+
+  if (!ownerPin || !ownerUsername) {
+    return res.status(503).json({ error: "Server not configured" });
+  }
+
+  const ip = getClientIp(req);
+  const { blocked, remainingMs } = checkRateLimit(ip);
+
+  if (blocked) {
+    const waitSecs = Math.ceil(remainingMs / 1000);
+    return res.status(429).json({ error: `Too many attempts. Try again in ${waitSecs}s` });
+  }
+
   try {
     const body = (req.body ?? {}) as LoginBody;
-    const username = body.username?.trim().toLowerCase() ?? "";
-    const password = body.password ?? "";
+    const pin = body.pin?.trim() ?? "";
 
-    if (!username || !password) {
-      return res.status(400).json({ error: "Missing credentials" });
+    if (!pin) {
+      return res.status(400).json({ error: "Missing PIN" });
     }
 
-    const user = USERS[username];
-    if (!user || user.password !== password) {
-      return res.status(401).json({ error: "Invalid username or password" });
+    if (pin !== ownerPin) {
+      recordFailure(ip);
+      return res.status(401).json({ error: "Invalid PIN" });
     }
 
-    const session = encodeSession({ username, channel: user.channel });
-    const cookie = `${SESSION_COOKIE}=${session}; Path=/; HttpOnly; SameSite=Lax; Max-Age=86400`;
+    clearAttempts(ip);
+
+    const session = encodeSession({
+      username: ownerUsername,
+      channel: "owner",
+      iat: Date.now(),
+    });
+
+    const cookie = [
+      `${SESSION_COOKIE}=${session}`,
+      "Path=/",
+      "HttpOnly",
+      "SameSite=Lax",
+      `Max-Age=${SESSION_MAX_AGE_S}`,
+    ].join("; ");
+
     res.setHeader("Set-Cookie", cookie);
-    return res.status(200).json({ username, channel: user.channel });
+    return res.status(200).json({ username: ownerUsername, channel: "owner" });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    return res.status(500).json({ error: "server_error", detail: msg });
+    return res.status(500).json({ error: "Server error", detail: msg });
   }
 }
