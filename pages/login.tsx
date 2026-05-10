@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 const DEFAULT_PIN = "000000";
 const PAD = [[1,2,3],[4,5,6],[7,8,9],[null,0,"⌫"]] as const;
@@ -20,6 +20,10 @@ export default function LoginPage() {
   const [shake,   setShake]   = useState(false);
   const [busy,    setBusy]    = useState(false);
   const [dark,    setDark]    = useState(true);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  }, [dark]);
 
   function doShake(msg: string) {
     setHint(msg); setShake(true); setDots([]);
@@ -153,15 +157,6 @@ export default function LoginPage() {
         )}
       </div>
 
-      <style>{`
-        @keyframes shake {
-          0%,100%{transform:translateX(0)}
-          18%{transform:translateX(-9px)}
-          36%{transform:translateX(9px)}
-          54%{transform:translateX(-6px)}
-          72%{transform:translateX(6px)}
-        }
-      `}</style>
     </Shell>
   );
 }
@@ -193,28 +188,15 @@ function PadKey({ value, disabled, onTap }: { value: number | "⌫"; disabled: b
 
 function Shell({ dark, onToggleTheme, children }: { dark: boolean; onToggleTheme: () => void; children: React.ReactNode }) {
   return (
-    <>
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;600&family=JetBrains+Mono:wght@400;500;700&display=swap');
-        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; touch-action:manipulation; }
-        html, body { width:100%; height:100%; overflow:hidden; }
-        [data-theme="dark"]  { --bg:#080808; --bg2:#111; --bg3:#1a1a1a; --fg:#f5f5f0; --fg2:rgba(245,245,240,0.5); --fg3:rgba(245,245,240,0.22); --accent:#39ff14; --accent-fg:#000; --border:rgba(245,245,240,0.1); --reject:#ff3b30; }
-        [data-theme="light"] { --bg:#f0ede6; --bg2:#fff; --bg3:#e8e4dc; --fg:#080808; --fg2:rgba(8,8,8,0.5); --fg3:rgba(8,8,8,0.18); --accent:#1adb00; --accent-fg:#fff; --border:rgba(8,8,8,0.12); --reject:#ff3b30; }
-        body { background:var(--bg); color:var(--fg); font-family:'Inter',sans-serif; }
-        button { cursor:pointer; border:none; outline:none; user-select:none; background:none; }
-        button:disabled { opacity:0.35; pointer-events:none; }
-      `}</style>
-      <div style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"var(--bg)", color:"var(--fg)", overflow:"hidden" }}
-           data-theme={dark ? "dark" : "light"}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 20px 4px", flexShrink:0 }}>
-          <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:"var(--fg2)" }}>RB·HQ</span>
-          <button onClick={onToggleTheme} style={{ border:"1px solid var(--border)", borderRadius:999, color:"var(--fg2)", fontFamily:"'JetBrains Mono',monospace", fontSize:10, padding:"2px 8px", letterSpacing:1 }}>
-            {dark ? "☀" : "☾"}
-          </button>
-        </div>
-        {children}
+    <div style={{ display:"flex", flexDirection:"column", height:"100dvh", background:"var(--bg)", color:"var(--fg)", overflow:"hidden" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"12px 20px 4px", flexShrink:0 }}>
+        <span style={{ fontFamily:"'JetBrains Mono',monospace", fontSize:11, color:"var(--fg2)" }}>RB·HQ</span>
+        <button onClick={onToggleTheme} style={{ border:"1px solid var(--border)", borderRadius:999, color:"var(--fg2)", fontFamily:"'JetBrains Mono',monospace", fontSize:10, padding:"2px 8px", letterSpacing:1 }}>
+          {dark ? "☀" : "☾"}
+        </button>
       </div>
-    </>
+      {children}
+    </div>
   );
 }
 
