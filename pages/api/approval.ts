@@ -1,32 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs";
 import path from "path";
+import { requireSession } from "@/lib/auth";
 
-const SESSION_COOKIE = "rb_session";
 const SAFE_POST_ID_RE = /^[a-zA-Z0-9_-]{1,64}$/;
-
-const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
-type SessionPayload = { username: string; channel: string; iat: number };
-
-function parseCookies(header?: string): Record<string, string> {
-  if (!header) return {};
-  return header.split(";").reduce<Record<string, string>>((acc, part) => {
-    const [k, ...v] = part.trim().split("=");
-    if (k) acc[k.trim()] = v.join("=");
-    return acc;
-  }, {});
-}
-
-function decodeSession(value?: string): SessionPayload | null {
-  if (!value) return null;
-  try {
-    const json = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
-    const parsed = JSON.parse(json) as SessionPayload;
-    if (!parsed.username || !parsed.channel || !parsed.iat) return null;
-    if (Date.now() - parsed.iat > SESSION_MAX_AGE_MS) return null;
-    return parsed;
-  } catch { return null; }
-}
 
 function isValidAction(a: string): a is "approve" | "reject" {
   return a === "approve" || a === "reject";
@@ -89,8 +66,7 @@ interface Notification {
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
-  const cookies = parseCookies(req.headers.cookie);
-  const session = decodeSession(cookies[SESSION_COOKIE]);
+  const session = requireSession(req);
   if (!session) return res.status(401).json({ error: "Not authenticated" });
 
   const { post_id, action, channel } = (req.body ?? {}) as {
@@ -156,23 +132,6 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     notifications.unshift(notif);
     // Keep last 100 notifications
     writeJson("notifications.json", notifications.slice(0, 100));
-
-    // 4. Forward to posting server if approved (fire-and-forget, non-blocking)
-    const postingUrl = process.env.POSTING_SERVER_URL;
-    if (action === "approve" && postingUrl && clipMeta?.cdn_url) {
-      const ch = channel ?? clipMeta.channel ?? "";
-      fetch(`${postingUrl}/post-${ch}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          post_id,
-          video_url: clipMeta.cdn_url,
-          caption: `${post_id} | ${ch}`,
-          channel: ch,
-          status: "approved",
-        }),
-      }).catch(() => {/* posting server optional — doesn't block the HQ */});
-    }
 
     return res.status(200).json({ success: true, action, post_id });
 

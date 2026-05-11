@@ -1,4 +1,6 @@
 .env
+.env.local
+.env*.local
 sessions/
 .next/
 node_modules/
@@ -17,4 +19,5 @@ vision_tracked.mp4
 __pycache__/
 *.pyc
 .vercel
+.claude/
 tsconfig.tsbuildinfo

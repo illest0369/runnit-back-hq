@@ -60,7 +60,7 @@ export default function LoginPage() {
 
   return (
     <Shell dark={dark} onToggleTheme={() => setDark(d => !d)}>
-      <div style={s.centerLabel}>RB·HQ OWNER ACCESS</div>
+      <div style={s.centerLabel}>RB·HQ OPERATOR ACCESS</div>
 
       <div style={s.stepLabel}>ENTER PIN</div>
 

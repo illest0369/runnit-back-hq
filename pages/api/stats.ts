@@ -1,33 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import clipsIndex from "@/data/clips-index.json";
 import perfData from "@/data/performance.json";
-
-const SESSION_COOKIE = "rb_session";
-const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
-
-type SessionPayload = { username: string; channel: string; iat: number };
-
-function parseCookies(header?: string): Record<string, string> {
-  if (!header) return {};
-  return header.split(";").reduce<Record<string, string>>((acc, part) => {
-    const [k, ...v] = part.trim().split("=");
-    if (k) acc[k.trim()] = v.join("=");
-    return acc;
-  }, {});
-}
-
-function decodeSession(value?: string): SessionPayload | null {
-  if (!value) return null;
-  try {
-    const json = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
-    const parsed = JSON.parse(json) as SessionPayload;
-    if (!parsed.username || !parsed.channel || !parsed.iat) return null;
-    if (Date.now() - parsed.iat > SESSION_MAX_AGE_MS) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
+import { requireSession } from "@/lib/auth";
 
 interface OutputMeta {
   post_id?: string;
@@ -56,8 +30,7 @@ interface PerfRecord {
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const cookies = parseCookies(req.headers.cookie);
-  const session = decodeSession(cookies[SESSION_COOKIE]);
+  const session = requireSession(req);
   if (!session) return res.status(401).json({ error: "Not authenticated" });
 
   const perf = perfData as PerfRecord[];
@@ -95,7 +68,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     .map(p => ({ post_id: p.post_id, views: p.views ?? 0, created_at: p.created_at ?? 0 }))
     .sort((a, b) => a.created_at - b.created_at);
 
-  const channelCounts: Record<string, number> = { sports: 0, arena: 0, women: 0, combat: 0 };
+  const channelCounts: Record<string, number> = { runnitbacksports: 0 };
   for (const c of allClips) {
     const ch = c.channel ?? "";
     if (ch in channelCounts) channelCounts[ch]++;

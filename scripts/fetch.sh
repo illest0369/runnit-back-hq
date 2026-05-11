@@ -6,7 +6,7 @@ CONFIG_FILE="config/sources.json"
 
 if [ -z "$CHANNEL" ]; then
   echo "ERROR: channel is required" >&2
-  echo "Usage: ./scripts/fetch.sh <sports|arena|women|combat>" >&2
+  echo "Usage: ./scripts/fetch.sh <runnitbacksports>" >&2
   exit 1
 fi
 

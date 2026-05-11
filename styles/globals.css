@@ -1,5 +1,9 @@
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -50,6 +54,26 @@ body {
   font-family: 'Inter', sans-serif;
 }
 
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(57, 255, 20, 0.08), transparent 28rem),
+    linear-gradient(90deg, rgba(255,255,255,0.04), transparent 18%, transparent 82%, rgba(255,255,255,0.04));
+}
+
+@media (min-width: 768px) {
+  body {
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 50% 12%, rgba(57, 255, 20, 0.09), transparent 30rem),
+      #050506;
+  }
+}
+
 button {
   cursor: pointer;
   border: none;
@@ -65,6 +89,47 @@ button:disabled {
 
 .bb { font-family: 'Bebas Neue', sans-serif; }
 .mono { font-family: 'JetBrains Mono', monospace; }
+
+.no-scrollbar {
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.contain-layout {
+  contain: layout paint;
+}
+
+.animate-pop {
+  animation: pop 180ms ease-out;
+}
+
+.animate-toast {
+  animation: toast 1050ms ease both;
+}
+
+@keyframes pop {
+  0% { transform: scale(1); filter: brightness(1); }
+  45% { transform: scale(1.12); filter: brightness(1.24); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+@keyframes toast {
+  0% { opacity: 0; transform: translate(-50%, -8px) scale(0.96); }
+  16%, 82% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -6px) scale(0.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 
 @keyframes shake {
   0%, 100% { transform: translateX(0); }

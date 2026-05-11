@@ -6,7 +6,7 @@ CONFIG_FILE="config/sources.json"
 
 if [ -z "$CHANNEL" ]; then
   echo "ERROR: channel is required" >&2
-  echo "Usage: ./scripts/auto_select.sh <sports|arena|women|combat>" >&2
+  echo "Usage: ./scripts/auto_select.sh <runnitbacksports>" >&2
   exit 1
 fi
 
@@ -23,10 +23,7 @@ if ! jq -e --arg channel "$CHANNEL" 'has($channel)' "$CONFIG_FILE" >/dev/null; t
 fi
 
 case "$CHANNEL" in
-  sports) OPERATOR="manny" ;;
-  arena) OPERATOR="matt" ;;
-  women) OPERATOR="maly" ;;
-  combat) OPERATOR="agent" ;;
+  runnitbacksports) OPERATOR="operator" ;;
   *)
     echo "ERROR: unsupported channel: $CHANNEL" >&2
     exit 1
@@ -50,25 +47,9 @@ function score(title, channel) {
   s=0
   t=tolower(title)
 
-  if (channel == "sports") {
+  if (channel == "runnitbacksports") {
     if (t ~ /interview|micd up|locker room|press conference|highlights/) s+=4
     if (t ~ /nfl|nba|game winner|clutch|viral/) s+=5
-  }
-
-  if (channel == "arena") {
-    if (t ~ /argue|argument|heated|mad|rage/) s+=5
-    if (t ~ /react|reaction|shocked|crazy/) s+=4
-    if (t ~ /fight|beef|vs/) s+=5
-  }
-
-  if (channel == "women") {
-    if (t ~ /wnba|ncaa|interview|postgame|locker room/) s+=4
-    if (t ~ /caitlin|angel|buzzer beater|highlight/) s+=5
-  }
-
-  if (channel == "combat") {
-    if (t ~ /ufc|boxing|knockout|face off|weigh in|press conference/) s+=5
-    if (t ~ /fight|finish|submission|stoppage/) s+=5
   }
 
   return s

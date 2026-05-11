@@ -3,6 +3,7 @@ import { promisify } from "util";
 import type { NextApiRequest, NextApiResponse } from "next";
 import fs from "fs";
 import path from "path";
+import { requireSession } from "@/lib/auth";
 
 const execFileAsync = promisify(execFile);
 
@@ -28,6 +29,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
+
+  const session = requireSession(req);
+  if (!session) return res.status(401).json({ error: "Not authenticated" });
 
   const { url, start, end, post_id, platform, operator } = req.body ?? {};
 

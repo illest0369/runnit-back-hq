@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-
-const SESSION_COOKIE = "rb_session";
-const SESSION_MAX_AGE_S = 8 * 60 * 60; // 8 hours
+import { auditAuth, getClientIp } from "@/lib/audit";
+import { createSessionPayload, encodeSession, SESSION_COOKIE, SESSION_MAX_AGE_S } from "@/lib/auth";
+import { logAuthEnvStatus } from "@/lib/env-audit";
 
 // ── Brute-force protection (in-memory, resets on cold start) ─────────────────
 const MAX_ATTEMPTS = 5;
@@ -12,12 +12,6 @@ interface AttemptRecord {
   lockedUntil: number;
 }
 const attempts = new Map<string, AttemptRecord>();
-
-function getClientIp(req: NextApiRequest): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") return forwarded.split(",")[0].trim();
-  return req.socket?.remoteAddress ?? "unknown";
-}
 
 function checkRateLimit(ip: string): { blocked: boolean; remainingMs: number } {
   const record = attempts.get(ip);
@@ -42,24 +36,28 @@ function clearAttempts(ip: string) {
   attempts.delete(ip);
 }
 
-// ── Session encoding ──────────────────────────────────────────────────────────
-function encodeSession(payload: { username: string; channel: string; iat: number }): string {
-  return Buffer.from(JSON.stringify(payload)).toString("base64url");
-}
-
 // ── Handler ───────────────────────────────────────────────────────────────────
 type LoginBody = { pin?: string };
 
 export default function handler(req: NextApiRequest, res: NextApiResponse) {
+  logAuthEnvStatus();
+
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const ownerPin = process.env.OWNER_PIN;
-  const ownerUsername = process.env.OWNER_USERNAME;
+  const appPin = process.env.APP_PIN;
+  const operatorUsername = process.env.OPERATOR_USERNAME ?? process.env.OWNER_USERNAME;
+  const sessionSecret = process.env.SESSION_SECRET?.trim();
 
-  if (!ownerPin || !ownerUsername) {
-    return res.status(503).json({ error: "Server not configured" });
+  if (!appPin) {
+    return res.status(503).json({ error: "Server not configured: APP_PIN missing" });
+  }
+  if (!operatorUsername) {
+    return res.status(503).json({ error: "Server not configured: OPERATOR_USERNAME missing" });
+  }
+  if (!sessionSecret || sessionSecret.length < 16) {
+    return res.status(503).json({ error: "Server not configured: SESSION_SECRET missing" });
   }
 
   const ip = getClientIp(req);
@@ -75,21 +73,19 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     const pin = body.pin?.trim() ?? "";
 
     if (!pin) {
+      auditAuth("login_failure", { ip, route: req.url, method: req.method, reason: "missing_pin" });
       return res.status(400).json({ error: "Missing PIN" });
     }
 
-    if (pin !== ownerPin) {
+    if (pin !== appPin) {
       recordFailure(ip);
+      auditAuth("login_failure", { ip, route: req.url, method: req.method, reason: "invalid_pin" });
       return res.status(401).json({ error: "Invalid PIN" });
     }
 
     clearAttempts(ip);
 
-    const session = encodeSession({
-      username: ownerUsername,
-      channel: "owner",
-      iat: Date.now(),
-    });
+    const session = encodeSession(createSessionPayload(operatorUsername, "operator"));
 
     const cookie = [
       `${SESSION_COOKIE}=${session}`,
@@ -100,7 +96,8 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     ].join("; ");
 
     res.setHeader("Set-Cookie", cookie);
-    return res.status(200).json({ username: ownerUsername, channel: "owner" });
+    auditAuth("login_success", { ip, route: req.url, method: req.method, username: operatorUsername });
+    return res.status(200).json({ username: operatorUsername, channel: "operator" });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     return res.status(500).json({ error: "Server error", detail: msg });

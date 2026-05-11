@@ -24,7 +24,7 @@ if [ -z "$CHANNEL" ]; then
 fi
 
 case "$CHANNEL" in
-  sports|arena|women|combat) ;;
+  runnitbacksports) ;;
   *)
     echo "ERROR: unknown channel: $CHANNEL" >&2
     exit 1
