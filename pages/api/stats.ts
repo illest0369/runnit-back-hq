@@ -1,120 +1,95 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import clipsIndex from "@/data/clips-index.json";
-import perfData from "@/data/performance.json";
+import { supabase, CHANNEL_TO_HANDLE } from "@/lib/supabase";
+import { getSession } from "@/lib/session";
 
-const SESSION_COOKIE = "rb_session";
-
-type SessionPayload = { username: string; channel: string };
-
-function parseCookies(header?: string): Record<string, string> {
-  if (!header) return {};
-  return header.split(";").reduce<Record<string, string>>((acc, part) => {
-    const [k, ...v] = part.trim().split("=");
-    if (k) acc[k.trim()] = v.join("=");
-    return acc;
-  }, {});
-}
-
-function decodeSession(value?: string): SessionPayload | null {
-  if (!value) return null;
-  try {
-    const json = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
-    const parsed = JSON.parse(json) as SessionPayload;
-    if (!parsed.username || !parsed.channel) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-interface OutputMeta {
-  post_id?: string;
-  channel?: string;
-  operator?: string;
-  cdn_url?: string;
-  status?: string;
-  score?: number;
-  decision?: string;
-  reasons?: string[];
-  timestamp_range?: string;
-}
-
-interface PerfRecord {
-  post_id: string;
-  channel?: string;
-  operator?: string;
-  cdn_url?: string;
-  created_at?: number;
-  views?: number;
-  likes?: number;
-  shares?: number;
-  comments?: number;
-}
-
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const cookies = parseCookies(req.headers.cookie);
-  const session = decodeSession(cookies[SESSION_COOKIE]);
+  const session = getSession(req);
   if (!session) return res.status(401).json({ error: "Not authenticated" });
 
-  const perf = perfData as PerfRecord[];
-  const clips = clipsIndex as OutputMeta[];
-
-  // Deduplicate clips by post_id
-  const byPostId = new Map<string, OutputMeta>();
-  for (const meta of clips) {
-    if (!meta.post_id) continue;
-    const ex = byPostId.get(meta.post_id);
-    if (!ex || (meta.score ?? 0) > (ex.score ?? 0)) byPostId.set(meta.post_id, meta);
+  // Resolve channel_id
+  let channelId = session.channel_id ?? null;
+  if (!channelId) {
+    const handle = CHANNEL_TO_HANDLE[session.channel] ?? `runnitback${session.channel}`;
+    const { data } = await supabase.from("channels").select("id").eq("handle", handle).single();
+    channelId = data?.id ?? null;
   }
 
-  const allClips = [...byPostId.values()];
-  const total = allClips.length;
-  const approved = allClips.filter(c => c.decision === "approve_queue").length;
+  if (!channelId) {
+    return res.status(200).json({
+      totalViews: 0, totalLikes: 0, totalShares: 0, totalPublished: 0,
+      approvalRate: 0, conversionRate: 0, avgEngagement: 0, totalPending: 0,
+      viewsByClip: [], channels: {}, publishedClips: [],
+    });
+  }
 
-  const totalViews = perf.reduce((s, p) => s + (p.views ?? 0), 0);
-  const totalLikes = perf.reduce((s, p) => s + (p.likes ?? 0), 0);
-  const totalShares = perf.reduce((s, p) => s + (p.shares ?? 0), 0);
+  const { data: posts } = await supabase
+    .from("posts")
+    .select("id, status, score, views, likes, shares, comments, created_at, video_url, thumbnail_url, hook, caption")
+    .eq("channel_id", channelId)
+    .order("created_at", { ascending: true });
 
-  const approvalRate = total > 0 ? Math.round((approved / total) * 100) : 0;
+  const all = posts ?? [];
+
+  const total = all.length;
+  const approved = all.filter(p =>
+    ["approved", "APPROVED_BY_HUMAN", "sent_to_buffer", "ready_to_post", "posted", "EXECUTED"].includes(p.status)
+  ).length;
+  const pending = all.filter(p =>
+    ["queued", "needs_review", "ready", "GENERATED", "REVIEWED", "AI_DECISION"].includes(p.status)
+  ).length;
+  const published = all.filter(p => ["posted", "EXECUTED", "sent_to_publish", "publishing"].includes(p.status));
+
+  const totalViews  = all.reduce((s, p) => s + (p.views  ?? 0), 0);
+  const totalLikes  = all.reduce((s, p) => s + (p.likes  ?? 0), 0);
+  const totalShares = all.reduce((s, p) => s + (p.shares ?? 0), 0);
+
+  const approvalRate  = total > 0 ? Math.round((approved / total) * 100) : 0;
   const conversionRate = totalViews > 0
     ? parseFloat((totalLikes / totalViews * 100).toFixed(1))
     : 0;
-
-  const avgEngagement = perf.length > 0
-    ? parseFloat((perf.reduce((s, p) => {
-        const v = p.views ?? 1;
-        return s + ((p.likes ?? 0) / Math.max(v, 1) * 100);
-      }, 0) / perf.length).toFixed(1))
+  const avgEngagement = all.length > 0
+    ? parseFloat(
+        (all.reduce((s, p) => {
+          const v = Math.max(p.views ?? 1, 1);
+          return s + ((p.likes ?? 0) / v * 100);
+        }, 0) / all.length
+      ).toFixed(1))
     : 0;
 
-  const viewsByClip = perf
-    .map(p => ({ post_id: p.post_id, views: p.views ?? 0, created_at: p.created_at ?? 0 }))
-    .sort((a, b) => a.created_at - b.created_at);
+  const viewsByClip = all.map(p => ({
+    post_id: p.id,
+    views: p.views ?? 0,
+    created_at: p.created_at ? Math.floor(new Date(p.created_at).getTime() / 1000) : 0,
+  }));
 
-  const channelCounts: Record<string, number> = { sports: 0, arena: 0, women: 0, combat: 0 };
-  for (const c of allClips) {
-    const ch = c.channel ?? "";
-    if (ch in channelCounts) channelCounts[ch]++;
-  }
-
-  // Published clips with full perf data (filtered by session channel)
-  const publishedClips = perf
-    .filter(p => !session.channel || p.channel === session.channel)
-    .sort((a, b) => (b.created_at ?? 0) - (a.created_at ?? 0));
+  const publishedClips = published
+    .sort((a, b) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    .map(p => ({
+      post_id: p.id,
+      channel: session.channel,
+      cdn_url: p.video_url ?? "",
+      thumbnail_url: p.thumbnail_url ?? null,
+      hook: p.hook || p.caption || "",
+      views: p.views ?? 0,
+      likes: p.likes ?? 0,
+      shares: p.shares ?? 0,
+      comments: p.comments ?? 0,
+      created_at: p.created_at ? Math.floor(new Date(p.created_at).getTime() / 1000) : 0,
+    }));
 
   return res.status(200).json({
     totalViews,
     totalLikes,
     totalShares,
-    totalPublished: perf.length,
+    totalPublished: published.length,
     approvalRate,
     conversionRate,
     avgEngagement,
-    totalPending: approved,
+    totalPending: pending,
     viewsByClip,
-    channels: channelCounts,
+    channels: { [session.channel]: total },
     publishedClips,
   });
 }
