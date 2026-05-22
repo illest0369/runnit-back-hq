@@ -1,31 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import fs from "fs";
-import path from "path";
-
-const SESSION_COOKIE = "rb_session";
-const DATA_DIR = path.join(process.cwd(), "data");
-const FILE = path.join(DATA_DIR, "notifications.json");
-
-type SessionPayload = { username: string; channel: string };
-
-function parseCookies(header?: string): Record<string, string> {
-  if (!header) return {};
-  return header.split(";").reduce<Record<string, string>>((acc, part) => {
-    const [k, ...v] = part.trim().split("=");
-    if (k) acc[k.trim()] = v.join("=");
-    return acc;
-  }, {});
-}
-
-function decodeSession(value?: string): SessionPayload | null {
-  if (!value) return null;
-  try {
-    const json = atob(value.replace(/-/g, "+").replace(/_/g, "/"));
-    const parsed = JSON.parse(json) as SessionPayload;
-    if (!parsed.username || !parsed.channel) return null;
-    return parsed;
-  } catch { return null; }
-}
+import { supabase, CHANNEL_TO_HANDLE } from "@/lib/supabase";
+import { getSession } from "@/lib/session";
 
 export interface Notification {
   id: string;
@@ -40,44 +15,62 @@ export interface Notification {
   message?: string;
 }
 
-function readNotifications(): Notification[] {
-  try { return JSON.parse(fs.readFileSync(FILE, "utf8")) as Notification[]; }
-  catch { return []; }
-}
-
-function writeNotifications(data: Notification[]) {
-  fs.writeFileSync(FILE, JSON.stringify(data, null, 2));
-}
-
-export default function handler(req: NextApiRequest, res: NextApiResponse) {
-  const cookies = parseCookies(req.headers.cookie);
-  const session = decodeSession(cookies[SESSION_COOKIE]);
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const session = getSession(req);
   if (!session) return res.status(401).json({ error: "Not authenticated" });
 
-  // GET — return unread count + recent notifications for this channel
+  // GET — return recent audit log entries as notifications
   if (req.method === "GET") {
-    const all = readNotifications();
-    const mine = all.filter(n => !n.channel || n.channel === session.channel);
-    const unread = mine.filter(n => !n.read).length;
-    return res.status(200).json({ notifications: mine.slice(0, 30), unread });
-  }
-
-  // POST — mark all as read
-  if (req.method === "POST") {
-    const { action, id } = (req.body ?? {}) as { action?: string; id?: string };
-
-    if (action === "mark_read") {
-      const all = readNotifications();
-      const updated = all.map(n => {
-        if (id && n.id !== id) return n;
-        if (!id && n.channel !== session.channel) return n;
-        return { ...n, read: true };
-      });
-      writeNotifications(updated);
-      return res.status(200).json({ success: true });
+    // Resolve channel_id for filtering
+    let channelId = session.channel_id ?? null;
+    if (!channelId) {
+      const handle = CHANNEL_TO_HANDLE[session.channel] ?? `runnitback${session.channel}`;
+      const { data } = await supabase.from("channels").select("id").eq("handle", handle).single();
+      channelId = data?.id ?? null;
     }
 
-    return res.status(400).json({ error: "Unknown action" });
+    // Fetch recent audit log entries, joining posts to filter by channel
+    let query = supabase
+      .from("war_room_audit_logs")
+      .select("id, post_id, clip_id, stage, actor, decision, from_state, to_state, timestamp")
+      .not("decision", "is", null)
+      .order("timestamp", { ascending: false })
+      .limit(30);
+
+    if (channelId) {
+      // Filter to posts in this channel via subquery
+      const { data: channelPostIds } = await supabase
+        .from("posts")
+        .select("id")
+        .eq("channel_id", channelId);
+
+      const ids = (channelPostIds ?? []).map(p => p.id);
+      if (ids.length > 0) {
+        query = query.in("post_id", ids);
+      }
+    }
+
+    const { data: logs } = await query;
+
+    const notifications: Notification[] = (logs ?? []).map(log => ({
+      id: log.id,
+      type: (log.decision === "approve" ? "approved" : log.decision === "reject" ? "rejected" : "scored") as Notification["type"],
+      post_id: log.post_id ?? log.clip_id ?? "",
+      channel: session.channel,
+      operator: log.actor ?? session.username,
+      score: 0,
+      cdn_url: "",
+      timestamp: log.timestamp ? Math.floor(new Date(log.timestamp).getTime() / 1000) : 0,
+      read: false,
+    }));
+
+    const unread = notifications.length;
+    return res.status(200).json({ notifications, unread });
+  }
+
+  // POST — mark as read (no-op since audit logs are immutable; acknowledged client-side)
+  if (req.method === "POST") {
+    return res.status(200).json({ success: true });
   }
 
   return res.status(405).json({ error: "Method not allowed" });
