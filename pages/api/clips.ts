@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       "brand_fit, watchability, views, likes, shares, created_at, start_time, end_time"
     )
     .eq("channel_id", channelId)
-    .not("status", "in", `(${SKIP_STATUSES.map(s => `"${s}"`).join(",")})`)
+    .not("status", "in", `(${SKIP_STATUSES.join(",")})`)
     .order("score", { ascending: false })
     .limit(100);
 
