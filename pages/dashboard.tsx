@@ -1,62 +1,75 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/router";
 import type { Clip } from "./api/clips";
-import BottomNav from "@/components/BottomNav";
-import NotificationBell from "@/components/NotificationBell";
 
-const PIPELINE = ["trim", "track", "render", "upload", "score", "meta", "queue", "dedup"];
-const GRADIENTS = [
-  ["#1a1a2e", "#16213e", "#0f3460"],
-  ["#2d1b00", "#4a2e00", "#1a0d00"],
-  ["#0d1f0a", "#1a3a14", "#0a150a"],
-  ["#1f0a0a", "#3a1414", "#150a0a"],
-  ["#001a1a", "#003333", "#001010"],
+const SURFACES = [
+  ["#0b0b0a", "#171514", "#2a2520"],
+  ["#090909", "#151515", "#24201d"],
+  ["#0c0b0a", "#191613", "#302a24"],
+  ["#080808", "#141312", "#252525"],
 ];
 
-function scoreColor(n: number) {
-  return n >= 70 ? "#39ff14" : n >= 50 ? "#ffb400" : "#ff3b30";
+const UI = {
+  bg: "#050505",
+  ink: "#f3efe7",
+  muted: "rgba(243,239,231,0.58)",
+  faint: "rgba(243,239,231,0.32)",
+  hairline: "rgba(243,239,231,0.14)",
+  approve: "#d9d0bf",
+  reject: "rgba(243,239,231,0.52)",
+};
+
+function timeLabel(ts: number) {
+  if (!ts) return "just now";
+  const diff = Math.max(0, Math.floor(Date.now() / 1000) - ts);
+  if (diff < 60) return "just now";
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  return `${Math.floor(diff / 86400)}d ago`;
 }
 
-function ScoreRingSVG({ score, size = 50 }: { score: number; size?: number }) {
-  const r = (size - 6) / 2;
-  const circ = 2 * Math.PI * r;
-  const off = circ - (score / 100) * circ;
-  const col = scoreColor(score);
-  const cx = size / 2;
+function ScoreBadge({ score }: { score: number }) {
   return (
-    <svg width={size} height={size} style={{ flexShrink: 0 }}>
-      <circle cx={cx} cy={cx} r={r} fill="none" stroke="#1a1a1a" strokeWidth={3} />
-      <circle cx={cx} cy={cx} r={r} fill="none" stroke={col} strokeWidth={3}
-        strokeDasharray={circ.toFixed(1)} strokeDashoffset={off.toFixed(1)}
-        strokeLinecap="round" transform={`rotate(-90 ${cx} ${cx})`} />
-      <text x={cx} y={cx + 1} textAnchor="middle" dominantBaseline="middle"
-        fontFamily="Bebas Neue" fontSize={Math.round(size * 0.3)} fill={col}>{score}</text>
-    </svg>
+    <div style={{
+      minWidth: 46,
+      height: 30,
+      borderRadius: 999,
+      border: `1px solid ${UI.hairline}`,
+      background: "rgba(8,8,8,0.42)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      padding: "0 10px",
+      backdropFilter: "blur(14px)",
+    }}>
+      <span style={{ color: UI.ink, fontSize: 13, fontWeight: 600, letterSpacing: -0.2 }}>{score}</span>
+    </div>
   );
 }
 
-function PlaceholderSVG({ id, channel, gi }: { id: string; channel: string; gi: number }) {
-  const [g1, g2, g3] = GRADIENTS[gi % GRADIENTS.length];
-  const s = id.replace(/[^a-z0-9]/gi, "");
+function PlaceholderMedia({ id, gi }: { id: string; gi: number }) {
+  const [a, b, c] = SURFACES[gi % SURFACES.length];
+  const safeId = (id || "clip").replace(/[^a-z0-9]/gi, "");
+
   return (
-    <svg width="100%" height="100%" viewBox="0 0 360 640" preserveAspectRatio="xMidYMid slice">
+    <svg width="100%" height="100%" viewBox="0 0 390 844" preserveAspectRatio="xMidYMid slice">
       <defs>
-        <linearGradient id={`gc${s}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor={g1} />
-          <stop offset="50%" stopColor={g2} />
-          <stop offset="100%" stopColor={g3} />
+        <linearGradient id={`surface-${safeId}`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor={a} />
+          <stop offset="48%" stopColor={b} />
+          <stop offset="100%" stopColor={c} />
         </linearGradient>
-        <linearGradient id={`go${s}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="transparent" />
-          <stop offset="100%" stopColor="rgba(0,0,0,0.75)" />
-        </linearGradient>
+        <radialGradient id={`grain-${safeId}`} cx="50%" cy="36%" r="65%">
+          <stop offset="0%" stopColor="rgba(255,255,255,0.14)" />
+          <stop offset="58%" stopColor="rgba(255,255,255,0.02)" />
+          <stop offset="100%" stopColor="rgba(0,0,0,0.36)" />
+        </radialGradient>
       </defs>
-      <rect width={360} height={640} fill={`url(#gc${s})`} />
-      <rect width={360} height={640} fill={`url(#go${s})`} />
-      <ellipse cx={180} cy={240} rx={55} ry={75} fill="rgba(255,255,255,0.04)" />
-      <text x={16} y={20} fontFamily="JetBrains Mono" fontSize={8} fill="rgba(255,255,255,0.3)">
-        r2://{channel}/{id}
-      </text>
+      <rect width="390" height="844" fill={`url(#surface-${safeId})`} />
+      <rect width="390" height="844" fill={`url(#grain-${safeId})`} />
+      <path d="M78 594 C128 544 184 534 242 558 C284 576 318 616 334 684" fill="none" stroke="rgba(255,255,255,0.045)" strokeWidth="2" />
+      <circle cx="292" cy="188" r="118" fill="rgba(255,255,255,0.026)" />
+      <circle cx="305" cy="176" r="52" fill="rgba(0,0,0,0.10)" />
     </svg>
   );
 }
@@ -77,24 +90,16 @@ function Card({ clip, stackIndex, clipIndex, onApprove, onReject, onDetail }: Ca
   const moved = useRef(false);
   const active = useRef(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const ovLeftRef = useRef<HTMLDivElement>(null);
-  const ovRightRef = useRef<HTMLDivElement>(null);
-  const THRESHOLD = 100;
-
+  const approveRef = useRef<HTMLDivElement>(null);
+  const rejectRef = useRef<HTMLDivElement>(null);
+  const threshold = 92;
   const isTop = stackIndex === 0;
 
-  const tag = clip.decision === "approve_queue"
-    ? "APPROVE QUEUE"
-    : clip.decision.replace(/_/g, " ").toUpperCase();
-
   useEffect(() => {
-    if (isTop && videoRef.current) {
-      videoRef.current.play().catch(() => {});
-    }
+    if (isTop && videoRef.current) videoRef.current.play().catch(() => {});
   }, [isTop]);
 
-  const getX = (e: MouseEvent | TouchEvent) =>
-    "touches" in e ? e.touches[0].clientX : e.clientX;
+  const getX = (e: MouseEvent | TouchEvent) => "touches" in e ? e.touches[0].clientX : e.clientX;
 
   const onStart = useCallback((e: MouseEvent | TouchEvent) => {
     if (!isTop) return;
@@ -102,40 +107,48 @@ function Card({ clip, stackIndex, clipIndex, onApprove, onReject, onDetail }: Ca
     currentX.current = 0;
     moved.current = false;
     active.current = true;
-    cardRef.current?.classList.add("dragging");
   }, [isTop]);
 
   const onMove = useCallback((e: MouseEvent | TouchEvent) => {
     if (!active.current || !isTop) return;
     currentX.current = getX(e) - startX.current;
     if (Math.abs(currentX.current) > 5) moved.current = true;
+
     const el = cardRef.current;
     if (!el) return;
-    el.style.transform = `translateX(${currentX.current}px) rotate(${currentX.current / 18}deg) scale(1)`;
-    if (ovLeftRef.current) ovLeftRef.current.style.opacity = String(Math.max(0, Math.min(1, currentX.current / THRESHOLD)));
-    if (ovRightRef.current) ovRightRef.current.style.opacity = String(Math.max(0, Math.min(1, -currentX.current / THRESHOLD)));
+    el.style.transform = `translateX(${currentX.current}px) rotate(${currentX.current / 32}deg)`;
+
+    const approveOpacity = Math.max(0, Math.min(1, currentX.current / threshold));
+    const rejectOpacity = Math.max(0, Math.min(1, -currentX.current / threshold));
+    if (approveRef.current) approveRef.current.style.opacity = String(approveOpacity);
+    if (rejectRef.current) rejectRef.current.style.opacity = String(rejectOpacity);
     (e as Event).preventDefault();
   }, [isTop]);
+
+  const resetCard = () => {
+    if (cardRef.current) cardRef.current.style.transform = "";
+    if (approveRef.current) approveRef.current.style.opacity = "0";
+    if (rejectRef.current) rejectRef.current.style.opacity = "0";
+  };
 
   const onEnd = useCallback(() => {
     if (!active.current || !isTop) return;
     active.current = false;
-    cardRef.current?.classList.remove("dragging");
+
     if (!moved.current) {
-      if (cardRef.current) cardRef.current.style.transform = "";
+      resetCard();
       onDetail(clip);
       return;
     }
-    if (currentX.current > THRESHOLD) {
-      if (cardRef.current) cardRef.current.style.transform = "translateX(120%) rotate(30deg)";
-      setTimeout(() => onApprove(clip), 320);
-    } else if (currentX.current < -THRESHOLD) {
-      if (cardRef.current) cardRef.current.style.transform = "translateX(-120%) rotate(-30deg)";
-      setTimeout(() => onReject(clip), 320);
+
+    if (currentX.current > threshold) {
+      if (cardRef.current) cardRef.current.style.transform = "translateX(112%) rotate(8deg)";
+      setTimeout(() => onApprove(clip), 260);
+    } else if (currentX.current < -threshold) {
+      if (cardRef.current) cardRef.current.style.transform = "translateX(-112%) rotate(-8deg)";
+      setTimeout(() => onReject(clip), 260);
     } else {
-      if (cardRef.current) cardRef.current.style.transform = "";
-      if (ovLeftRef.current) ovLeftRef.current.style.opacity = "0";
-      if (ovRightRef.current) ovRightRef.current.style.opacity = "0";
+      resetCard();
     }
   }, [isTop, clip, onApprove, onReject, onDetail]);
 
@@ -143,6 +156,7 @@ function Card({ clip, stackIndex, clipIndex, onApprove, onReject, onDetail }: Ca
     if (!isTop) return;
     const el = cardRef.current;
     if (!el) return;
+
     el.addEventListener("mousedown", onStart as EventListener);
     el.addEventListener("mousemove", onMove as EventListener);
     el.addEventListener("mouseup", onEnd);
@@ -150,6 +164,7 @@ function Card({ clip, stackIndex, clipIndex, onApprove, onReject, onDetail }: Ca
     el.addEventListener("touchstart", onStart as EventListener, { passive: false });
     el.addEventListener("touchmove", onMove as EventListener, { passive: false });
     el.addEventListener("touchend", onEnd);
+
     return () => {
       el.removeEventListener("mousedown", onStart as EventListener);
       el.removeEventListener("mousemove", onMove as EventListener);
@@ -163,63 +178,104 @@ function Card({ clip, stackIndex, clipIndex, onApprove, onReject, onDetail }: Ca
 
   return (
     <div ref={cardRef} style={{
-      position: "absolute", inset: 0,
-      borderRadius: 16, overflow: "hidden",
-      background: "var(--bg2)",
+      position: "absolute",
+      inset: stackIndex === 0 ? 0 : `${stackIndex * 8}px ${stackIndex * 5}px 0`,
+      borderRadius: 30,
+      overflow: "hidden",
+      background: "#10100f",
       cursor: isTop ? "grab" : "default",
       userSelect: "none",
-      transition: "transform 0.32s cubic-bezier(.25,.46,.45,.94), box-shadow 0.32s",
       touchAction: "none",
-      boxShadow: "0 8px 40px rgba(0,0,0,0.6)",
-      transform: `scale(${1 - stackIndex * 0.035}) translateY(${stackIndex * 14}px)`,
+      transition: "transform 0.28s cubic-bezier(.22,.61,.36,1), opacity 0.28s ease",
+      transform: `scale(${1 - stackIndex * 0.028}) translateY(${stackIndex * 12}px)`,
+      opacity: 1 - stackIndex * 0.16,
       zIndex: 10 - stackIndex,
+      boxShadow: stackIndex === 0 ? "0 28px 90px rgba(0,0,0,0.48)" : "none",
     }}>
-      {/* Media */}
-      <div style={{ position: "absolute", inset: 0, background: "#000" }}>
+      <div style={{ position: "absolute", inset: 0, background: "#050505" }}>
         {isTop && clip.cdn_url ? (
-          <video ref={videoRef} src={clip.cdn_url} loop muted playsInline
-            style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+          <video ref={videoRef} src={clip.cdn_url} loop muted playsInline style={{
+            position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+          }} />
         ) : (
-          <PlaceholderSVG id={clip.id} channel={clip.channel} gi={clipIndex} />
+          <PlaceholderMedia id={clip.id} gi={clipIndex} />
         )}
       </div>
 
-      {/* Overlays */}
-      <div ref={ovLeftRef} style={{
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom,rgba(0,0,0,0.40) 0%,rgba(0,0,0,0.02) 34%,rgba(0,0,0,0.08) 58%,rgba(0,0,0,0.82) 100%)", pointerEvents: "none" }} />
+
+      <div ref={approveRef} style={{
         position: "absolute", inset: 0, pointerEvents: "none", opacity: 0,
-        background: "linear-gradient(to right,rgba(57,255,20,0.3),transparent)",
-        display: "flex", alignItems: "center", justifyContent: "flex-start", paddingLeft: 24,
+        background: "rgba(232,226,214,0.10)",
+        display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        <div style={{ border: "3px solid var(--approve)", borderRadius: 8, padding: "6px 18px", transform: "rotate(-12deg)" }}>
-          <span style={{ fontFamily: "Bebas Neue", fontSize: 48, color: "var(--approve)", letterSpacing: 2 }}>POST</span>
-        </div>
+        <span style={{ color: UI.ink, fontSize: 15, fontWeight: 500, letterSpacing: 0.2 }}>approve</span>
       </div>
-      <div ref={ovRightRef} style={{
+      <div ref={rejectRef} style={{
         position: "absolute", inset: 0, pointerEvents: "none", opacity: 0,
-        background: "linear-gradient(to left,rgba(255,59,48,0.3),transparent)",
-        display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 24,
+        background: "rgba(0,0,0,0.22)",
+        display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        <div style={{ border: "3px solid var(--reject)", borderRadius: 8, padding: "6px 18px", transform: "rotate(12deg)" }}>
-          <span style={{ fontFamily: "Bebas Neue", fontSize: 48, color: "var(--reject)", letterSpacing: 2 }}>SKIP</span>
-        </div>
+        <span style={{ color: UI.muted, fontSize: 15, fontWeight: 500, letterSpacing: 0.2 }}>skip</span>
       </div>
 
-      {/* Bottom info */}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0,
-        background: "linear-gradient(to top,rgba(0,0,0,0.92) 0%,transparent 100%)",
-        padding: "56px 18px 18px",
-      }}>
-        <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
-          <div>
-            <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "rgba(255,255,255,0.5)", marginBottom: 4, letterSpacing: 1 }}>{tag}</div>
-            <div style={{ fontSize: 14, fontWeight: 600, color: "#fff", lineHeight: 1.3, maxWidth: "82%" }}>{clip.hook || "—"}</div>
+      <div style={{ position: "absolute", left: 22, right: 22, bottom: 128, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
+          <div style={{ color: UI.muted, fontSize: 12, fontWeight: 500, letterSpacing: 0.2 }}>
+            {clip.channel || "rb"} / {timeLabel(clip.created_at)}
           </div>
-          <ScoreRingSVG score={clip.score} size={50} />
+          <ScoreBadge score={clip.score} />
         </div>
-        <div style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "rgba(255,255,255,0.3)", marginTop: 6 }}>
-          {clip.id} · {clip.duration || "—"} · score {clip.score}
+        <div style={{ color: UI.ink, fontSize: 22, lineHeight: 1.08, letterSpacing: -0.7, fontWeight: 600, maxWidth: "92%" }}>
+          {clip.hook || "Review this cut."}
         </div>
+        <div style={{ color: UI.faint, fontSize: 12, lineHeight: 1.35, maxWidth: "86%" }}>
+          {clip.duration ? `${clip.duration} cut` : "clip ready"} / score {clip.score}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BottomActions({ clips, onApprove, onReject }: { clips: Clip[]; onApprove: (clip: Clip) => void; onReject: (clip: Clip) => void }) {
+  const current = clips[0];
+
+  return (
+    <div style={{
+      position: "absolute",
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 30,
+      padding: "18px 20px calc(var(--sab) + 18px)",
+      background: "linear-gradient(to top,rgba(5,5,5,0.96) 0%,rgba(5,5,5,0.76) 62%,transparent 100%)",
+      display: "flex",
+      flexDirection: "column",
+      gap: 14,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", color: UI.faint, fontSize: 12 }}>
+        <span>{clips.length === 0 ? "queue clear" : `${clips.length} waiting`}</span>
+        <span>tap card for detail</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <button disabled={!current} onClick={() => current && onReject(current)} style={{
+          height: 52,
+          borderRadius: 18,
+          border: `1px solid ${UI.hairline}`,
+          background: "rgba(255,255,255,0.035)",
+          color: UI.reject,
+          fontSize: 15,
+          fontWeight: 500,
+        }}>skip</button>
+        <button disabled={!current} onClick={() => current && onApprove(current)} style={{
+          height: 52,
+          borderRadius: 18,
+          border: "1px solid rgba(232,226,214,0.32)",
+          background: "rgba(232,226,214,0.12)",
+          color: UI.approve,
+          fontSize: 15,
+          fontWeight: 600,
+        }}>approve</button>
       </div>
     </div>
   );
@@ -231,13 +287,10 @@ export default function Dashboard() {
   const [auth, setAuth] = useState({ username: "", channel: "" });
   const [loading, setLoading] = useState(true);
   const [lastAction, setLastAction] = useState<{ id: string; action: string } | null>(null);
-  const [theme, setTheme] = useState("dark");
   const lastActionTimer = useRef<ReturnType<typeof setTimeout>>();
 
   useEffect(() => {
-    const saved = typeof window !== "undefined" ? localStorage.getItem("rb_theme") || "dark" : "dark";
-    setTheme(saved);
-    document.documentElement.setAttribute("data-theme", saved);
+    document.documentElement.setAttribute("data-theme", "dark");
   }, []);
 
   useEffect(() => {
@@ -260,22 +313,15 @@ export default function Dashboard() {
     })();
   }, [router]);
 
-  const toggleTheme = () => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
-    if (typeof window !== "undefined") localStorage.setItem("rb_theme", next);
-  };
-
   const showLastAction = (id: string, action: string) => {
     setLastAction({ id, action });
     clearTimeout(lastActionTimer.current);
-    lastActionTimer.current = setTimeout(() => setLastAction(null), 3000);
+    lastActionTimer.current = setTimeout(() => setLastAction(null), 2600);
   };
 
   const handleApprove = useCallback((clip: Clip) => {
     setClips(prev => prev.filter(c => c.id !== clip.id));
-    showLastAction(clip.id, "approve");
+    showLastAction(clip.id, "approved");
     fetch("/api/approval", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -285,7 +331,7 @@ export default function Dashboard() {
 
   const handleReject = useCallback((clip: Clip) => {
     setClips(prev => prev.filter(c => c.id !== clip.id));
-    showLastAction(clip.id, "reject");
+    showLastAction(clip.id, "skipped");
     fetch("/api/approval", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -295,117 +341,72 @@ export default function Dashboard() {
 
   const handleDetail = useCallback((clip: Clip) => {
     const p = new URLSearchParams({
-      id: clip.id, channel: clip.channel,
-      url: clip.cdn_url || "", score: String(clip.score),
-      decision: clip.decision, hook: clip.hook || "",
-      kw: String(clip.kw), fit: String(clip.fit),
-      dur: String(clip.dur_score), tx: String(clip.tx), dup: String(clip.dup),
+      id: clip.id,
+      channel: clip.channel,
+      url: clip.cdn_url || "",
+      score: String(clip.score),
+      decision: clip.decision,
+      hook: clip.hook || "",
+      kw: String(clip.kw),
+      fit: String(clip.fit),
+      dur: String(clip.dur_score),
+      tx: String(clip.tx),
+      dup: String(clip.dup),
     });
     router.push("/clip?" + p.toString());
   }, [router]);
 
-  const pipeStep = Math.min(6, Math.max(3, 8 - clips.length));
   const visible = clips.slice(0, 3);
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: "#000", display: "flex", flexDirection: "column" }}>
-      {/* Stack area */}
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{
-          position: "relative",
-          width: "100%",
-          maxWidth: "min(100vw, calc(100dvh * 9 / 16))",
-          height: "100%",
-          maxHeight: "min(100dvh, calc(100vw * 16 / 9))",
-        }}>
+    <div style={{ position: "fixed", inset: 0, background: UI.bg, color: UI.ink, overflow: "hidden", fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
+      <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 50% -12%,rgba(255,255,255,0.07),transparent 34%),#050505" }} />
+
+      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 max(var(--sal), 0px)" }}>
+        <div style={{ position: "relative", width: "100%", maxWidth: "min(100vw, calc(100dvh * 9 / 16))", height: "100dvh", maxHeight: "min(100dvh, calc(100vw * 16 / 9))" }}>
           {loading && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <span style={{ fontFamily: "JetBrains Mono", fontSize: 12, color: "rgba(255,255,255,0.4)", letterSpacing: 2 }}>LOADING…</span>
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: UI.muted, fontSize: 14 }}>
+              Loading the room
             </div>
           )}
+
           {!loading && clips.length === 0 && (
-            <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-              <div style={{ fontFamily: "Bebas Neue", fontSize: 64, color: "var(--accent)", letterSpacing: 2 }}>ALL CLEAR</div>
-              <div style={{ fontFamily: "JetBrains Mono", fontSize: 11, color: "rgba(255,255,255,0.4)", letterSpacing: 1 }}>queue empty · good work</div>
+            <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 28 }}>
+              <div style={{ textAlign: "center", maxWidth: 260 }}>
+                <div style={{ fontSize: 30, lineHeight: 1, letterSpacing: -0.9, fontWeight: 600, marginBottom: 12 }}>Caught up.</div>
+                <div style={{ color: UI.muted, fontSize: 14, lineHeight: 1.5 }}>No clips are waiting for review.</div>
+              </div>
             </div>
           )}
+
           {visible.slice().reverse().map((clip, ri) => {
-            const si = visible.length - 1 - ri;
+            const stackIndex = visible.length - 1 - ri;
             return (
-              <Card key={clip.id} clip={clip} stackIndex={si}
-                clipIndex={clips.indexOf(clip)}
-                onApprove={handleApprove} onReject={handleReject} onDetail={handleDetail} />
+              <Card key={clip.id} clip={clip} stackIndex={stackIndex} clipIndex={clips.indexOf(clip)} onApprove={handleApprove} onReject={handleReject} onDetail={handleDetail} />
             );
           })}
         </div>
       </div>
 
-      {/* Top chrome */}
-      <div style={{
-        position: "absolute", top: 0, left: 0, right: 0, zIndex: 30,
-        padding: "calc(var(--sat) + 10px) 16px 24px",
-        background: "linear-gradient(to bottom,rgba(0,0,0,0.75) 0%,transparent 100%)",
-        display: "flex", alignItems: "center", gap: 10, pointerEvents: "none",
-      }}>
-        <div style={{ pointerEvents: "auto", fontFamily: "Bebas Neue", fontSize: 28, lineHeight: 1, letterSpacing: 1, color: "#fff", flex: 1 }}>
-          {auth.channel.toUpperCase() || "HQ"}<span style={{ color: "var(--accent)" }}>.</span>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 30, padding: "calc(var(--sat) + 16px) 20px 42px", background: "linear-gradient(to bottom,rgba(5,5,5,0.92),rgba(5,5,5,0.45) 56%,transparent)", pointerEvents: "none" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+          <div>
+            <div style={{ color: UI.ink, fontSize: 15, fontWeight: 600, letterSpacing: -0.25 }}>RBHQ</div>
+            <div style={{ color: UI.faint, fontSize: 12, marginTop: 4 }}>{auth.channel || "review"}</div>
+          </div>
+          <div style={{ textAlign: "right", color: UI.faint, fontSize: 12, lineHeight: 1.35 }}>
+            <div>{auth.username || "operator"}</div>
+            <div>{clips.length} in queue</div>
+          </div>
         </div>
         {lastAction && (
-          <div style={{
-            pointerEvents: "auto",
-            fontFamily: "JetBrains Mono", fontSize: 9, padding: "3px 10px", borderRadius: 999,
-            background: lastAction.action === "approve" ? "rgba(57,255,20,0.2)" : "rgba(255,59,48,0.18)",
-            color: lastAction.action === "approve" ? "#39ff14" : "#ff3b30",
-            border: `1px solid ${lastAction.action === "approve" ? "rgba(57,255,20,0.4)" : "rgba(255,59,48,0.35)"}`,
-          }}>
-            {lastAction.action === "approve" ? "✓ POST" : "✕ SKIP"} {lastAction.id}
+          <div style={{ marginTop: 16, display: "inline-flex", border: `1px solid ${UI.hairline}`, borderRadius: 999, padding: "7px 11px", background: "rgba(8,8,8,0.48)", color: UI.muted, fontSize: 12, backdropFilter: "blur(12px)" }}>
+            {lastAction.action} / {lastAction.id.slice(0, 8)}
           </div>
         )}
-        <div style={{ pointerEvents: "auto", width: 32, height: 32, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <span style={{ fontFamily: "Bebas Neue", fontSize: 18, color: "var(--accent-fg)", lineHeight: 1 }}>
-            {(auth.username[0] || "?").toUpperCase()}
-          </span>
-        </div>
-        <div style={{ pointerEvents: "auto" }}><NotificationBell /></div>
-        <button onClick={toggleTheme} style={{
-          pointerEvents: "auto",
-          background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.2)",
-          borderRadius: 999, color: "rgba(255,255,255,0.7)",
-          fontFamily: "JetBrains Mono", fontSize: 9, padding: "3px 8px", cursor: "pointer",
-        }}>
-          {theme === "dark" ? "☀" : "☾"}
-        </button>
       </div>
 
-      {/* Bottom chrome */}
-      <div style={{
-        position: "absolute", bottom: 0, left: 0, right: 0, zIndex: 30,
-        padding: "24px 20px calc(var(--sab) + 72px)",
-        background: "linear-gradient(to top,rgba(0,0,0,0.85) 0%,transparent 100%)",
-        pointerEvents: "none",
-      }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <span style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "rgba(255,59,48,0.8)", letterSpacing: 1 }}>← SKIP</span>
-          <span style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "rgba(255,255,255,0.3)", letterSpacing: 1 }}>
-            {clips.length === 0 ? "queue empty" : `${clips.length} in queue`}
-          </span>
-          <span style={{ fontFamily: "JetBrains Mono", fontSize: 9, color: "rgba(57,255,20,0.8)", letterSpacing: 1 }}>POST →</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "rgba(255,255,255,0.3)", letterSpacing: 1 }}>PIPE</span>
-          <div style={{ flex: 1, display: "flex", gap: 2 }}>
-            {PIPELINE.map((seg, i) => (
-              <div key={seg} title={seg} style={{
-                flex: 1, height: 3, borderRadius: 2,
-                background: i < pipeStep ? "var(--accent)" : i === pipeStep ? "rgba(57,255,20,0.35)" : "rgba(255,255,255,0.15)",
-              }} />
-            ))}
-          </div>
-          <span style={{ fontFamily: "JetBrains Mono", fontSize: 8, color: "rgba(255,255,255,0.3)" }}>{pipeStep}/8</span>
-        </div>
-      </div>
-
-      <BottomNav />
+      <BottomActions clips={clips} onApprove={handleApprove} onReject={handleReject} />
     </div>
   );
 }
