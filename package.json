@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run build:frontend && npm run build:worker",
+    "build:frontend": "next build",
+    "build:worker": "tsc -p tsconfig.worker.json --noEmit --pretty false",
     "start": "next start"
   },
   "dependencies": {

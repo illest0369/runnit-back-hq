@@ -23,8 +23,5 @@ export const config = {
     "/queue",
     "/publish",
     "/performance",
-    // Keep legacy HTML routes protected too
-    "/dashboard.html",
-    "/clip.html",
   ],
 };
