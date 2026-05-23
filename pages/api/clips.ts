@@ -25,6 +25,9 @@ export interface Clip {
 }
 
 const SKIP_STATUSES = ["rejected", "REJECTED", "failed", "FAILED", "posted", "EXECUTED"];
+const SELECT_COLUMNS =
+  "id, status, video_url, source_video_url, thumbnail_url, hook, caption, score, " +
+  "brand_fit, watchability, created_at, start_time, end_time";
 
 function statusToDecision(status: string): string {
   if (["approved", "APPROVED_BY_HUMAN", "sent_to_buffer", "ready_to_post"].includes(status)) return "approve_queue";
@@ -32,11 +35,32 @@ function statusToDecision(status: string): string {
   return "hold";
 }
 
+type StatusRow = { id: string; status: string | null; channel_id?: string | null; created_at?: string | null };
+
+function summarizeStatuses(rows: StatusRow[]) {
+  return rows.reduce<Record<string, number>>((acc, row) => {
+    const status = row.status ?? "NULL";
+    acc[status] = (acc[status] ?? 0) + 1;
+    return acc;
+  }, {});
+}
+
+function sampleRows(rows: StatusRow[]) {
+  return rows.slice(0, 10).map(row => ({
+    id: row.id,
+    status: row.status,
+    channel_id: row.channel_id,
+    created_at: row.created_at,
+  }));
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
   const session = getSession(req);
   if (!session) return res.status(401).json({ error: "Not authenticated" });
+
+  const debug = req.query.debug === "1";
 
   // Resolve channel_id: prefer session value, fall back to Supabase lookup
   let channelId = session.channel_id ?? null;
@@ -50,7 +74,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     channelId = data?.id ?? null;
   }
 
-  if (!channelId) return res.status(200).json({ clips: [] });
+  const filtersApplied = {
+    table: "posts",
+    select: SELECT_COLUMNS,
+    channel_id: channelId,
+    excludedStatuses: SKIP_STATUSES,
+    order: "score.desc",
+    limit: 100,
+    scoreThreshold: null,
+    createdAtWindow: null,
+    approvedFlag: null,
+  };
+
+  if (!channelId) {
+    if (debug) {
+      return res.status(200).json({
+        clipsCount: 0,
+        channelId,
+        authenticatedUser: { username: session.username, channel: session.channel },
+        filtersApplied,
+        counts: { allChannelsSample: null, channelRows: 0, afterStatusExclusion: 0, finalRows: 0 },
+        statuses: { beforeStatusExclusion: {}, afterStatusExclusion: {} },
+        sampleRows: [],
+      });
+    }
+    return res.status(200).json({ clips: [] });
+  }
 
   type PostRow = {
     id: string; status: string; video_url: string | null; source_video_url: string | null;
@@ -60,16 +109,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     start_time: string | number | null; end_time: string | number | null;
   };
 
-  const { data: rawPosts, error } = await supabase
+  const baseQuery = supabase
     .from("posts")
-    .select(
-      "id, status, video_url, source_video_url, thumbnail_url, hook, caption, score, " +
-      "brand_fit, watchability, created_at, start_time, end_time"
-    )
+    .select(SELECT_COLUMNS)
     .eq("channel_id", channelId)
     .not("status", "in", `(${SKIP_STATUSES.join(",")})`)
     .order("score", { ascending: false })
     .limit(100);
+
+  const { data: rawPosts, error } = await baseQuery;
 
   if (error) {
     return res.status(500).json({ error: "Failed to fetch clips", detail: error.message, table: "posts" });
@@ -114,6 +162,61 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const bQ = b.decision === "approve_queue" ? 0 : 1;
     return aQ !== bQ ? aQ - bQ : b.score - a.score;
   });
+
+  if (debug) {
+    const [channelCountResult, filteredCountResult, statusRowsResult, filteredStatusRowsResult] = await Promise.all([
+      supabase
+        .from("posts")
+        .select("id", { count: "exact", head: true })
+        .eq("channel_id", channelId),
+      supabase
+        .from("posts")
+        .select("id", { count: "exact", head: true })
+        .eq("channel_id", channelId)
+        .not("status", "in", `(${SKIP_STATUSES.join(",")})`),
+      supabase
+        .from("posts")
+        .select("id, status, channel_id, created_at")
+        .eq("channel_id", channelId)
+        .order("created_at", { ascending: false })
+        .limit(200),
+      supabase
+        .from("posts")
+        .select("id, status, channel_id, created_at")
+        .eq("channel_id", channelId)
+        .not("status", "in", `(${SKIP_STATUSES.join(",")})`)
+        .order("created_at", { ascending: false })
+        .limit(200),
+    ]);
+
+    const statusRows = ((statusRowsResult.data ?? []) as unknown as StatusRow[]);
+    const filteredStatusRows = ((filteredStatusRowsResult.data ?? []) as unknown as StatusRow[]);
+    const debugPayload = {
+      clipsCount: clips.length,
+      channelId,
+      authenticatedUser: { username: session.username, channel: session.channel },
+      filtersApplied,
+      counts: {
+        channelRows: channelCountResult.count ?? null,
+        afterStatusExclusion: filteredCountResult.count ?? null,
+        finalRows: posts.length,
+      },
+      statuses: {
+        beforeStatusExclusion: summarizeStatuses(statusRows),
+        afterStatusExclusion: summarizeStatuses(filteredStatusRows),
+      },
+      sampleRows: sampleRows(filteredStatusRows),
+      errors: {
+        channelCount: channelCountResult.error?.message ?? null,
+        filteredCount: filteredCountResult.error?.message ?? null,
+        statusRows: statusRowsResult.error?.message ?? null,
+        filteredStatusRows: filteredStatusRowsResult.error?.message ?? null,
+      },
+    };
+
+    console.info("RBHQ_CLIPS_DEBUG", debugPayload);
+    return res.status(200).json(debugPayload);
+  }
 
   return res.status(200).json({ clips });
 }
