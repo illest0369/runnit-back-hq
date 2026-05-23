@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase, HANDLE_TO_CHANNEL } from "@/lib/supabase";
+import { getSupabaseClient, getSupabaseConfigStatus, HANDLE_TO_CHANNEL } from "@/lib/supabase";
 import { encodeSession, SESSION_COOKIE } from "@/lib/session";
 
 // Server-side passwords stay hardcoded; Supabase is used for user_id + channel_id lookup
@@ -37,6 +37,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!expectedPwd || expectedPwd !== password) {
     return res.status(401).json({ error: "Invalid username or password" });
   }
+
+  const supabaseConfig = getSupabaseConfigStatus();
+  if (!supabaseConfig.configured) {
+    return res.status(503).json({
+      error: "Server configuration error",
+      missing: supabaseConfig.missing,
+    });
+  }
+
+  const supabase = getSupabaseClient();
 
   // Look up user + primary channel from Supabase
   const { data: user } = await supabase
