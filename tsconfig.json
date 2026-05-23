@@ -19,10 +19,6 @@
   "include": [
     "next-env.d.ts",
     "middleware.ts",
-    "components/**/*.ts",
-    "components/**/*.tsx",
-    "config/**/*.ts",
-    "lib/**/*.ts",
     "pages/**/*.ts",
     "pages/**/*.tsx",
     ".next/types/**/*.ts"
