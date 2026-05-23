@@ -56,8 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     id: string; status: string; video_url: string | null; source_video_url: string | null;
     thumbnail_url: string | null; hook: string | null; caption: string | null;
     score: string | number | null; brand_fit: string | number | null;
-    watchability: string | number | null; views: number | null; likes: number | null;
-    shares: number | null; created_at: string | null;
+    watchability: string | number | null; created_at: string | null;
     start_time: string | number | null; end_time: string | number | null;
   };
 
@@ -65,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .from("posts")
     .select(
       "id, status, video_url, source_video_url, thumbnail_url, hook, caption, score, " +
-      "brand_fit, watchability, views, likes, shares, created_at, start_time, end_time"
+      "brand_fit, watchability, created_at, start_time, end_time"
     )
     .eq("channel_id", channelId)
     .not("status", "in", `(${SKIP_STATUSES.join(",")})`)
@@ -73,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     .limit(100);
 
   if (error) {
-    return res.status(500).json({ error: "Failed to fetch clips", detail: error.message });
+    return res.status(500).json({ error: "Failed to fetch clips", detail: error.message, table: "posts" });
   }
 
   const posts = (rawPosts ?? []) as unknown as PostRow[];
@@ -102,9 +101,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       dur_score: diffSecs >= 30 && diffSecs <= 180 ? 0.9 : 0.5,
       tx: 0.5,
       dup: 0,
-      views: p.views ?? 0,
-      likes: p.likes ?? 0,
-      shares: p.shares ?? 0,
+      views: 0,
+      likes: 0,
+      shares: 0,
       created_at: p.created_at ? Math.floor(new Date(p.created_at).getTime() / 1000) : 0,
     };
   });

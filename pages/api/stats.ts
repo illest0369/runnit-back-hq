@@ -24,11 +24,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
-  const { data: posts } = await supabase
+  const { data: posts, error } = await supabase
     .from("posts")
-    .select("id, status, score, views, likes, shares, comments, created_at, video_url, thumbnail_url, hook, caption")
+    .select("id, status, score, created_at, video_url, thumbnail_url, hook, caption")
     .eq("channel_id", channelId)
     .order("created_at", { ascending: true });
+
+  if (error) {
+    return res.status(500).json({ error: "Failed to fetch stats", detail: error.message, table: "posts" });
+  }
 
   const all = posts ?? [];
 
@@ -41,26 +45,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   ).length;
   const published = all.filter(p => ["posted", "EXECUTED", "sent_to_publish", "publishing"].includes(p.status));
 
-  const totalViews  = all.reduce((s, p) => s + (p.views  ?? 0), 0);
-  const totalLikes  = all.reduce((s, p) => s + (p.likes  ?? 0), 0);
-  const totalShares = all.reduce((s, p) => s + (p.shares ?? 0), 0);
+  const totalViews = 0;
+  const totalLikes = 0;
+  const totalShares = 0;
 
   const approvalRate  = total > 0 ? Math.round((approved / total) * 100) : 0;
   const conversionRate = totalViews > 0
     ? parseFloat((totalLikes / totalViews * 100).toFixed(1))
     : 0;
-  const avgEngagement = all.length > 0
-    ? parseFloat(
-        (all.reduce((s, p) => {
-          const v = Math.max(p.views ?? 1, 1);
-          return s + ((p.likes ?? 0) / v * 100);
-        }, 0) / all.length
-      ).toFixed(1))
-    : 0;
+  const avgEngagement = 0;
 
   const viewsByClip = all.map(p => ({
     post_id: p.id,
-    views: p.views ?? 0,
+    views: 0,
     created_at: p.created_at ? Math.floor(new Date(p.created_at).getTime() / 1000) : 0,
   }));
 
@@ -72,10 +69,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       cdn_url: p.video_url ?? "",
       thumbnail_url: p.thumbnail_url ?? null,
       hook: p.hook || p.caption || "",
-      views: p.views ?? 0,
-      likes: p.likes ?? 0,
-      shares: p.shares ?? 0,
-      comments: p.comments ?? 0,
+      views: 0,
+      likes: 0,
+      shares: 0,
+      comments: 0,
       created_at: p.created_at ? Math.floor(new Date(p.created_at).getTime() / 1000) : 0,
     }));
 
