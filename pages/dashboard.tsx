@@ -19,6 +19,16 @@ const UI = {
   reject: "rgba(243,239,231,0.52)",
 };
 
+
+function isPlayableMediaUrl(url?: string | null) {
+  if (!url) return false;
+  const normalized = url.toLowerCase();
+  if (normalized.includes("youtube.com/watch") || normalized.includes("youtu.be/")) return false;
+  if (normalized.includes("tiktok.com/")) return false;
+  if (normalized.includes("instagram.com/")) return false;
+  return normalized.startsWith("blob:") || normalized.includes(".mp4") || normalized.includes(".webm") || normalized.includes("r2.dev") || normalized.includes("cloudflare") || normalized.includes("cdn");
+}
+
 function timeLabel(ts: number) {
   if (!ts) return "just now";
   const diff = Math.max(0, Math.floor(Date.now() / 1000) - ts);
@@ -94,6 +104,7 @@ function Card({ clip, stackIndex, clipIndex, onApprove, onReject, onDetail }: Ca
   const rejectRef = useRef<HTMLDivElement>(null);
   const threshold = 92;
   const isTop = stackIndex === 0;
+  const mediaUrl = isPlayableMediaUrl(clip.cdn_url) ? clip.cdn_url : "";
 
   useEffect(() => {
     if (isTop && videoRef.current) videoRef.current.play().catch(() => {});
@@ -193,8 +204,12 @@ function Card({ clip, stackIndex, clipIndex, onApprove, onReject, onDetail }: Ca
       boxShadow: stackIndex === 0 ? "0 28px 90px rgba(0,0,0,0.48)" : "none",
     }}>
       <div style={{ position: "absolute", inset: 0, background: "#050505" }}>
-        {isTop && clip.cdn_url ? (
-          <video ref={videoRef} src={clip.cdn_url} loop muted playsInline style={{
+        {isTop && mediaUrl ? (
+          <video ref={videoRef} src={mediaUrl} loop muted playsInline style={{
+            position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
+          }} />
+        ) : clip.thumbnail_url ? (
+          <img src={clip.thumbnail_url} alt="" style={{
             position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover",
           }} />
         ) : (

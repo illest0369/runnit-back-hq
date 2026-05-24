@@ -8,6 +8,7 @@ export interface Clip {
   operator: string;
   cdn_url: string;
   thumbnail_url: string | null;
+  source_url: string;
   score: number;
   decision: string;
   reasons: string[];
@@ -25,14 +26,30 @@ export interface Clip {
 }
 
 const SKIP_STATUSES = ["rejected", "REJECTED", "failed", "FAILED", "posted", "EXECUTED"];
-const SELECT_COLUMNS =
+const BASE_SELECT_COLUMNS =
   "id, status, video_url, source_video_url, thumbnail_url, hook, caption, score, " +
+  "brand_fit, watchability, created_at, start_time, end_time";
+const MEDIA_SELECT_COLUMNS =
+  "id, status, video_url, rendered_video_url, processed_video_url, source_video_url, thumbnail_url, hook, caption, score, " +
   "brand_fit, watchability, created_at, start_time, end_time";
 
 function statusToDecision(status: string): string {
   if (["approved", "APPROVED_BY_HUMAN", "sent_to_buffer", "ready_to_post"].includes(status)) return "approve_queue";
   if (["rejected", "REJECTED"].includes(status)) return "reject";
   return "hold";
+}
+
+function isPlayableMediaUrl(url?: string | null) {
+  if (!url) return false;
+  const normalized = url.toLowerCase();
+  if (normalized.includes("youtube.com/watch") || normalized.includes("youtu.be/")) return false;
+  if (normalized.includes("tiktok.com/")) return false;
+  if (normalized.includes("instagram.com/")) return false;
+  return normalized.startsWith("blob:") || normalized.includes(".mp4") || normalized.includes(".webm") || normalized.includes("r2.dev") || normalized.includes("cloudflare") || normalized.includes("cdn");
+}
+
+function firstPlayableMediaUrl(...urls: Array<string | null | undefined>) {
+  return urls.find(isPlayableMediaUrl) ?? "";
 }
 
 type StatusRow = { id: string; status: string | null; channel_id?: string | null; created_at?: string | null };
@@ -76,7 +93,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const filtersApplied = {
     table: "posts",
-    select: SELECT_COLUMNS,
+    select: MEDIA_SELECT_COLUMNS,
     channel_id: channelId,
     excludedStatuses: SKIP_STATUSES,
     order: "score.desc",
@@ -102,22 +119,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   type PostRow = {
-    id: string; status: string; video_url: string | null; source_video_url: string | null;
-    thumbnail_url: string | null; hook: string | null; caption: string | null;
+    id: string; status: string; video_url: string | null; rendered_video_url?: string | null; processed_video_url?: string | null;
+    source_video_url: string | null; thumbnail_url: string | null; hook: string | null; caption: string | null;
     score: string | number | null; brand_fit: string | number | null;
     watchability: string | number | null; created_at: string | null;
     start_time: string | number | null; end_time: string | number | null;
   };
 
-  const baseQuery = supabase
+  const buildPostsQuery = (selectColumns: string) => supabase
     .from("posts")
-    .select(SELECT_COLUMNS)
+    .select(selectColumns)
     .eq("channel_id", channelId)
     .not("status", "in", `(${SKIP_STATUSES.join(",")})`)
     .order("score", { ascending: false })
     .limit(100);
 
-  const { data: rawPosts, error } = await baseQuery;
+  const selectAttempts = [
+    MEDIA_SELECT_COLUMNS,
+    BASE_SELECT_COLUMNS.replace("source_video_url,", "rendered_video_url, source_video_url,"),
+    BASE_SELECT_COLUMNS.replace("source_video_url,", "processed_video_url, source_video_url,"),
+    BASE_SELECT_COLUMNS,
+  ];
+  let rawPosts: unknown[] | null = null;
+  let error: { message: string } | null = null;
+  let selectUsed = selectAttempts[0];
+
+  for (const selectColumns of selectAttempts) {
+    const result = await buildPostsQuery(selectColumns);
+    rawPosts = result.data;
+    error = result.error;
+    selectUsed = selectColumns;
+    if (!error) break;
+    const optionalMediaColumnMissing = ["rendered_video_url", "processed_video_url"].some(column => error?.message.includes(column));
+    if (!optionalMediaColumnMissing) break;
+  }
+  filtersApplied.select = selectUsed;
 
   if (error) {
     return res.status(500).json({ error: "Failed to fetch clips", detail: error.message, table: "posts" });
@@ -137,8 +173,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       id: p.id,
       channel: session.channel,
       operator: session.username,
-      cdn_url: p.video_url ?? p.source_video_url ?? "",
+      cdn_url: firstPlayableMediaUrl(p.video_url, p.rendered_video_url, p.processed_video_url),
       thumbnail_url: p.thumbnail_url ?? null,
+      source_url: p.source_video_url ?? "",
       score,
       decision: statusToDecision(p.status),
       reasons: [],

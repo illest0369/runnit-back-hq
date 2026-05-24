@@ -11,6 +11,16 @@ const GRADIENTS = [
   ["#001a1a", "#003333", "#001010"],
 ];
 
+
+function isPlayableMediaUrl(url?: string | null) {
+  if (!url) return false;
+  const normalized = url.toLowerCase();
+  if (normalized.includes("youtube.com/watch") || normalized.includes("youtu.be/")) return false;
+  if (normalized.includes("tiktok.com/")) return false;
+  if (normalized.includes("instagram.com/")) return false;
+  return normalized.startsWith("blob:") || normalized.includes(".mp4") || normalized.includes(".webm") || normalized.includes("r2.dev") || normalized.includes("cloudflare") || normalized.includes("cdn");
+}
+
 function deriveReach(score: number): string {
   if (score >= 85) return "180K – 250K";
   if (score >= 70) return "120K – 180K";
@@ -77,6 +87,7 @@ export default function ClipDetail() {
   const tx = Number(q.tx) || 0;
   const dup = Number(q.dup) || 0;
 
+  const mediaUrl = isPlayableMediaUrl(url) ? url : "";
   const reach = deriveReach(score);
   const virality = deriveVirality(score);
   const potential = derivePotential(score);
@@ -125,8 +136,8 @@ export default function ClipDetail() {
     <div style={{ position: "fixed", inset: 0, background: "#000" }}>
       {/* Video / Placeholder bg */}
       <div style={{ position: "absolute", inset: 0 }}>
-        {url ? (
-          <video ref={videoRef} src={url} loop playsInline
+        {mediaUrl ? (
+          <video ref={videoRef} src={mediaUrl} loop playsInline
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
         ) : (
           <PlaceholderSVG id={id} channel={channel} />
@@ -172,7 +183,7 @@ export default function ClipDetail() {
       </div>
 
       {/* Play button */}
-      {url && (
+      {mediaUrl && (
         <button onClick={togglePlay} style={{
           position: "absolute", top: "50%", left: "50%",
           transform: "translate(-50%,-50%)",
