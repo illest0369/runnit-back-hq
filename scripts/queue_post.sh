@@ -9,6 +9,8 @@ SCORE=${5:-0}
 DECISION=${6:-approve_queue}
 REASONS=${7:-[]}
 SOURCE_VIDEO_URL=${8:-}
+OPERATOR=${9:-}
+THUMBNAIL_URL=${10:-}
 
 if [ -f ".env" ]; then
   set -a
@@ -52,12 +54,14 @@ if ! is_playable_asset_url "$VIDEO_URL"; then
   exit 1
 fi
 
-PAYLOAD=$(python3 - "$VIDEO_URL" "$CAPTION" "$CHANNEL" "$POST_ID" "$SCORE" "$DECISION" "$REASONS" "$SOURCE_VIDEO_URL" <<'PY'
+PAYLOAD=$(python3 - "$VIDEO_URL" "$CAPTION" "$CHANNEL" "$POST_ID" "$SCORE" "$DECISION" "$REASONS" "$SOURCE_VIDEO_URL" "$OPERATOR" "$THUMBNAIL_URL" <<'PY'
 import json
 import sys
 
 asset_url = sys.argv[1]
 source_url = sys.argv[8]
+operator = sys.argv[9]
+thumbnail_url = sys.argv[10]
 
 payload = {
     "video_url": asset_url,
@@ -65,8 +69,10 @@ payload = {
     "rendered_video_url": asset_url,
     "processed_video_url": asset_url,
     "source_video_url": source_url,
+    "thumbnail_url": thumbnail_url or None,
     "caption": sys.argv[2],
     "channel": sys.argv[3],
+    "operator": operator,
     "status": "pending_approval",
     "post_id": sys.argv[4],
     "score": int(sys.argv[5]),

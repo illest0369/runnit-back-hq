@@ -1,0 +1,103 @@
+{
+  "name": "RBHQ Persist Processed Clip",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "rbhq/persist-clip",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-rbhq-persist-clip",
+      "name": "RBHQ Clip Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "rbhq-persist-clip"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json.body ?? $json;\n\nfunction isPlayable(url) {\n  if (!url) return false;\n  const normalized = String(url).toLowerCase();\n  if (normalized.includes('youtube.com/watch') || normalized.includes('youtu.be/')) return false;\n  if (normalized.includes('tiktok.com/') || normalized.includes('instagram.com/')) return false;\n  if (normalized.includes('twitter.com/') || normalized.includes('x.com/')) return false;\n  return normalized.startsWith('blob:') || normalized.includes('.mp4') || normalized.includes('.webm') || normalized.includes('.mov') || normalized.includes('.m3u8') || normalized.includes('r2.dev') || normalized.includes('cloudflare') || normalized.includes('cdn');\n}\n\nconst assetUrl = input.cdn_url || input.video_url || input.rendered_video_url || input.processed_video_url;\nif (!isPlayable(assetUrl)) {\n  throw new Error(`Playable media URL required; got ${assetUrl || 'empty'}`);\n}\n\nconst channelMap = {\n  sports: 'a1000000-0000-0000-0000-000000000001',\n  arena: 'a1000000-0000-0000-0000-000000000002',\n  combat: 'a1000000-0000-0000-0000-000000000003',\n  women: 'a1000000-0000-0000-0000-000000000004',\n};\n\nconst channelId = input.channel_id || channelMap[input.channel];\nif (!channelId) throw new Error(`Unknown channel: ${input.channel}`);\n\nconst uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nconst row = {\n  channel_id: channelId,\n  status: 'queued',\n  source_video_url: input.source_video_url || null,\n  video_url: assetUrl,\n  cdn_url: assetUrl,\n  rendered_video_url: assetUrl,\n  processed_video_url: assetUrl,\n  thumbnail_url: input.thumbnail_url || null,\n  hook: input.caption || null,\n  caption: input.caption || null,\n  score: Number(input.score ?? 0),\n  updated_at: new Date().toISOString(),\n};\n\nif (input.post_id && uuidRe.test(input.post_id)) {\n  row.id = input.post_id;\n}\n\nreturn [{ json: row }];"
+      },
+      "id": "normalize-rbhq-post",
+      "name": "Normalize RBHQ Post",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.SUPABASE_URL}}/rest/v1/posts?on_conflict=id",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{$env.SUPABASE_SERVICE_ROLE_KEY}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "resolution=merge-duplicates,return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyContentType": "json",
+        "jsonBody": "={{[$json]}}",
+        "options": {}
+      },
+      "id": "upsert-supabase-post",
+      "name": "Upsert Supabase Post",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        540,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "RBHQ Clip Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize RBHQ Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize RBHQ Post": {
+      "main": [
+        [
+          {
+            "node": "Upsert Supabase Post",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "pinData": {}
+}

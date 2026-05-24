@@ -162,7 +162,7 @@ fi
 
 echo "=== QUEUE POST ==="
 CAPTION="${TITLE} | ${CHANNEL}"
-./scripts/queue_post.sh "$CDN_URL" "$CAPTION" "$CHANNEL" "$POST_ID" "$SCORE" "$DECISION" "$REASONS" "$SOURCE_VIDEO_URL"
+./scripts/queue_post.sh "$CDN_URL" "$CAPTION" "$CHANNEL" "$POST_ID" "$SCORE" "$DECISION" "$REASONS" "$SOURCE_VIDEO_URL" "$OPERATOR" ""
 
 echo "OUTPUT_FILE=$TRACKED_OUT"
 echo "$UPLOAD_OUTPUT"
