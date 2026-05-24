@@ -27,10 +27,10 @@ export interface Clip {
 
 const SKIP_STATUSES = ["rejected", "REJECTED", "failed", "FAILED", "posted", "EXECUTED"];
 const BASE_SELECT_COLUMNS =
-  "id, status, video_url, source_video_url, thumbnail_url, hook, caption, score, " +
+  "id, channel_id, status, video_url, source_video_url, thumbnail_url, hook, caption, score, " +
   "brand_fit, watchability, created_at, start_time, end_time";
 const MEDIA_SELECT_COLUMNS =
-  "id, status, video_url, rendered_video_url, processed_video_url, source_video_url, thumbnail_url, hook, caption, score, " +
+  "id, channel_id, status, video_url, rendered_video_url, processed_video_url, cdn_url, r2_url, source_video_url, thumbnail_url, hook, caption, score, " +
   "brand_fit, watchability, created_at, start_time, end_time";
 
 function statusToDecision(status: string): string {
@@ -45,14 +45,18 @@ function isPlayableMediaUrl(url?: string | null) {
   if (normalized.includes("youtube.com/watch") || normalized.includes("youtu.be/")) return false;
   if (normalized.includes("tiktok.com/")) return false;
   if (normalized.includes("instagram.com/")) return false;
-  return normalized.startsWith("blob:") || normalized.includes(".mp4") || normalized.includes(".webm") || normalized.includes("r2.dev") || normalized.includes("cloudflare") || normalized.includes("cdn");
+  if (normalized.includes("x.com/") || normalized.includes("twitter.com/")) return false;
+  return normalized.startsWith("blob:") || normalized.includes(".mp4") || normalized.includes(".webm") || normalized.includes(".mov") || normalized.includes(".m3u8") || normalized.includes("r2.dev") || normalized.includes("cloudflare") || normalized.includes("cdn");
 }
 
 function firstPlayableMediaUrl(...urls: Array<string | null | undefined>) {
   return urls.find(isPlayableMediaUrl) ?? "";
 }
 
-type StatusRow = { id: string; status: string | null; channel_id?: string | null; created_at?: string | null };
+type StatusRow = {
+  id: string; status: string | null; channel_id?: string | null; created_at?: string | null;
+  video_url?: string | null; source_video_url?: string | null; thumbnail_url?: string | null;
+};
 
 function summarizeStatuses(rows: StatusRow[]) {
   return rows.reduce<Record<string, number>>((acc, row) => {
@@ -68,6 +72,9 @@ function sampleRows(rows: StatusRow[]) {
     status: row.status,
     channel_id: row.channel_id,
     created_at: row.created_at,
+    video_url: row.video_url ?? null,
+    source_video_url: row.source_video_url ?? null,
+    thumbnail_url: row.thumbnail_url ?? null,
   }));
 }
 
@@ -119,8 +126,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   type PostRow = {
-    id: string; status: string; video_url: string | null; rendered_video_url?: string | null; processed_video_url?: string | null;
-    source_video_url: string | null; thumbnail_url: string | null; hook: string | null; caption: string | null;
+    id: string; channel_id?: string | null; status: string; video_url: string | null; rendered_video_url?: string | null; processed_video_url?: string | null;
+    cdn_url?: string | null; r2_url?: string | null; source_video_url: string | null; thumbnail_url: string | null; hook: string | null; caption: string | null;
     score: string | number | null; brand_fit: string | number | null;
     watchability: string | number | null; created_at: string | null;
     start_time: string | number | null; end_time: string | number | null;
@@ -138,6 +145,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     MEDIA_SELECT_COLUMNS,
     BASE_SELECT_COLUMNS.replace("source_video_url,", "rendered_video_url, source_video_url,"),
     BASE_SELECT_COLUMNS.replace("source_video_url,", "processed_video_url, source_video_url,"),
+    BASE_SELECT_COLUMNS.replace("source_video_url,", "cdn_url, source_video_url,"),
+    BASE_SELECT_COLUMNS.replace("source_video_url,", "r2_url, source_video_url,"),
     BASE_SELECT_COLUMNS,
   ];
   let rawPosts: unknown[] | null = null;
@@ -150,7 +159,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     error = result.error;
     selectUsed = selectColumns;
     if (!error) break;
-    const optionalMediaColumnMissing = ["rendered_video_url", "processed_video_url"].some(column => error?.message.includes(column));
+    const optionalMediaColumnMissing = ["rendered_video_url", "processed_video_url", "cdn_url", "r2_url"].some(column => error?.message.includes(column));
     if (!optionalMediaColumnMissing) break;
   }
   filtersApplied.select = selectUsed;
@@ -173,7 +182,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       id: p.id,
       channel: session.channel,
       operator: session.username,
-      cdn_url: firstPlayableMediaUrl(p.video_url, p.rendered_video_url, p.processed_video_url),
+      cdn_url: firstPlayableMediaUrl(p.video_url, p.rendered_video_url, p.processed_video_url, p.cdn_url, p.r2_url),
       thumbnail_url: p.thumbnail_url ?? null,
       source_url: p.source_video_url ?? "",
       score,
@@ -213,13 +222,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .not("status", "in", `(${SKIP_STATUSES.join(",")})`),
       supabase
         .from("posts")
-        .select("id, status, channel_id, created_at")
+        .select("id, status, channel_id, created_at, video_url, source_video_url, thumbnail_url")
         .eq("channel_id", channelId)
         .order("created_at", { ascending: false })
         .limit(200),
       supabase
         .from("posts")
-        .select("id, status, channel_id, created_at")
+        .select("id, status, channel_id, created_at, video_url, source_video_url, thumbnail_url")
         .eq("channel_id", channelId)
         .not("status", "in", `(${SKIP_STATUSES.join(",")})`)
         .order("created_at", { ascending: false })

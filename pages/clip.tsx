@@ -18,7 +18,8 @@ function isPlayableMediaUrl(url?: string | null) {
   if (normalized.includes("youtube.com/watch") || normalized.includes("youtu.be/")) return false;
   if (normalized.includes("tiktok.com/")) return false;
   if (normalized.includes("instagram.com/")) return false;
-  return normalized.startsWith("blob:") || normalized.includes(".mp4") || normalized.includes(".webm") || normalized.includes("r2.dev") || normalized.includes("cloudflare") || normalized.includes("cdn");
+  if (normalized.includes("x.com/") || normalized.includes("twitter.com/")) return false;
+  return normalized.startsWith("blob:") || normalized.includes(".mp4") || normalized.includes(".webm") || normalized.includes(".mov") || normalized.includes(".m3u8") || normalized.includes("r2.dev") || normalized.includes("cloudflare") || normalized.includes("cdn");
 }
 
 function deriveReach(score: number): string {
