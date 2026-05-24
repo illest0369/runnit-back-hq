@@ -12,6 +12,7 @@ SOURCE_PRIORITY=${8:-medium}
 TITLE=${9:-$POST_ID}
 TRANSCRIPT_SCORE=${10:-0}
 DUPLICATE_FLAG=${11:-false}
+SOURCE_VIDEO_URL=${12:-}
 
 if [ -z "$OPERATOR" ]; then
   echo "ERROR: operator (arg 6) is required" >&2
@@ -114,6 +115,29 @@ if [ -z "$CDN_URL" ]; then
   exit 1
 fi
 
+is_playable_asset_url() {
+  local url_lc
+  url_lc=$(printf "%s" "$1" | tr '[:upper:]' '[:lower:]')
+
+  case "$url_lc" in
+    *youtube.com/watch*|*youtu.be/*|*tiktok.com/*|*instagram.com/*|*twitter.com/*|*x.com/*) return 1 ;;
+  esac
+
+  case "$url_lc" in
+    blob:*|*.mp4|*.mp4\?*|*.webm|*.webm\?*|*.mov|*.mov\?*|*.m3u8|*.m3u8\?*|*r2.dev/*|*cloudflare*|*cdn*) return 0 ;;
+  esac
+
+  return 1
+}
+
+if ! is_playable_asset_url "$CDN_URL"; then
+  rm -f "$OUT" "$TRACK_JSON" "$TRACKED_OUT"
+  echo "ERROR: Upload returned unsupported media URL: $CDN_URL" >&2
+  exit 1
+fi
+
+printf 'PIPELINE MEDIA DEBUG: {"renderOutputPath":"%s","uploadSuccess":true,"uploadedAssetUrl":"%s","persistedCdnUrl":"%s"}\n' "$TRACKED_OUT" "$CDN_URL" "$CDN_URL" >&2
+
 echo "=== SCORING ==="
 SCORE_JSON=$(./scripts/score_candidate.sh "$POST_ID" "$CHANNEL" "$SOURCE_PRIORITY" "$TITLE" "$TRANSCRIPT_SCORE" "$DURATION" "$DUPLICATE_FLAG")
 echo "$SCORE_JSON"
@@ -138,7 +162,7 @@ fi
 
 echo "=== QUEUE POST ==="
 CAPTION="${TITLE} | ${CHANNEL}"
-./scripts/queue_post.sh "$CDN_URL" "$CAPTION" "$CHANNEL" "$POST_ID" "$SCORE" "$DECISION" "$REASONS"
+./scripts/queue_post.sh "$CDN_URL" "$CAPTION" "$CHANNEL" "$POST_ID" "$SCORE" "$DECISION" "$REASONS" "$SOURCE_VIDEO_URL"
 
 echo "OUTPUT_FILE=$TRACKED_OUT"
 echo "$UPLOAD_OUTPUT"

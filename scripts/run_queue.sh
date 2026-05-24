@@ -70,7 +70,7 @@ while IFS= read -r job <&3; do
   # -------------------------
   # PIPELINE
   # -------------------------
-  if ! ./scripts/run_pipeline.sh "$INPUT_FILE" "$START" "$END" "$POST_ID" "$PLATFORM" "$OPERATOR" "$CHANNEL" >> "$LOG_FILE" 2>&1; then
+  if ! ./scripts/run_pipeline.sh "$INPUT_FILE" "$START" "$END" "$POST_ID" "$PLATFORM" "$OPERATOR" "$CHANNEL" medium "$POST_ID" 0 false "$URL" >> "$LOG_FILE" 2>&1; then
     echo "[FAIL] Pipeline failed: $JOB_ID" | tee -a "$LOG_FILE"
     rm -f "$INPUT_FILE"
     continue

@@ -127,7 +127,7 @@ for i, clip in enumerate(clips):
         [
             "bash",
             os.path.join(root, "scripts", "run_pipeline.sh"),
-            temp_file, start, end, post_id, platform, operator, channel
+            temp_file, start, end, post_id, platform, operator, channel, "medium", post_id, "0", "false", url
         ],
         capture_output=True, text=True, cwd=root, env=env
     )

@@ -8,6 +8,7 @@ POST_ID=${4:-}
 SCORE=${5:-0}
 DECISION=${6:-approve_queue}
 REASONS=${7:-[]}
+SOURCE_VIDEO_URL=${8:-}
 
 if [ -f ".env" ]; then
   set -a
@@ -31,12 +32,39 @@ if [ -z "$CHANNEL" ]; then
   exit 1
 fi
 
-PAYLOAD=$(python3 - "$VIDEO_URL" "$CAPTION" "$CHANNEL" "$POST_ID" "$SCORE" "$DECISION" "$REASONS" <<'PY'
+is_playable_asset_url() {
+  local url_lc
+  url_lc=$(printf "%s" "$1" | tr '[:upper:]' '[:lower:]')
+
+  case "$url_lc" in
+    *youtube.com/watch*|*youtu.be/*|*tiktok.com/*|*instagram.com/*|*twitter.com/*|*x.com/*) return 1 ;;
+  esac
+
+  case "$url_lc" in
+    blob:*|*.mp4|*.mp4\?*|*.webm|*.webm\?*|*.mov|*.mov\?*|*.m3u8|*.m3u8\?*|*r2.dev/*|*cloudflare*|*cdn*) return 0 ;;
+  esac
+
+  return 1
+}
+
+if ! is_playable_asset_url "$VIDEO_URL"; then
+  echo "ERROR: VIDEO_URL must be a playable uploaded asset, got unsupported page URL: $VIDEO_URL" >&2
+  exit 1
+fi
+
+PAYLOAD=$(python3 - "$VIDEO_URL" "$CAPTION" "$CHANNEL" "$POST_ID" "$SCORE" "$DECISION" "$REASONS" "$SOURCE_VIDEO_URL" <<'PY'
 import json
 import sys
 
+asset_url = sys.argv[1]
+source_url = sys.argv[8]
+
 payload = {
-    "video_url": sys.argv[1],
+    "video_url": asset_url,
+    "cdn_url": asset_url,
+    "rendered_video_url": asset_url,
+    "processed_video_url": asset_url,
+    "source_video_url": source_url,
     "caption": sys.argv[2],
     "channel": sys.argv[3],
     "status": "pending_approval",
@@ -49,6 +77,8 @@ payload = {
 print(json.dumps(payload))
 PY
 )
+
+echo "PIPELINE MEDIA DEBUG: $PAYLOAD" >&2
 
 HTTP_CODE=$(curl -sS -o /tmp/runnit_n8n_response.$$ -w "%{http_code}" \
   -X POST "$N8N_WEBHOOK_URL" \
