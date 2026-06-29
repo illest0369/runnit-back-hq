@@ -1,0 +1,335 @@
+@import "tailwindcss";
+
+@source "./**/*.{js,jsx,ts,tsx,mdx}";
+@source "../components/**/*.{js,jsx,ts,tsx,mdx}";
+@source "../lib/**/*.{js,jsx,ts,tsx}";
+@source not "../backend";
+@source not "../config";
+@source not "../dist";
+@source not "../docs";
+@source not "../editorial";
+@source not "../node_modules";
+@source not "../scripts";
+@source not "../sources";
+@source not "../supabase";
+@source not "../workers";
+
+@theme {
+  --color-background:               #000000;
+  --color-surface:                  #0a0a0a;
+  --color-surface-dim:              #000000;
+  --color-surface-container-lowest: #000000;
+  --color-surface-container-low:    #0a0a0a;
+  --color-surface-container:        #111111;
+  --color-surface-container-high:   #181818;
+  --color-surface-container-highest:#222222;
+  --color-surface-bright:           #111111;
+  --color-surface-variant:          #161616;
+
+  --color-primary:                  #000000;
+  --color-primary-container:        #000000;
+  --color-primary-fixed:            #000000;
+  --color-primary-fixed-dim:        #1a1a1a;
+  --color-on-primary:               #ffffff;
+  --color-on-primary-container:     #ffffff;
+  --color-inverse-primary:          #ffffff;
+
+  --color-secondary:                #c6c6c6;
+  --color-secondary-container:      #171717;
+  --color-on-secondary:             #ffffff;
+  --color-on-secondary-container:   #f3f3f3;
+
+  --color-error:                    #ff3b30;
+  --color-error-container:          #fff0ef;
+  --color-on-error:                 #ffffff;
+  --color-on-error-container:       #b00000;
+
+  --color-on-background:            #ffffff;
+  --color-on-surface:               #ffffff;
+  --color-on-surface-variant:       #9b9b9b;
+  --color-outline:                  #3a3a3a;
+  --color-outline-variant:          #1f1f1f;
+  --color-surface-tint:             #000000;
+  --color-inverse-surface:          #000000;
+  --color-inverse-on-surface:       #ffffff;
+
+  --font-headline: "Clash Display", "Clash Grotesk", "Avenir Next", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-body:     "Clash Display", "Clash Grotesk", "Avenir Next", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-label:    "Clash Display", "Clash Grotesk", "Avenir Next", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  --radius:      1rem;
+  --radius-lg:   1.25rem;
+  --radius-xl:   1.75rem;
+  --radius-full: 9999px;
+}
+
+:root {
+  --safe-top:       env(safe-area-inset-top, 0px);
+  --safe-bottom:    env(safe-area-inset-bottom, 0px);
+  --bg:                   var(--color-background);
+  --surface:              var(--color-surface);
+  --surface-low:          var(--color-surface-container-low);
+  --surface-high:         var(--color-surface-container-high);
+  --surface-highest:      var(--color-surface-container-highest);
+  --primary:              var(--color-primary);
+  --primary-container:    var(--color-primary-container);
+  --on-primary:           var(--color-on-primary);
+  --on-primary-container: var(--color-on-primary-container);
+  --secondary:            var(--color-secondary);
+  --on-surface:           var(--color-on-surface);
+  --on-surface-variant:   var(--color-on-surface-variant);
+  --error:                var(--color-error);
+  --outline:              var(--color-outline);
+  --outline-variant:      var(--color-outline-variant);
+
+  --bg-void:        #000000;
+  --bg-surface:     #0a0a0a;
+  --bg-raised:      #111111;
+  --bg-muted:       #181818;
+
+  --border-default: #222222;
+  --border-subtle:  #151515;
+  --border-mid:     #3a3a3a;
+
+  --accent-green:   #d7d7d7;
+  --accent-yellow:  #c99b34;
+  --accent-red:     #e2162b;
+
+  --text-primary:   #ffffff;
+  --text-secondary: #d4d4d4;
+  --text-muted:     #8a8a8a;
+  --text-dim:       #5f5f5f;
+
+  --font-display:   "Clash Display", "Clash Grotesk", "Avenir Next", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:      "Clash Display", "SFMono-Regular", "Menlo", monospace;
+
+  --rb-bg: #000000;
+  --rb-surface: #090909;
+  --rb-graphite: #121212;
+  --rb-line: rgba(255,255,255,0.08);
+  --rb-line-soft: rgba(255,255,255,0.045);
+  --rb-text: #f5f3ee;
+  --rb-muted: rgba(245,243,238,0.48);
+  --rb-faint: rgba(245,243,238,0.28);
+  --rb-accent: #e2162b;
+  --rb-motion-fast: 180ms;
+  --rb-motion: 220ms;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  min-height: 100%;
+  background-color: var(--bg-void);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none;
+  text-rendering: geometricPrecision;
+}
+
+body {
+  font-family: var(--font-display);
+  background: #000000;
+  color: #ffffff;
+  touch-action: manipulation;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button {
+  font: inherit;
+}
+
+.operator-phone-shell {
+  isolation: isolate;
+  min-width: 320px;
+  font-family: var(--font-display);
+  letter-spacing: 0;
+}
+
+.rbhq-system {
+  --rb-accent: #e2162b;
+  background: var(--rb-bg);
+  color: var(--rb-text);
+}
+
+.rbhq-theme-sports {
+  --rb-accent: #e2162b;
+}
+
+.rbhq-theme-arena {
+  --rb-accent: #c13cc9;
+}
+
+.rbhq-theme-women {
+  --rb-accent: #c99b34;
+  --rb-text: #f3eee4;
+  --rb-muted: rgba(243,238,228,0.52);
+}
+
+.rbhq-theme-combat {
+  --rb-accent: #d33a2f;
+}
+
+.rbhq-theme-runnitbackcfb {
+  --rb-accent: #d6b35a;
+}
+
+@supports (height: 100svh) {
+  .operator-phone-shell {
+    min-height: 100svh;
+  }
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  display: inline-block;
+  line-height: 1;
+  user-select: none;
+}
+
+::-webkit-scrollbar { width: 0; height: 0; }
+::-webkit-scrollbar-track { background: var(--bg-void); }
+::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-red); }
+
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #131314; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #353436; border-radius: 2px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shake {
+  0%,100% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(6px); }
+  45% { transform: translateX(-5px); }
+  60% { transform: translateX(5px); }
+  75% { transform: translateX(-3px); }
+  90% { transform: translateX(3px); }
+}
+
+@keyframes rbhq-mark-settle {
+  0% { opacity: 0; transform: translateY(3px) scale(0.98); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes rbhq-shimmer {
+  100% { transform: translateX(100%); }
+}
+
+@keyframes rbhq-live-breathe {
+  0%, 100% {
+    opacity: 0.58;
+    transform: scale(0.96);
+  }
+  48% {
+    opacity: 0.92;
+    transform: scale(1.04);
+  }
+}
+
+@keyframes rbhq-idle-heat {
+  0%, 100% {
+    opacity: 0.24;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.42;
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes rbhq-source-tick {
+  0%, 100% {
+    opacity: 0.18;
+    transform: translateY(0);
+  }
+  44% {
+    opacity: 0.72;
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes rbhq-reject-shake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  25% { transform: translateX(-2px) rotate(-4deg); }
+  55% { transform: translateX(2px) rotate(4deg); }
+  80% { transform: translateX(-1px) rotate(-2deg); }
+}
+
+.pin-shake { animation: shake 0.55s ease; }
+.action-bar-glow { box-shadow: 0 0 25px rgba(0,245,255,0.5); }
+.selection-overlay {
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: grayscale(100%) brightness(0.5);
+}
+
+.tech-grid {
+  background-color: var(--bg-surface);
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, #111 1px, transparent 1px),
+    linear-gradient(to bottom, #111 1px, transparent 1px);
+}
+
+.crosshair {
+  position: relative;
+}
+
+.crosshair::before,
+.crosshair::after {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: var(--border-mid);
+  border-style: solid;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.crosshair::before { top: 8px; left: 8px; border-width: 2px 0 0 2px; }
+.crosshair::after { bottom: 8px; right: 8px; border-width: 0 2px 2px 0; }
+
+.crosshair--active::before,
+.crosshair--active::after {
+  border-color: var(--accent-green);
+}
+
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-shimmer::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 255, 136, 0.18);
+  transform: translateX(-100%);
+  transition: transform 280ms ease-out;
+  z-index: 0;
+}
+
+.btn-shimmer:hover::before {
+  transform: translateX(0);
+}
+
+.btn-shimmer > * {
+  position: relative;
+  z-index: 1;
+}

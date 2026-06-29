@@ -1,0 +1,8 @@
+.env
+.env.*
+.next
+.vercel
+dist
+node_modules
+*.tsbuildinfo
+.DS_Store

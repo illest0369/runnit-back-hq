@@ -1,0 +1,57 @@
+{
+  "name": "frontend",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "lint": "next typegen && tsc --noEmit",
+    "build": "next build && npm run build:worker",
+    "build:worker": "tsc -p tsconfig.worker.json",
+    "start": "next start",
+    "worker": "npm --prefix backend start",
+    "smoke:post-package": "tsx scripts/post-package-smoke-test.ts",
+    "smoke:performance-feedback": "tsx scripts/performance-feedback-smoke-test.ts",
+    "smoke:v1": "tsx scripts/smoke-v1-flow.ts",
+    "smoke:metricool-export": "tsx scripts/smoke-metricool-export-flow.ts",
+    "import:apify": "tsx scripts/run-apify-import.ts",
+    "source-system:summary": "tsx scripts/source-system-summary.ts",
+    "worker:clips": "node dist/workers/startWorker.js"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1036.0",
+    "@aws-sdk/s3-request-presigner": "^3.1036.0",
+    "@google/genai": "^2.0.1",
+    "@supabase/supabase-js": "^2.101.0",
+    "@tailwindcss/postcss": "^4.2.2",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.3",
+    "bullmq": "^5.73.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "dotenv": "^17.4.1",
+    "execa": "^9.6.1",
+    "framer-motion": "^12.38.0",
+    "ioredis": "^5.10.1",
+    "lucide-react": "^1.7.0",
+    "next": "15.5.19",
+    "postcss": "^8.5.8",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "server-only": "^0.0.1",
+    "shadcn": "^4.1.1",
+    "tailwind-merge": "^3.5.0",
+    "tailwindcss": "^4.2.2",
+    "tw-animate-css": "^1.4.0",
+    "uuid": "^13.0.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "25.5.0",
+    "@types/react": "19.2.14",
+    "tsx": "^4.21.0",
+    "typescript": "5.9.3"
+  }
+}

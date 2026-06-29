@@ -1,0 +1,388 @@
+import bcrypt from 'bcryptjs'
+
+import type { SessionUser } from './auth'
+import { listChannelMeta } from './channel-meta'
+import { isProductionRuntime } from './security'
+import { supabaseAdminClient } from './supabase-admin'
+
+type Role = SessionUser['role']
+
+type RawAppUser = {
+  id?: string
+  userId?: string
+  username?: string
+  email?: string
+  role?: string
+  channelIds?: unknown
+  password?: string
+  pin?: string
+  passwordHash?: string
+  password_hash?: string
+  pinHash?: string
+  pin_hash?: string
+}
+
+type NormalizedAppUser = {
+  userId: string
+  username: string
+  email: string | null
+  role: Role
+  channelIds: string[]
+  plainPassword: string | null
+  passwordHash: string | null
+  plainPin: string | null
+  pinHash: string | null
+}
+
+const RBHQ_OPERATOR_USERNAMES = new Set([
+  'rb_sports',
+  'rb_arena',
+  'rb_women',
+  'rb_combat',
+  'rb_cfb',
+])
+
+function normalizeRole(value: string | undefined): Role {
+  if (value === 'admin' || value === 'operator' || value === 'user') {
+    return value
+  }
+
+  return 'operator'
+}
+
+function normalizeChannelIds(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value.filter((entry): entry is string => typeof entry === 'string' && Boolean(entry.trim()))
+}
+
+function normalizeAppUser(entry: RawAppUser): NormalizedAppUser | null {
+  const username = entry.username?.trim().toLowerCase()
+  const email = entry.email?.trim().toLowerCase() || null
+
+  if (!username) {
+    return null
+  }
+
+  const plainPassword = entry.password?.trim() || null
+  const passwordHash = entry.passwordHash?.trim() || entry.password_hash?.trim() || null
+  const plainPin = entry.pin?.trim() || null
+  const pinHash = entry.pinHash?.trim() || entry.pin_hash?.trim() || null
+
+  if (!plainPassword && !passwordHash && !plainPin && !pinHash) {
+    return null
+  }
+
+  return {
+    userId: entry.userId?.trim() || entry.id?.trim() || `env:${username}`,
+    username,
+    email,
+    role: normalizeRole(entry.role),
+    channelIds: normalizeChannelIds(entry.channelIds),
+    plainPassword,
+    passwordHash,
+    plainPin,
+    pinHash,
+  }
+}
+
+export function getConfiguredAppUsers(): NormalizedAppUser[] {
+  const raw = process.env.APP_USERS_JSON?.trim()
+
+  if (!raw) {
+    return []
+  }
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new Error('APP_USERS_JSON must be valid JSON.')
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('APP_USERS_JSON must be a JSON array.')
+  }
+
+  const users = parsed
+    .map((entry) => normalizeAppUser(entry as RawAppUser))
+    .filter((entry): entry is NormalizedAppUser => Boolean(entry))
+
+  if (
+    isProductionRuntime() &&
+    users.some(
+      (user) =>
+        (typeof user.plainPassword === 'string' && user.plainPassword.length > 0) ||
+        (typeof user.plainPin === 'string' && user.plainPin.length > 0),
+    )
+  ) {
+    throw new Error('Plaintext APP_USERS_JSON passwords are not allowed in production.')
+  }
+
+  return users
+}
+
+export async function authenticateConfiguredAppUser(
+  username: string,
+  secret: string,
+): Promise<SessionUser | null> {
+  const normalizedUsername = username.trim().toLowerCase()
+  const normalizedSecret = secret.trim()
+
+  if (!normalizedUsername || !normalizedSecret) {
+    return null
+  }
+
+  const user = getConfiguredAppUsers().find((entry) => entry.username === normalizedUsername)
+  if (!user) {
+    return authenticateDatabaseAppUser(normalizedUsername, normalizedSecret)
+  }
+
+  if (user.role !== 'admin' && !RBHQ_OPERATOR_USERNAMES.has(user.username)) {
+    return null
+  }
+
+  const matches = await matchesAnyConfiguredSecret(user, normalizedSecret)
+
+  if (!matches) {
+    return null
+  }
+
+  return {
+    userId: user.userId,
+    username: user.username,
+    role: user.role,
+    channelIds:
+      user.role === 'admin' && user.channelIds.length === 0
+        ? listChannelMeta().map((channel) => channel.id)
+        : user.channelIds,
+  }
+}
+
+export async function authenticateAppUserByEmailPassword(
+  email: string,
+  password: string,
+): Promise<SessionUser | null> {
+  const normalizedEmail = email.trim().toLowerCase()
+  const normalizedPassword = password.trim()
+
+  if (!normalizedEmail || !normalizedPassword) {
+    return null
+  }
+
+  const configuredUser = getConfiguredAppUsers().find(
+    (entry) => entry.email === normalizedEmail || entry.username === normalizedEmail,
+  )
+  if (configuredUser) {
+    if (configuredUser.role !== 'admin' && !RBHQ_OPERATOR_USERNAMES.has(configuredUser.username)) {
+      return null
+    }
+
+    const matches = await matchesPasswordOnly(configuredUser, normalizedPassword)
+    if (!matches) {
+      return null
+    }
+
+    return sessionUserFromConfiguredUser(configuredUser)
+  }
+
+  return authenticateDatabaseAppUserByEmailPassword(normalizedEmail, normalizedPassword)
+}
+
+export async function authenticateAppUserByPin(secret: string): Promise<SessionUser | null> {
+  const normalizedSecret = secret.trim()
+
+  if (!normalizedSecret) {
+    return null
+  }
+
+  const configuredUsers = getConfiguredAppUsers().filter(
+    (user) => user.role === 'admin' || RBHQ_OPERATOR_USERNAMES.has(user.username),
+  )
+  for (const user of configuredUsers) {
+    const matches = await matchesPinOnly(user, normalizedSecret)
+
+    if (!matches) {
+      continue
+    }
+
+    return sessionUserFromConfiguredUser(user)
+  }
+
+  return authenticateDatabaseAppUserByPin(normalizedSecret)
+}
+
+async function matchesAnyConfiguredSecret(user: NormalizedAppUser, secret: string): Promise<boolean> {
+  return (await matchesPasswordOnly(user, secret)) || (await matchesPinOnly(user, secret))
+}
+
+async function matchesPasswordOnly(user: NormalizedAppUser, password: string): Promise<boolean> {
+  if (user.passwordHash) {
+    return bcrypt.compare(password, user.passwordHash)
+  }
+
+  return !isProductionRuntime() && typeof user.plainPassword === 'string' && user.plainPassword === password
+}
+
+async function matchesPinOnly(user: NormalizedAppUser, pin: string): Promise<boolean> {
+  if (user.pinHash) {
+    return bcrypt.compare(pin, user.pinHash)
+  }
+
+  return !isProductionRuntime() && typeof user.plainPin === 'string' && user.plainPin === pin
+}
+
+function sessionUserFromConfiguredUser(user: NormalizedAppUser): SessionUser {
+  return {
+    userId: user.userId,
+    username: user.username,
+    role: user.role,
+    channelIds:
+      user.role === 'admin' && user.channelIds.length === 0
+        ? listChannelMeta().map((channel) => channel.id)
+        : user.channelIds,
+  }
+}
+
+async function authenticateDatabaseAppUser(
+  username: string,
+  secret: string,
+): Promise<SessionUser | null> {
+  const { data: user, error } = await supabaseAdminClient
+    .from('users')
+    .select('id, username, pin_hash, role')
+    .eq('username', username)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  if (!user?.pin_hash || !(await bcrypt.compare(secret, user.pin_hash))) {
+    return null
+  }
+
+  const role = normalizeRole(user.role)
+  if (role !== 'admin' && !RBHQ_OPERATOR_USERNAMES.has(user.username)) {
+    return null
+  }
+
+  const channelIds = await loadUserChannelIds(user.id)
+  return {
+    userId: user.id,
+    username: user.username,
+    role,
+    channelIds:
+      role === 'admin' && channelIds.length === 0
+        ? listChannelMeta().map((channel) => channel.id)
+        : channelIds,
+  }
+}
+
+async function authenticateDatabaseAppUserByEmailPassword(
+  email: string,
+  password: string,
+): Promise<SessionUser | null> {
+  const query = supabaseAdminClient
+    .from('users')
+    .select('id, username, email, password_hash, role')
+    .or(`email.eq.${email},username.eq.${email}`)
+    .maybeSingle()
+
+  const { data: user, error } = await query
+
+  if (error) {
+    if (isMissingColumnError(error.message)) {
+      return null
+    }
+
+    throw new Error(error.message)
+  }
+
+  if (!user?.password_hash || !(await bcrypt.compare(password, user.password_hash))) {
+    return null
+  }
+
+  const role = normalizeRole(user.role)
+  if (role !== 'admin' && !RBHQ_OPERATOR_USERNAMES.has(user.username)) {
+    return null
+  }
+
+  const channelIds = await loadUserChannelIds(user.id)
+  return {
+    userId: user.id,
+    username: user.username,
+    role,
+    channelIds:
+      role === 'admin' && channelIds.length === 0
+        ? listChannelMeta().map((channel) => channel.id)
+        : channelIds,
+  }
+}
+
+async function loadUserChannelIds(userId: string): Promise<string[]> {
+  const [{ data: accessRows, error: accessError }, { data: legacyRows, error: legacyError }] = await Promise.all([
+    supabaseAdminClient
+      .from('user_channel_access')
+      .select('channel_id')
+      .eq('user_id', userId),
+    supabaseAdminClient
+      .from('user_channels')
+      .select('channel_id')
+      .eq('user_id', userId),
+  ])
+
+  if (accessError && !isMissingRelationError(accessError.message)) {
+    throw new Error(accessError.message)
+  }
+  if (legacyError && !isMissingRelationError(legacyError.message)) {
+    throw new Error(legacyError.message)
+  }
+
+  const channelIds = [
+    ...new Set(
+      [...(accessRows ?? []), ...(legacyRows ?? [])]
+        .map((row: { channel_id: string | null }) => row.channel_id)
+      .filter((value): value is string => Boolean(value)),
+    ),
+  ]
+
+  return channelIds
+}
+
+function isMissingRelationError(message: string): boolean {
+  const normalized = message.toLowerCase()
+  return normalized.includes('does not exist') || normalized.includes('could not find the table')
+}
+
+function isMissingColumnError(message: string): boolean {
+  const normalized = message.toLowerCase()
+  return (
+    normalized.includes('column') &&
+    (normalized.includes('does not exist') || normalized.includes('could not find'))
+  )
+}
+
+async function authenticateDatabaseAppUserByPin(secret: string): Promise<SessionUser | null> {
+  const { data: users, error } = await supabaseAdminClient
+    .from('users')
+    .select('id, username, pin_hash, role')
+    .in('role', ['operator', 'admin'])
+    .in('username', [...RBHQ_OPERATOR_USERNAMES])
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  for (const user of users ?? []) {
+    if (!user.pin_hash || !(await bcrypt.compare(secret, user.pin_hash))) {
+      continue
+    }
+
+    return authenticateDatabaseAppUser(user.username, secret)
+  }
+
+  return null
+}

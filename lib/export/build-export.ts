@@ -1,0 +1,102 @@
+import type { ExportableClip, PublishExportPackage } from './types'
+import { isDownloadableMp4Url } from '../media-url'
+
+export const PUBLISH_EXPORT_VERSION = 'rbhq-publish-export-v1'
+
+const GENERIC_SPORT_TAGS = ['#Sports', '#GameTime', '#ViralSports', '#Highlights']
+const TAG_CLEANUP_PATTERN = /[^a-z0-9]/gi
+
+function tagFromValue(value: string | null | undefined): string | null {
+  const cleaned = value?.replace(TAG_CLEANUP_PATTERN, '').trim()
+  return cleaned ? `#${cleaned}` : null
+}
+
+function uniqueHashtags(values: Array<string | null>): string[] {
+  const seen = new Set<string>()
+  const tags: string[] = []
+
+  for (const value of values) {
+    if (!value) continue
+    const normalized = value.toLowerCase()
+    if (seen.has(normalized)) continue
+    seen.add(normalized)
+    tags.push(value)
+    if (tags.length === 6) break
+  }
+
+  return tags
+}
+
+export function buildHashtags(clip: ExportableClip): string[] {
+  return uniqueHashtags([
+    tagFromValue(clip.league),
+    tagFromValue(clip.sport),
+    tagFromValue(clip.source_name),
+    ...GENERIC_SPORT_TAGS,
+  ]).slice(0, 6)
+}
+
+function compactLine(value: string): string {
+  return value.replace(/\s+/g, ' ').trim()
+}
+
+function truncateLine(value: string, maxLength: number): string {
+  const compacted = compactLine(value)
+  if (compacted.length <= maxLength) return compacted
+
+  return `${compacted.slice(0, maxLength - 3).trim()}...`
+}
+
+export function buildCaption(clip: ExportableClip, hashtags = buildHashtags(clip)): string {
+  const lead = truncateLine(clip.recommended_hook || clip.hook || clip.title, 96)
+  const context = compactLine([clip.league, clip.sport].filter(Boolean).join(' '))
+  const tagLine = hashtags.slice(0, 6).join(' ')
+  const firstLine = context ? `${lead} (${context})` : lead
+
+  return [truncateLine(firstLine, 116), tagLine].filter(Boolean).join('\n')
+}
+
+export function assertExportableClip(clip: ExportableClip) {
+  if (
+    clip.status !== 'approved' ||
+    !clip.video_url ||
+    !isDownloadableMp4Url(clip.video_url) ||
+    ![
+      'metricool_ready_manual_export',
+      'ready_for_manual_publish',
+      'manually_published',
+      'metricool_published',
+      'metricool_failed',
+      'needs_clip_render',
+    ].includes(clip.publish_status)
+  ) {
+    throw new Error('CLIP_NOT_READY_FOR_EXPORT')
+  }
+}
+
+export function buildPublishExportPackage(clip: ExportableClip): PublishExportPackage {
+  assertExportableClip(clip)
+
+  const hashtags = buildHashtags(clip)
+  const videoUrl = clip.video_url
+  if (!videoUrl) {
+    throw new Error('CLIP_NOT_READY_FOR_EXPORT')
+  }
+
+  return {
+    clip_id: clip.id,
+    title: clip.title,
+    hook: clip.hook,
+    recommended_hook: clip.recommended_hook,
+    caption: buildCaption(clip, hashtags),
+    hashtags,
+    source_name: clip.source_name,
+    sport: clip.sport,
+    league: clip.league,
+    video_url: videoUrl,
+    thumbnail_url: clip.thumbnail_url,
+    moderation_notes: clip.moderation_notes,
+    approved_at: clip.approved_at || clip.updated_at,
+    export_version: PUBLISH_EXPORT_VERSION,
+  }
+}
