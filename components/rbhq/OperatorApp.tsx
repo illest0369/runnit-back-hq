@@ -37,10 +37,20 @@ type QueueAction = "approve" | "reject" | "hold";
 type User = {
   id: string;
   name: string;
+  channel?: string;
   channelLabel: string;
   channelDbId: string;
+  channels?: UserChannel[];
   handle?: string;
   metricoolTestMode?: boolean;
+};
+
+type UserChannel = {
+  id: string;
+  channel: string;
+  label: string;
+  name: string;
+  handle?: string;
 };
 
 type ReviewClipApi = {
@@ -301,6 +311,7 @@ function preloadClipMedia(clip: Clip | null) {
 export default function OperatorApp({ initialTab = "queue" }: { initialTab?: AppTab }) {
   const [tab, setTab] = useState<AppTab>(initialTab);
   const [user, setUser] = useState<User | null>(null);
+  const [selectedChannelId, setSelectedChannelId] = useState("");
   const [clips, setClips] = useState<Clip[]>([]);
   const [publishItems, setPublishItems] = useState<PublishQueueItem[]>([]);
   const [sources, setSources] = useState<SourceFilterOption[]>([]);
@@ -313,7 +324,15 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const optimisticIdsRef = useRef(new Set<string>());
-  const channelTheme = themeForChannel(user?.channelLabel);
+  const selectedChannel = useMemo(() => {
+    const channels = user?.channels ?? [];
+    return channels.find((channel) => channel.id === selectedChannelId) ?? channels[0] ?? null;
+  }, [selectedChannelId, user]);
+  const visibleSources = useMemo(
+    () => sources.filter((item) => !item.channel_id || item.channel_id === selectedChannelId),
+    [selectedChannelId, sources],
+  );
+  const channelTheme = themeForChannel(selectedChannel?.label ?? user?.channelLabel);
 
   async function handleLogout() {
     try {
@@ -337,9 +356,15 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
     setSources(json.data as SourceFilterOption[]);
   }, []);
 
-  const fetchQueue = useCallback(async (nextUser: User, selectedSource = source, mode = queueMode) => {
+  const fetchQueue = useCallback(async (channelId: string, selectedSource = source, mode = queueMode) => {
+    if (!channelId) {
+      setClips([]);
+      setActiveId(null);
+      return;
+    }
+
     const params = new URLSearchParams({
-      channel_id: nextUser.channelDbId,
+      channel_id: channelId,
       limit: "60",
       status: mode,
     });
@@ -355,7 +380,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
       .filter((item) => {
         // Client-side guard: reject clips that don't belong to this operator's channel
         const raw = item as ReviewClipApi;
-        return !raw.channel_id || raw.channel_id === nextUser.channelDbId;
+        return !raw.channel_id || raw.channel_id === channelId;
       })
       .map((item) => mapApiClip(item as ReviewClipApi))
       .filter((clip): clip is Clip => Boolean(clip))
@@ -368,7 +393,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
     const visible = mapped.filter((clip) => !optimisticIdsRef.current.has(clip.id));
     setClips(visible);
     setActiveId((current) => current && visible.some((clip) => clip.id === current) ? current : visible[0]?.id ?? null);
-  }, [queueMode, source]);
+  }, []);
 
   const fetchPublishQueue = useCallback(async () => {
     const response = await fetch("/api/publish-queue", { cache: "no-store" });
@@ -399,8 +424,19 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
         }
 
         const nextUser = json.user as User;
-        setUser(nextUser);
-        await fetchQueue(nextUser, source, queueMode);
+        const channels = Array.isArray(nextUser.channels) && nextUser.channels.length > 0
+          ? nextUser.channels
+          : [{
+              id: nextUser.channelDbId,
+              channel: nextUser.channel ?? "sports",
+              label: nextUser.channelLabel,
+              name: nextUser.channelLabel,
+              handle: nextUser.handle,
+            }];
+        const initialChannelId = channels[0]?.id ?? "";
+        setUser({ ...nextUser, channels });
+        setSelectedChannelId(initialChannelId);
+        await fetchQueue(initialChannelId, "", "pending");
         await Promise.allSettled([fetchPublishQueue(), fetchSources()]);
         setError("");
       } catch (bootError) {
@@ -414,16 +450,16 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
     return () => {
       alive = false;
     };
-  }, [fetchQueue, fetchPublishQueue, fetchSources, queueMode, source]);
+  }, [fetchQueue, fetchPublishQueue, fetchSources]);
 
   useEffect(() => {
-    if (!user) return;
-    const currentUser = user;
+    if (!user || !selectedChannelId) return;
+    const currentChannelId = selectedChannelId;
     let alive = true;
 
     async function refresh() {
       try {
-        await fetchQueue(currentUser, source, queueMode);
+        await fetchQueue(currentChannelId, source, queueMode);
         await Promise.allSettled([fetchPublishQueue(), fetchSources()]);
         if (alive) setError("");
       } catch (refreshError) {
@@ -437,7 +473,16 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
       alive = false;
       window.clearInterval(timer);
     };
-  }, [fetchQueue, fetchPublishQueue, fetchSources, queueMode, source, user]);
+  }, [fetchQueue, fetchPublishQueue, fetchSources, queueMode, selectedChannelId, source, user]);
+
+  function handleChannelChange(channelId: string) {
+    if (channelId === selectedChannelId) return;
+    optimisticIdsRef.current.clear();
+    setSelectedChannelId(channelId);
+    setSource("");
+    setActiveId(null);
+    setClips([]);
+  }
 
   async function moderateClip(id: string, action: DecisionAction) {
     const restoredClip = clips.find((clip) => clip.id === id);
@@ -558,11 +603,14 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
             <QueueScreen
               key="queue"
               clips={clips}
-              sources={sources}
-              channelLabel={user.channelLabel}
+              sources={visibleSources}
+              channelLabel={selectedChannel?.label ?? user.channelLabel}
+              channels={user.channels ?? []}
+              selectedChannelId={selectedChannelId}
               selectedSource={source}
               activeId={activeId}
               error={error}
+              onSelectChannel={handleChannelChange}
               onSelectSource={setSource}
               queueMode={queueMode}
               onQueueMode={setQueueMode}
@@ -636,10 +684,13 @@ function QueueScreen({
   clips,
   sources,
   channelLabel,
+  channels,
+  selectedChannelId,
   selectedSource,
   activeId,
   error,
   queueMode,
+  onSelectChannel,
   onSelectSource,
   onQueueMode,
   onActive,
@@ -649,10 +700,13 @@ function QueueScreen({
   clips: Clip[];
   sources: SourceFilterOption[];
   channelLabel: string;
+  channels: UserChannel[];
+  selectedChannelId: string;
   selectedSource: string;
   activeId: string | null;
   error: string;
   queueMode: QueueMode;
+  onSelectChannel: (channelId: string) => void;
   onSelectSource: (value: string) => void;
   onQueueMode: (value: QueueMode) => void;
   onActive: (id: string) => void;
@@ -705,6 +759,13 @@ function QueueScreen({
         <div>
           <p className="text-[13px] font-medium lowercase leading-none tracking-[-0.01em] text-[var(--rb-text)]">{label}</p>
           <p className="mt-2 text-[10px] font-medium uppercase leading-none text-[var(--rb-accent)]">live</p>
+          {channels.length > 1 && (
+            <ChannelSelect
+              channels={channels}
+              selectedChannelId={selectedChannelId}
+              onSelectChannel={onSelectChannel}
+            />
+          )}
         </div>
         <div className="flex items-center gap-1.5 text-[11px] font-normal text-[var(--rb-text)]">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--rb-accent)] motion-safe:animate-[rbhq-live-breathe_1.8s_ease-in-out_infinite]" />
@@ -718,6 +779,7 @@ function QueueScreen({
         sources={sources}
         selectedSource={selectedSource}
         queueMode={queueMode}
+        hasChannelSwitcher={channels.length > 1}
         onSelectSource={onSelectSource}
         onQueueMode={onQueueMode}
       />
@@ -757,23 +819,53 @@ function QueueScreen({
   );
 }
 
+function ChannelSelect({
+  channels,
+  selectedChannelId,
+  onSelectChannel,
+}: {
+  channels: UserChannel[];
+  selectedChannelId: string;
+  onSelectChannel: (channelId: string) => void;
+}) {
+  return (
+    <label className="pointer-events-auto mt-3 block">
+      <span className="sr-only">Channel</span>
+      <select
+        value={selectedChannelId}
+        onChange={(event) => onSelectChannel(event.target.value)}
+        className="h-8 max-w-[168px] rounded-full border border-white/[0.14] bg-black/58 px-3 pr-8 text-[11px] font-medium lowercase text-[var(--rb-text)] outline-none backdrop-blur-xl transition focus:border-[var(--rb-accent)]"
+        aria-label="Channel"
+      >
+        {channels.map((channel) => (
+          <option key={channel.id} value={channel.id}>
+            {displayChannelLabel(channel.label)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function SourceRail({
   sources,
   selectedSource,
   queueMode,
+  hasChannelSwitcher,
   onSelectSource,
   onQueueMode,
 }: {
   sources: SourceFilterOption[];
   selectedSource: string;
   queueMode: QueueMode;
+  hasChannelSwitcher: boolean;
   onSelectSource: (value: string) => void;
   onQueueMode: (value: QueueMode) => void;
 }) {
   const sourceItems = sources.slice(0, 18);
 
   return (
-    <div className="absolute inset-x-0 top-[calc(env(safe-area-inset-top,0px)+62px)] z-30">
+    <div className={`absolute inset-x-0 z-30 ${hasChannelSwitcher ? "top-[calc(env(safe-area-inset-top,0px)+102px)]" : "top-[calc(env(safe-area-inset-top,0px)+62px)]"}`}>
       <div className="hide-scrollbar flex gap-3 overflow-x-auto px-5 pb-2">
         <button
           type="button"

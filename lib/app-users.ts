@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 
 import type { SessionUser } from './auth'
-import { listChannelMeta } from './channel-meta'
+import { getChannelMeta, listChannelMeta } from './channel-meta'
 import { isProductionRuntime } from './security'
 import { supabaseAdminClient } from './supabase-admin'
 
@@ -55,7 +55,19 @@ function normalizeChannelIds(value: unknown): string[] {
     return []
   }
 
-  return value.filter((entry): entry is string => typeof entry === 'string' && Boolean(entry.trim()))
+  const channelIds = new Set<string>()
+  for (const entry of value) {
+    if (typeof entry !== 'string') {
+      continue
+    }
+
+    const channelId = entry.trim()
+    if (channelId && getChannelMeta(channelId)) {
+      channelIds.add(channelId)
+    }
+  }
+
+  return [...channelIds]
 }
 
 function normalizeAppUser(entry: RawAppUser): NormalizedAppUser | null {
@@ -140,7 +152,7 @@ export async function authenticateConfiguredAppUser(
     return authenticateDatabaseAppUser(normalizedUsername, normalizedSecret)
   }
 
-  if (user.role !== 'admin' && !RBHQ_OPERATOR_USERNAMES.has(user.username)) {
+  if (!canConfiguredUserAuthenticate(user)) {
     return null
   }
 
@@ -176,7 +188,7 @@ export async function authenticateAppUserByEmailPassword(
     (entry) => entry.email === normalizedEmail || entry.username === normalizedEmail,
   )
   if (configuredUser) {
-    if (configuredUser.role !== 'admin' && !RBHQ_OPERATOR_USERNAMES.has(configuredUser.username)) {
+    if (!canConfiguredUserAuthenticate(configuredUser)) {
       return null
     }
 
@@ -189,6 +201,18 @@ export async function authenticateAppUserByEmailPassword(
   }
 
   return authenticateDatabaseAppUserByEmailPassword(normalizedEmail, normalizedPassword)
+}
+
+function canConfiguredUserAuthenticate(user: NormalizedAppUser): boolean {
+  if (user.role === 'admin') {
+    return true
+  }
+
+  if (RBHQ_OPERATOR_USERNAMES.has(user.username)) {
+    return true
+  }
+
+  return user.role === 'user' && user.channelIds.length > 0
 }
 
 export async function authenticateAppUserByPin(secret: string): Promise<SessionUser | null> {
