@@ -200,8 +200,11 @@ export async function enqueueRbhqScoreJob(input: RbhqScoreJobData) {
 }
 
 export async function enqueueRbhqPostJob(input: RbhqPostJobData) {
-  void input
-  throw new Error('RBHQ_POST_QUEUE_DISABLED_METRICOOL_ONLY')
+  const job = await getRbhqPostQueue().add('post-to-tiktok', input, {
+    jobId: `rbhq-post-${input.postId}`,
+  })
+
+  return String(job.id)
 }
 
 export async function enqueueRbhqAnalyticsJob(input: RbhqAnalyticsJobData, delay = 30 * 60_000) {

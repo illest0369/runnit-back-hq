@@ -1,5 +1,5 @@
 import { hasSupabaseAdminEnv, supabaseAdminClient as supabaseAdmin } from './supabase-admin'
-import { enqueueClipGenerationJob } from './queue'
+import { enqueueClipGenerationJob, enqueueRbhqPostJob } from './queue'
 import { loadSourceSystemConfig } from './source-system'
 import { isDownloadableMp4Url } from './media-url'
 
@@ -1044,6 +1044,14 @@ async function updateClipDecision(
 
   if (status === 'approved') {
     if (!shouldQueueRender) {
+      try {
+        await enqueueRbhqPostJob({ postId: updated.id })
+      } catch (error) {
+        console.warn(
+          '[rbhq-post] enqueue failed:',
+          error instanceof Error ? error.message : error,
+        )
+      }
       return updated
     }
 
