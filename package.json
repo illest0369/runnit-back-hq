@@ -13,7 +13,8 @@
     "smoke:metricool-export": "tsx scripts/smoke-metricool-export-flow.ts",
     "import:apify": "tsx scripts/run-apify-import.ts",
     "source-system:summary": "tsx scripts/source-system-summary.ts",
-    "worker:clips": "node dist/workers/startWorker.js"
+    "worker:clips": "node dist/workers/startWorker.js",
+    "worker:post:dry-run": "node dist/workers/startPostDryRunWorker.js"
   },
   "engines": {
     "node": "22.x"
