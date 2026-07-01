@@ -12,21 +12,27 @@ import {
   RBHQ_ANALYTICS_QUEUE_NAME,
   RBHQ_APIFY_POLL_QUEUE_NAME,
   RBHQ_INGEST_QUEUE_NAME,
+  RBHQ_POST_QUEUE_NAME,
   RBHQ_SCORE_QUEUE_NAME,
   type RbhqAnalyticsJobData,
   type RbhqApifyPollJobData,
   type RbhqIngestJobData,
+  type RbhqPostJobData,
   type RbhqScoreJobData,
 } from '../lib/queue'
 import { recordTikTokAnalyticsSnapshot } from '../lib/analytics/tiktok'
 import { scoreClipsWithGemini, scoreClipWithGemini } from '../lib/gemini/scoring'
-import { importClips } from '../lib/moderation-queue'
+import { getClipById, importClips } from '../lib/moderation-queue'
 import { markSourcesIngestStarted, updateSourcesIngestHealth } from '../lib/rbhq-source-ingest'
 import { runNativeRbhqIngest } from '../lib/rbhq-native-ingest'
 import { supabaseAdminClient } from '../lib/supabase-admin'
 import { transitionRbhqState } from '../lib/workflow/transition'
 
 const TERMINAL_APIFY_STATUSES = new Set(['SUCCEEDED', 'FAILED', 'ABORTED', 'TIMED-OUT'])
+const MAC_MINI_READY_PUBLISH_STATUSES = new Set([
+  'metricool_ready_manual_export',
+  'ready_for_manual_publish',
+])
 
 async function upsertSourceItems(items: NormalizedSourceItem[]) {
   if (items.length === 0) {
@@ -216,7 +222,37 @@ export function createRbhqWorkers() {
     { connection: createWorkerConnection(), concurrency: 1 },
   )
 
-  // Deprecated: direct TikTok publishing is disabled. Approved clips route through Metricool.
+  const postWorker = new Worker<RbhqPostJobData, string, 'post-to-tiktok'>(
+    RBHQ_POST_QUEUE_NAME,
+    async (job) => {
+      const clip = await getClipById(job.data.postId, { includeMetricoolHandoffStatus: false })
+
+      if (!clip) {
+        throw new Error('CLIP_NOT_FOUND')
+      }
+
+      if (clip.status !== 'approved') {
+        throw new Error(`CLIP_NOT_APPROVED:${clip.status}`)
+      }
+
+      if (!clip.video_url?.trim()) {
+        throw new Error('CLIP_MISSING_RENDERED_VIDEO')
+      }
+
+      if (!MAC_MINI_READY_PUBLISH_STATUSES.has(clip.publish_status)) {
+        throw new Error(`CLIP_NOT_READY_FOR_MAC_MINI_POST:${clip.publish_status}`)
+      }
+
+      console.log('[rbhq-post] dry-run received approved clip', {
+        postId: clip.id,
+        channelId: clip.channel_id,
+        publishStatus: clip.publish_status,
+      })
+
+      return `dry-run:post:${clip.id}`
+    },
+    { connection: createWorkerConnection(), concurrency: 1 },
+  )
 
   const analyticsWorker = new Worker<RbhqAnalyticsJobData, string, 'poll-tiktok-analytics'>(
     RBHQ_ANALYTICS_QUEUE_NAME,
@@ -234,5 +270,5 @@ export function createRbhqWorkers() {
     { connection: createWorkerConnection(), concurrency: 1 },
   )
 
-  return [ingestWorker, pollWorker, scoreWorker, analyticsWorker]
+  return [ingestWorker, pollWorker, scoreWorker, postWorker, analyticsWorker]
 }
