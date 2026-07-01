@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "default_frequency": {
+    "S": "hourly",
+    "A": "daily",
+    "B": "daily",
+    "C": "weekly"
+  },
+  "max_items_per_source_per_run": {
+    "S": 18,
+    "A": 12,
+    "B": 7,
+    "C": 3
+  },
+  "min_priority_score": 62,
+  "prefer_formats": [
+    "vertical_video",
+    "shorts",
+    "reels",
+    "tiktok",
+    "youtube_shorts",
+    "clips_under_90s"
+  ],
+  "reject_if": [
+    "generic_highlight_only",
+    "box_score_only",
+    "slow_panel_setup_over_12s",
+    "no_human_reaction",
+    "duplicate_within_cooldown"
+  ],
+  "boost_if": [
+    "visible_crowd_energy",
+    "player_disrespect",
+    "press_tension",
+    "rivalry_language",
+    "locker_room_celebration",
+    "fashion_swagger",
+    "NIL_money_tension",
+    "coach_meltdown"
+  ]
+}

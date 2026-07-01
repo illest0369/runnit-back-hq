@@ -1,0 +1,1715 @@
+[
+  {
+    "name": "NBA",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 96,
+    "emotionality": 70,
+    "clipability": 92,
+    "controversy": 45,
+    "repost_value": 88,
+    "engagement_strength": 95,
+    "source_type": "league",
+    "content_focus": [
+      "micd_up",
+      "locker_room",
+      "press_conference",
+      "fan_reactions"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Official NBA moments; ingest for player aura, micd-up, press tension."
+  },
+  {
+    "name": "NFL",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 96,
+    "emotionality": 72,
+    "clipability": 91,
+    "controversy": 48,
+    "repost_value": 88,
+    "engagement_strength": 96,
+    "source_type": "league",
+    "content_focus": [
+      "micd_up",
+      "locker_room",
+      "press_conference",
+      "rivalry"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Official NFL moments with high crowd and rivalry upside."
+  },
+  {
+    "name": "MLB",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 58,
+    "clipability": 78,
+    "controversy": 36,
+    "repost_value": 74,
+    "engagement_strength": 82,
+    "source_type": "league",
+    "content_focus": [
+      "walkoffs",
+      "bench_reactions",
+      "clubhouse",
+      "fan_culture"
+    ],
+    "recommended_ingest_frequency": "3x_daily",
+    "notes": "Use for bench energy and late-game emotion, avoid slow recap."
+  },
+  {
+    "name": "Major League Soccer",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 64,
+    "clipability": 80,
+    "controversy": 38,
+    "repost_value": 72,
+    "engagement_strength": 80,
+    "source_type": "league",
+    "content_focus": [
+      "goals",
+      "ultras",
+      "player_swagger",
+      "fan_culture"
+    ],
+    "recommended_ingest_frequency": "3x_daily",
+    "notes": "Prioritize ultras and player celebrations over plain goals."
+  },
+  {
+    "name": "ESPN FC",
+    "platform": "youtube",
+    "category": "debate",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 68,
+    "clipability": 76,
+    "controversy": 58,
+    "repost_value": 70,
+    "engagement_strength": 86,
+    "source_type": "media",
+    "content_focus": [
+      "soccer_debate",
+      "rivalry",
+      "manager_pressure"
+    ],
+    "recommended_ingest_frequency": "2x_daily",
+    "notes": "Good for soccer conflict and pundit tension."
+  },
+  {
+    "name": "House of Highlights",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "S",
+    "priority_score": 98,
+    "emotionality": 88,
+    "clipability": 96,
+    "controversy": 58,
+    "repost_value": 94,
+    "engagement_strength": 97,
+    "source_type": "aggregator",
+    "content_focus": [
+      "reactions",
+      "swagger",
+      "bench_energy",
+      "fan_culture"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Top viral sports internet signal; high repost value."
+  },
+  {
+    "name": "Bleacher Report",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "S",
+    "priority_score": 95,
+    "emotionality": 82,
+    "clipability": 92,
+    "controversy": 62,
+    "repost_value": 90,
+    "engagement_strength": 94,
+    "source_type": "aggregator",
+    "content_focus": [
+      "meme",
+      "player_personality",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Internet-native mix of sports culture and debate."
+  },
+  {
+    "name": "Overtime",
+    "platform": "tiktok",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 88,
+    "emotionality": 86,
+    "clipability": 88,
+    "controversy": 54,
+    "repost_value": 84,
+    "engagement_strength": 91,
+    "source_type": "creator_network",
+    "content_focus": [
+      "young_athletes",
+      "aura",
+      "crowd_energy"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Good for Gen Z sports personality and swagger."
+  },
+  {
+    "name": "SportsCenter",
+    "platform": "instagram",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 90,
+    "emotionality": 72,
+    "clipability": 86,
+    "controversy": 45,
+    "repost_value": 82,
+    "engagement_strength": 91,
+    "source_type": "media",
+    "content_focus": [
+      "top_moments",
+      "reactions",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Use for verified broad-interest moments."
+  },
+  {
+    "name": "NBA on ESPN",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 88,
+    "emotionality": 70,
+    "clipability": 84,
+    "controversy": 54,
+    "repost_value": 78,
+    "engagement_strength": 88,
+    "source_type": "media",
+    "content_focus": [
+      "debate",
+      "press_tension",
+      "player_reactions"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Good NBA debate and press-room clips."
+  },
+  {
+    "name": "NFL on NBC",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 66,
+    "clipability": 80,
+    "controversy": 42,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "media",
+    "content_focus": [
+      "micd_up",
+      "locker_room",
+      "rivalry"
+    ],
+    "recommended_ingest_frequency": "2x_daily",
+    "notes": "Use for polished NFL emotion."
+  },
+  {
+    "name": "Inside the NBA",
+    "platform": "youtube",
+    "category": "debate",
+    "tier": "S",
+    "priority_score": 94,
+    "emotionality": 82,
+    "clipability": 88,
+    "controversy": 68,
+    "repost_value": 88,
+    "engagement_strength": 93,
+    "source_type": "show",
+    "content_focus": [
+      "debate",
+      "roasts",
+      "player_legacy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Elite NBA personality and argument clips."
+  },
+  {
+    "name": "First Take",
+    "platform": "youtube",
+    "category": "debate",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 78,
+    "clipability": 80,
+    "controversy": 75,
+    "repost_value": 74,
+    "engagement_strength": 88,
+    "source_type": "show",
+    "content_focus": [
+      "debate",
+      "hot_take",
+      "legacy_tension"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use only heated athlete-specific arguments."
+  },
+  {
+    "name": "The Pat McAfee Show",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 87,
+    "emotionality": 76,
+    "clipability": 82,
+    "controversy": 62,
+    "repost_value": 78,
+    "engagement_strength": 89,
+    "source_type": "podcast",
+    "content_focus": [
+      "locker_room",
+      "player_interviews",
+      "controversy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Fast sports personality and ex-player energy."
+  },
+  {
+    "name": "Club Shay Shay",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 85,
+    "emotionality": 78,
+    "clipability": 78,
+    "controversy": 66,
+    "repost_value": 76,
+    "engagement_strength": 87,
+    "source_type": "podcast",
+    "content_focus": [
+      "interviews",
+      "callouts",
+      "legacy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use for direct quotes and athlete vulnerability."
+  },
+  {
+    "name": "I AM ATHLETE",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 78,
+    "emotionality": 74,
+    "clipability": 72,
+    "controversy": 60,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "podcast",
+    "content_focus": [
+      "locker_room",
+      "player_truth",
+      "ego"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Good for honest player talk, avoid slow setup."
+  },
+  {
+    "name": "Pivot Podcast",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 72,
+    "clipability": 75,
+    "controversy": 58,
+    "repost_value": 70,
+    "engagement_strength": 83,
+    "source_type": "podcast",
+    "content_focus": [
+      "nfl_personality",
+      "locker_room",
+      "conflict"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "NFL player insight with usable emotion."
+  },
+  {
+    "name": "New Heights",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 70,
+    "clipability": 80,
+    "controversy": 44,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "podcast",
+    "content_focus": [
+      "nfl_personality",
+      "brother_energy",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Use for personality clips, avoid long banter."
+  },
+  {
+    "name": "All The Smoke",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 83,
+    "emotionality": 76,
+    "clipability": 76,
+    "controversy": 62,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "podcast",
+    "content_focus": [
+      "nba_stories",
+      "ego",
+      "disrespect"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Strong for NBA history, beef, and swagger."
+  },
+  {
+    "name": "Run It Back Fan Reactions",
+    "platform": "tiktok",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 92,
+    "clipability": 82,
+    "controversy": 50,
+    "repost_value": 80,
+    "engagement_strength": 84,
+    "source_type": "ugc",
+    "content_focus": [
+      "fan_reactions",
+      "meltdowns",
+      "celebrations"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Catch emotional fan identity clips."
+  },
+  {
+    "name": "Knicks Fan TV",
+    "platform": "youtube",
+    "category": "fan_culture",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 86,
+    "clipability": 74,
+    "controversy": 58,
+    "repost_value": 68,
+    "engagement_strength": 79,
+    "source_type": "fan_media",
+    "content_focus": [
+      "fan_rants",
+      "tribalism",
+      "ny_pressure"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High emotion Knicks identity signal."
+  },
+  {
+    "name": "Lakers Nation",
+    "platform": "youtube",
+    "category": "fan_culture",
+    "tier": "B",
+    "priority_score": 75,
+    "emotionality": 76,
+    "clipability": 70,
+    "controversy": 55,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "fan_media",
+    "content_focus": [
+      "lakers_debate",
+      "fan_pressure"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use for Lakers tribal argument clips."
+  },
+  {
+    "name": "Cowboys Nation",
+    "platform": "tiktok",
+    "category": "fan_culture",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 86,
+    "clipability": 76,
+    "controversy": 62,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "fan_media",
+    "content_focus": [
+      "nfl_tribalism",
+      "fan_meltdowns"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Cowboys emotion and hate-watch fuel."
+  },
+  {
+    "name": "Eagles Fan Central",
+    "platform": "tiktok",
+    "category": "fan_culture",
+    "tier": "B",
+    "priority_score": 73,
+    "emotionality": 88,
+    "clipability": 76,
+    "controversy": 60,
+    "repost_value": 70,
+    "engagement_strength": 81,
+    "source_type": "fan_media",
+    "content_focus": [
+      "fan_chaos",
+      "rivalry",
+      "tailgate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Philadelphia fan energy and rivalry."
+  },
+  {
+    "name": "TalkSPORT Football",
+    "platform": "youtube",
+    "category": "debate",
+    "tier": "A",
+    "priority_score": 81,
+    "emotionality": 78,
+    "clipability": 76,
+    "controversy": 70,
+    "repost_value": 70,
+    "engagement_strength": 84,
+    "source_type": "media",
+    "content_focus": [
+      "soccer_rivalry",
+      "manager_meltdowns"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong soccer conflict source."
+  },
+  {
+    "name": "AFTV",
+    "platform": "youtube",
+    "category": "fan_culture",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 92,
+    "clipability": 82,
+    "controversy": 74,
+    "repost_value": 78,
+    "engagement_strength": 90,
+    "source_type": "fan_media",
+    "content_focus": [
+      "ultras",
+      "fan_rants",
+      "manager_pressure"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Elite soccer fan meltdown/reaction source."
+  },
+  {
+    "name": "The United Stand",
+    "platform": "youtube",
+    "category": "fan_culture",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 86,
+    "clipability": 78,
+    "controversy": 70,
+    "repost_value": 74,
+    "engagement_strength": 87,
+    "source_type": "fan_media",
+    "content_focus": [
+      "soccer_rants",
+      "club_identity"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Manchester United tribal reaction engine."
+  },
+  {
+    "name": "Barstool Sports",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 84,
+    "clipability": 82,
+    "controversy": 70,
+    "repost_value": 80,
+    "engagement_strength": 90,
+    "source_type": "creator_network",
+    "content_focus": [
+      "meme",
+      "fan_culture",
+      "controversy"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High viral upside; filter out low-signal bits."
+  },
+  {
+    "name": "Pardon My Take",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 66,
+    "clipability": 68,
+    "controversy": 52,
+    "repost_value": 65,
+    "engagement_strength": 78,
+    "source_type": "podcast",
+    "content_focus": [
+      "sports_comedy",
+      "player_interviews"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Use clipped jokes and direct player moments."
+  },
+  {
+    "name": "Bussin With The Boys",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 77,
+    "emotionality": 72,
+    "clipability": 70,
+    "controversy": 58,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "podcast",
+    "content_focus": [
+      "nfl_locker_room",
+      "player_stories"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Locker room and player personality."
+  },
+  {
+    "name": "No Chill Gil",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 75,
+    "emotionality": 74,
+    "clipability": 70,
+    "controversy": 60,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "podcast",
+    "content_focus": [
+      "nba_opinion",
+      "ego",
+      "legacy"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Direct NBA personality."
+  },
+  {
+    "name": "Road Trippin",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 68,
+    "clipability": 66,
+    "controversy": 46,
+    "repost_value": 62,
+    "engagement_strength": 74,
+    "source_type": "podcast",
+    "content_focus": [
+      "nba_friendships",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use for intimate player dynamics."
+  },
+  {
+    "name": "Jomboy Media",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 70,
+    "clipability": 78,
+    "controversy": 48,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "creator",
+    "content_focus": [
+      "mlb_breakdowns",
+      "bench_drama",
+      "lip_reading"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "MLB clipability and bench-drama context."
+  },
+  {
+    "name": "Talkin Baseball",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 58,
+    "clipability": 65,
+    "controversy": 42,
+    "repost_value": 58,
+    "engagement_strength": 72,
+    "source_type": "podcast",
+    "content_focus": [
+      "mlb_debate",
+      "clubhouse"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Use when emotion is clear."
+  },
+  {
+    "name": "MLB Network",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 52,
+    "clipability": 68,
+    "controversy": 34,
+    "repost_value": 62,
+    "engagement_strength": 75,
+    "source_type": "media",
+    "content_focus": [
+      "clubhouse",
+      "press_conference"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Avoid stat-heavy analyst segments."
+  },
+  {
+    "name": "NBA Twitter Spaces Clips",
+    "platform": "x",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 88,
+    "clipability": 70,
+    "controversy": 76,
+    "repost_value": 68,
+    "engagement_strength": 82,
+    "source_type": "ugc",
+    "content_focus": [
+      "debate",
+      "fan_tribalism",
+      "hot_takes"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Use only clear audio and named-player arguments."
+  },
+  {
+    "name": "NFL Micd Up Archive",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 78,
+    "clipability": 88,
+    "controversy": 34,
+    "repost_value": 78,
+    "engagement_strength": 84,
+    "source_type": "archive",
+    "content_focus": [
+      "micd_up",
+      "trash_talk",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High retention if trimmed tightly."
+  },
+  {
+    "name": "NBA Tunnel Fits",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 78,
+    "clipability": 84,
+    "controversy": 30,
+    "repost_value": 76,
+    "engagement_strength": 84,
+    "source_type": "fashion",
+    "content_focus": [
+      "tunnel_fits",
+      "swagger",
+      "aura"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Fashion + aura signal."
+  },
+  {
+    "name": "LeagueFits",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 82,
+    "clipability": 82,
+    "controversy": 36,
+    "repost_value": 78,
+    "engagement_strength": 86,
+    "source_type": "fashion",
+    "content_focus": [
+      "tunnel_fits",
+      "style_debate",
+      "swagger"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Best tunnel culture source."
+  },
+  {
+    "name": "GQ Sports",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 58,
+    "clipability": 68,
+    "controversy": 28,
+    "repost_value": 60,
+    "engagement_strength": 72,
+    "source_type": "media",
+    "content_focus": [
+      "fashion",
+      "interviews",
+      "personality"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use only personality-heavy moments."
+  },
+  {
+    "name": "Complex Sports",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 76,
+    "clipability": 78,
+    "controversy": 56,
+    "repost_value": 76,
+    "engagement_strength": 85,
+    "source_type": "media",
+    "content_focus": [
+      "swagger",
+      "debate",
+      "sneaker_culture"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong sports culture packaging."
+  },
+  {
+    "name": "Slam Magazine",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 83,
+    "emotionality": 78,
+    "clipability": 80,
+    "controversy": 38,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "media",
+    "content_focus": [
+      "nba_aura",
+      "young_stars",
+      "streetball"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Basketball aura and youth culture."
+  },
+  {
+    "name": "Ballislife",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 84,
+    "clipability": 82,
+    "controversy": 48,
+    "repost_value": 78,
+    "engagement_strength": 86,
+    "source_type": "creator",
+    "content_focus": [
+      "crowd_energy",
+      "streetball",
+      "young_stars"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use for crowd and player swagger."
+  },
+  {
+    "name": "Through The Wire",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 68,
+    "clipability": 68,
+    "controversy": 52,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "podcast",
+    "content_focus": [
+      "nba_debate",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Internet-native NBA debate."
+  },
+  {
+    "name": "The Ringer NBA",
+    "platform": "youtube",
+    "category": "debate",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 60,
+    "clipability": 66,
+    "controversy": 48,
+    "repost_value": 60,
+    "engagement_strength": 76,
+    "source_type": "media",
+    "content_focus": [
+      "nba_debate",
+      "legacy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use only clipped disagreements."
+  },
+  {
+    "name": "Bill Simmons Podcast",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 58,
+    "clipability": 62,
+    "controversy": 52,
+    "repost_value": 58,
+    "engagement_strength": 74,
+    "source_type": "podcast",
+    "content_focus": [
+      "nba_nfl_debate",
+      "legacy"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Needs aggressive clipping."
+  },
+  {
+    "name": "Undisputed",
+    "platform": "youtube",
+    "category": "debate",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 76,
+    "clipability": 70,
+    "controversy": 74,
+    "repost_value": 62,
+    "engagement_strength": 80,
+    "source_type": "show",
+    "content_focus": [
+      "debate",
+      "legacy",
+      "disrespect"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use only high-conflict short beats."
+  },
+  {
+    "name": "Speak FS1",
+    "platform": "youtube",
+    "category": "debate",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 72,
+    "clipability": 68,
+    "controversy": 64,
+    "repost_value": 60,
+    "engagement_strength": 76,
+    "source_type": "show",
+    "content_focus": [
+      "debate",
+      "nfl_nba_pressure"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Debate fuel; avoid generic panels."
+  },
+  {
+    "name": "Players Tribune",
+    "platform": "youtube",
+    "category": "athlete",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 64,
+    "clipability": 66,
+    "controversy": 22,
+    "repost_value": 58,
+    "engagement_strength": 70,
+    "source_type": "athlete_media",
+    "content_focus": [
+      "athlete_story",
+      "vulnerability"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use only emotional confession moments."
+  },
+  {
+    "name": "Dude Perfect Sports",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "C",
+    "priority_score": 62,
+    "emotionality": 54,
+    "clipability": 64,
+    "controversy": 18,
+    "repost_value": 58,
+    "engagement_strength": 70,
+    "source_type": "creator",
+    "content_focus": [
+      "sports_fun",
+      "celebrity_athletes"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Low controversy, occasional broad reach."
+  },
+  {
+    "name": "ESPN",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 68,
+    "clipability": 80,
+    "controversy": 52,
+    "repost_value": 74,
+    "engagement_strength": 88,
+    "source_type": "media",
+    "content_focus": [
+      "debate",
+      "press_conference",
+      "reactions"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "General verified sports signal."
+  },
+  {
+    "name": "Fox Sports",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 62,
+    "clipability": 68,
+    "controversy": 50,
+    "repost_value": 62,
+    "engagement_strength": 78,
+    "source_type": "media",
+    "content_focus": [
+      "debate",
+      "nfl_mlb"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use emotion over analysis."
+  },
+  {
+    "name": "CBS Sports",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 58,
+    "clipability": 66,
+    "controversy": 42,
+    "repost_value": 60,
+    "engagement_strength": 76,
+    "source_type": "media",
+    "content_focus": [
+      "press_conference",
+      "reactions"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Filter hard for pace."
+  },
+  {
+    "name": "NBC Sports",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 58,
+    "clipability": 66,
+    "controversy": 40,
+    "repost_value": 60,
+    "engagement_strength": 76,
+    "source_type": "media",
+    "content_focus": [
+      "soccer",
+      "nfl",
+      "press_conference"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use official reactions only."
+  },
+  {
+    "name": "TNT Sports Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 68,
+    "clipability": 76,
+    "controversy": 55,
+    "repost_value": 68,
+    "engagement_strength": 82,
+    "source_type": "media",
+    "content_focus": [
+      "soccer_debate",
+      "player_reactions"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Soccer emotion and interview tension."
+  },
+  {
+    "name": "Fabrizio Romano",
+    "platform": "x",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 52,
+    "clipability": 60,
+    "controversy": 50,
+    "repost_value": 62,
+    "engagement_strength": 78,
+    "source_type": "reporter",
+    "content_focus": [
+      "soccer_transfer_drama",
+      "fan_reactions"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Use for transfer drama, not static updates."
+  },
+  {
+    "name": "433",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 78,
+    "clipability": 86,
+    "controversy": 42,
+    "repost_value": 82,
+    "engagement_strength": 90,
+    "source_type": "aggregator",
+    "content_focus": [
+      "soccer_swagger",
+      "ultras",
+      "goals"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Strong global soccer viral source."
+  },
+  {
+    "name": "Troll Football",
+    "platform": "instagram",
+    "category": "meme",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 78,
+    "clipability": 70,
+    "controversy": 72,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "meme",
+    "content_focus": [
+      "soccer_memes",
+      "rivalry",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Meme source; verify context before ingest."
+  },
+  {
+    "name": "Out Of Context Football",
+    "platform": "x",
+    "category": "meme",
+    "tier": "B",
+    "priority_score": 73,
+    "emotionality": 82,
+    "clipability": 72,
+    "controversy": 70,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "meme",
+    "content_focus": [
+      "soccer_moments",
+      "absurdity",
+      "rivalry"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Great for weird emotional clips."
+  },
+  {
+    "name": "BR Football",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 76,
+    "clipability": 78,
+    "controversy": 58,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "media",
+    "content_focus": [
+      "soccer_culture",
+      "rivalry",
+      "memes"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Strong soccer internet culture."
+  },
+  {
+    "name": "Men in Blazers",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 64,
+    "clipability": 64,
+    "controversy": 42,
+    "repost_value": 58,
+    "engagement_strength": 72,
+    "source_type": "podcast",
+    "content_focus": [
+      "soccer_culture",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use for funny high-context moments."
+  },
+  {
+    "name": "The Overlap",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 72,
+    "clipability": 74,
+    "controversy": 62,
+    "repost_value": 68,
+    "engagement_strength": 82,
+    "source_type": "interviews",
+    "content_focus": [
+      "soccer_ego",
+      "legacy",
+      "rivalry"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Great for tense player/manager quotes."
+  },
+  {
+    "name": "Sky Sports Premier League",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 70,
+    "clipability": 76,
+    "controversy": 62,
+    "repost_value": 70,
+    "engagement_strength": 84,
+    "source_type": "media",
+    "content_focus": [
+      "press_tension",
+      "rivalry",
+      "manager_quotes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Prioritize conflict and press tension."
+  },
+  {
+    "name": "CBS Sports Golazo",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 64,
+    "clipability": 70,
+    "controversy": 48,
+    "repost_value": 62,
+    "engagement_strength": 78,
+    "source_type": "media",
+    "content_focus": [
+      "soccer_reactions",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "UCL reaction source."
+  },
+  {
+    "name": "NBA Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 86,
+    "clipability": 62,
+    "controversy": 78,
+    "repost_value": 64,
+    "engagement_strength": 82,
+    "source_type": "community",
+    "content_focus": [
+      "fan_meltdowns",
+      "memes",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Use as trend signal, not raw content."
+  },
+  {
+    "name": "NFL Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 86,
+    "clipability": 62,
+    "controversy": 78,
+    "repost_value": 64,
+    "engagement_strength": 82,
+    "source_type": "community",
+    "content_focus": [
+      "fan_meltdowns",
+      "rivalry",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Use as trend signal."
+  },
+  {
+    "name": "MLB Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "C",
+    "priority_score": 62,
+    "emotionality": 70,
+    "clipability": 56,
+    "controversy": 54,
+    "repost_value": 52,
+    "engagement_strength": 68,
+    "source_type": "community",
+    "content_focus": [
+      "fan_reactions",
+      "club_identity"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Trend signal only."
+  },
+  {
+    "name": "Soccer Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 88,
+    "clipability": 62,
+    "controversy": 82,
+    "repost_value": 64,
+    "engagement_strength": 84,
+    "source_type": "community",
+    "content_focus": [
+      "ultras",
+      "fan_hatred",
+      "memes"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Strong rivalry signal."
+  },
+  {
+    "name": "NBA Pressers",
+    "platform": "youtube",
+    "category": "press_conference",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 72,
+    "clipability": 76,
+    "controversy": 62,
+    "repost_value": 68,
+    "engagement_strength": 82,
+    "source_type": "press",
+    "content_focus": [
+      "press_tension",
+      "player_quotes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Clip terse answers and visible frustration."
+  },
+  {
+    "name": "NFL Press Conferences",
+    "platform": "youtube",
+    "category": "press_conference",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 70,
+    "clipability": 74,
+    "controversy": 58,
+    "repost_value": 66,
+    "engagement_strength": 80,
+    "source_type": "press",
+    "content_focus": [
+      "coach_pressure",
+      "player_quotes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use conflict and direct answers only."
+  },
+  {
+    "name": "MLB Clubhouse Interviews",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 60,
+    "clipability": 64,
+    "controversy": 36,
+    "repost_value": 56,
+    "engagement_strength": 70,
+    "source_type": "press",
+    "content_focus": [
+      "clubhouse",
+      "walkoff_emotion"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Clip emotion, avoid recap."
+  },
+  {
+    "name": "Soccer Mixed Zone",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 68,
+    "clipability": 66,
+    "controversy": 54,
+    "repost_value": 58,
+    "engagement_strength": 74,
+    "source_type": "press",
+    "content_focus": [
+      "player_tension",
+      "manager_pressure"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Good for post-match emotion."
+  },
+  {
+    "name": "Fanatics View",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 66,
+    "clipability": 68,
+    "controversy": 44,
+    "repost_value": 58,
+    "engagement_strength": 72,
+    "source_type": "interviews",
+    "content_focus": [
+      "athlete_personality",
+      "tunnel"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use quick personality beats."
+  },
+  {
+    "name": "SneakerReporter Sports",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 64,
+    "clipability": 66,
+    "controversy": 42,
+    "repost_value": 56,
+    "engagement_strength": 70,
+    "source_type": "interviews",
+    "content_focus": [
+      "locker_room",
+      "tunnel_fits"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Culture-facing interview source."
+  },
+  {
+    "name": "Whistle Sports",
+    "platform": "tiktok",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 72,
+    "clipability": 72,
+    "controversy": 34,
+    "repost_value": 66,
+    "engagement_strength": 76,
+    "source_type": "creator",
+    "content_focus": [
+      "athlete_personality",
+      "challenges"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use only authentic athlete reactions."
+  },
+  {
+    "name": "Bleacher Report Kicks",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 68,
+    "clipability": 70,
+    "controversy": 28,
+    "repost_value": 66,
+    "engagement_strength": 76,
+    "source_type": "fashion",
+    "content_focus": [
+      "sneakers",
+      "tunnel_fits",
+      "swagger"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Style and culture source."
+  },
+  {
+    "name": "Wave Sports + Entertainment",
+    "platform": "tiktok",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 80,
+    "clipability": 74,
+    "controversy": 50,
+    "repost_value": 70,
+    "engagement_strength": 80,
+    "source_type": "creator_network",
+    "content_focus": [
+      "fan_reactions",
+      "debate",
+      "creator_personality"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Useful TikTok packaging signal."
+  },
+  {
+    "name": "Playmaker",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 78,
+    "clipability": 74,
+    "controversy": 54,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "creator_network",
+    "content_focus": [
+      "meme",
+      "reactions",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Internet-native sports clips."
+  },
+  {
+    "name": "Buckets",
+    "platform": "instagram",
+    "category": "meme",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 76,
+    "clipability": 72,
+    "controversy": 56,
+    "repost_value": 70,
+    "engagement_strength": 80,
+    "source_type": "meme",
+    "content_focus": [
+      "nba_memes",
+      "player_aura",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "NBA meme and aura source."
+  },
+  {
+    "name": "Gridiron Heights",
+    "platform": "youtube",
+    "category": "meme",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 72,
+    "clipability": 68,
+    "controversy": 48,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "meme",
+    "content_focus": [
+      "nfl_memes",
+      "rivalry",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Animated but useful trend signal."
+  },
+  {
+    "name": "MLB Fits",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "C",
+    "priority_score": 62,
+    "emotionality": 58,
+    "clipability": 60,
+    "controversy": 22,
+    "repost_value": 54,
+    "engagement_strength": 66,
+    "source_type": "fashion",
+    "content_focus": [
+      "baseball_style",
+      "swagger"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Low volume style signal."
+  },
+  {
+    "name": "SoccerBible",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "B",
+    "priority_score": 68,
+    "emotionality": 64,
+    "clipability": 66,
+    "controversy": 28,
+    "repost_value": 60,
+    "engagement_strength": 72,
+    "source_type": "fashion",
+    "content_focus": [
+      "soccer_style",
+      "boots",
+      "culture"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Soccer fashion/culture."
+  },
+  {
+    "name": "Football Daily",
+    "platform": "youtube",
+    "category": "debate",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 64,
+    "clipability": 66,
+    "controversy": 48,
+    "repost_value": 60,
+    "engagement_strength": 74,
+    "source_type": "media",
+    "content_focus": [
+      "soccer_debate",
+      "rivalry"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use quick argument clips."
+  },
+  {
+    "name": "ESPN Deportes",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 72,
+    "clipability": 70,
+    "controversy": 52,
+    "repost_value": 64,
+    "engagement_strength": 78,
+    "source_type": "media",
+    "content_focus": [
+      "soccer_fandom",
+      "latin_america",
+      "emotion"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High-emotion soccer audience."
+  },
+  {
+    "name": "TUDN USA",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 76,
+    "clipability": 72,
+    "controversy": 52,
+    "repost_value": 66,
+    "engagement_strength": 80,
+    "source_type": "media",
+    "content_focus": [
+      "soccer_fandom",
+      "celebrations",
+      "ultras"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Great for Latin soccer passion."
+  },
+  {
+    "name": "Uninterrupted",
+    "platform": "youtube",
+    "category": "athlete",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 62,
+    "clipability": 66,
+    "controversy": 34,
+    "repost_value": 58,
+    "engagement_strength": 72,
+    "source_type": "athlete_media",
+    "content_focus": [
+      "athlete_voice",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use direct athlete perspective."
+  },
+  {
+    "name": "Boardroom Sports",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 52,
+    "clipability": 60,
+    "controversy": 34,
+    "repost_value": 56,
+    "engagement_strength": 70,
+    "source_type": "media",
+    "content_focus": [
+      "athlete_business",
+      "swagger",
+      "NIL_like"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use personality/business flex moments."
+  }
+]

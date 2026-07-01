@@ -1,0 +1,1633 @@
+[
+  {
+    "name": "WNBA",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 96,
+    "emotionality": 78,
+    "clipability": 90,
+    "controversy": 40,
+    "repost_value": 88,
+    "engagement_strength": 94,
+    "source_type": "league",
+    "content_focus": [
+      "game_emotion",
+      "locker_room",
+      "press_conference",
+      "player_swagger"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Official WNBA clips; prioritize personality and confident reactions."
+  },
+  {
+    "name": "NWSL",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 74,
+    "clipability": 82,
+    "controversy": 38,
+    "repost_value": 76,
+    "engagement_strength": 84,
+    "source_type": "league",
+    "content_focus": [
+      "goals",
+      "locker_room",
+      "team_friendships",
+      "fan_culture"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use celebrations, crowd, rivalry."
+  },
+  {
+    "name": "espnW",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 66,
+    "clipability": 78,
+    "controversy": 36,
+    "repost_value": 72,
+    "engagement_strength": 82,
+    "source_type": "media",
+    "content_focus": [
+      "athlete_profiles",
+      "NIL",
+      "interviews"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Avoid corporate empowerment tone; use personality."
+  },
+  {
+    "name": "Just Women’s Sports",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "S",
+    "priority_score": 94,
+    "emotionality": 82,
+    "clipability": 88,
+    "controversy": 50,
+    "repost_value": 86,
+    "engagement_strength": 92,
+    "source_type": "media",
+    "content_focus": [
+      "personality",
+      "friendships",
+      "debate",
+      "NIL"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Best channel-fit culture source."
+  },
+  {
+    "name": "Togethxr",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 72,
+    "clipability": 78,
+    "controversy": 42,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "creator_network",
+    "content_focus": [
+      "fashion",
+      "confidence",
+      "athlete_voice"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use internet-native athlete identity."
+  },
+  {
+    "name": "Overtime WBB",
+    "platform": "tiktok",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 88,
+    "emotionality": 86,
+    "clipability": 86,
+    "controversy": 48,
+    "repost_value": 82,
+    "engagement_strength": 90,
+    "source_type": "creator",
+    "content_focus": [
+      "young_athletes",
+      "crowd_energy",
+      "swagger"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Great for viral women hoopers."
+  },
+  {
+    "name": "SLAM HS Hoops",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 82,
+    "clipability": 80,
+    "controversy": 46,
+    "repost_value": 76,
+    "engagement_strength": 84,
+    "source_type": "creator",
+    "content_focus": [
+      "young_stars",
+      "aura",
+      "crowd_energy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use girls hoops swagger moments."
+  },
+  {
+    "name": "LeagueFits Women",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 78,
+    "clipability": 80,
+    "controversy": 28,
+    "repost_value": 74,
+    "engagement_strength": 82,
+    "source_type": "fashion",
+    "content_focus": [
+      "tunnel_fits",
+      "style",
+      "confidence"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Fashion and aura source."
+  },
+  {
+    "name": "WNBA Tunnel",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 82,
+    "clipability": 82,
+    "controversy": 30,
+    "repost_value": 76,
+    "engagement_strength": 84,
+    "source_type": "fashion",
+    "content_focus": [
+      "tunnel_fits",
+      "pre_game_confidence"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High style clipability."
+  },
+  {
+    "name": "A Touch More",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 70,
+    "clipability": 74,
+    "controversy": 42,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "podcast",
+    "content_focus": [
+      "friendships",
+      "personality",
+      "athlete_truth"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Use direct personality and chemistry."
+  },
+  {
+    "name": "Tea with A & Phee",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 76,
+    "clipability": 78,
+    "controversy": 48,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "podcast",
+    "content_focus": [
+      "wnba_friendships",
+      "inside_jokes",
+      "personality"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Strong internet-native WNBA voice."
+  },
+  {
+    "name": "The Players’ Tribune Women",
+    "platform": "youtube",
+    "category": "athlete",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 64,
+    "clipability": 66,
+    "controversy": 20,
+    "repost_value": 58,
+    "engagement_strength": 70,
+    "source_type": "athlete_media",
+    "content_focus": [
+      "athlete_story",
+      "vulnerability"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use only emotionally specific clips."
+  },
+  {
+    "name": "Caitlin Clark Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "S",
+    "priority_score": 95,
+    "emotionality": 86,
+    "clipability": 92,
+    "controversy": 62,
+    "repost_value": 90,
+    "engagement_strength": 96,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "aura",
+      "debate",
+      "crowd_reactions"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High attention; watch for overuse."
+  },
+  {
+    "name": "Angel Reese Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "S",
+    "priority_score": 94,
+    "emotionality": 88,
+    "clipability": 90,
+    "controversy": 70,
+    "repost_value": 88,
+    "engagement_strength": 95,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "confidence",
+      "fashion",
+      "controversy",
+      "aura"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High personality and debate value."
+  },
+  {
+    "name": "A’ja Wilson Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "S",
+    "priority_score": 92,
+    "emotionality": 80,
+    "clipability": 88,
+    "controversy": 44,
+    "repost_value": 84,
+    "engagement_strength": 92,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "dominance",
+      "personality",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Elite confidence and star power."
+  },
+  {
+    "name": "Sabrina Ionescu Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 70,
+    "clipability": 80,
+    "controversy": 34,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "shooting",
+      "confidence",
+      "ny_fandom"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Good for big-market moments."
+  },
+  {
+    "name": "Paige Bueckers Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 88,
+    "emotionality": 82,
+    "clipability": 84,
+    "controversy": 52,
+    "repost_value": 80,
+    "engagement_strength": 90,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "NIL",
+      "style",
+      "friendships",
+      "confidence"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Internet-native athlete source."
+  },
+  {
+    "name": "Flau’jae Johnson Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 88,
+    "emotionality": 84,
+    "clipability": 84,
+    "controversy": 50,
+    "repost_value": 80,
+    "engagement_strength": 88,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "music",
+      "NIL",
+      "confidence",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Culture crossover and personality."
+  },
+  {
+    "name": "Hailey Van Lith Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 78,
+    "clipability": 80,
+    "controversy": 48,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "confidence",
+      "NIL",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong internet engagement."
+  },
+  {
+    "name": "JuJu Watkins Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 80,
+    "clipability": 84,
+    "controversy": 44,
+    "repost_value": 78,
+    "engagement_strength": 86,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "young_star",
+      "aura",
+      "usc"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Future-star aura."
+  },
+  {
+    "name": "USC Women’s Basketball",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 76,
+    "clipability": 80,
+    "controversy": 34,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "team",
+    "content_focus": [
+      "locker_room",
+      "young_star",
+      "crowd_energy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "JuJu/team energy."
+  },
+  {
+    "name": "LSU Women’s Basketball",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 92,
+    "emotionality": 86,
+    "clipability": 88,
+    "controversy": 64,
+    "repost_value": 84,
+    "engagement_strength": 92,
+    "source_type": "team",
+    "content_focus": [
+      "locker_room",
+      "NIL",
+      "swagger",
+      "rivalry"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Top personality and drama program."
+  },
+  {
+    "name": "UConn Women’s Basketball",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 72,
+    "clipability": 82,
+    "controversy": 40,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "team",
+    "content_focus": [
+      "tradition",
+      "young_star",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Prestige + star identity."
+  },
+  {
+    "name": "South Carolina WBB",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 76,
+    "clipability": 82,
+    "controversy": 42,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "team",
+    "content_focus": [
+      "dominance",
+      "locker_room",
+      "coach_energy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "A’ja/Dawn culture and dominance."
+  },
+  {
+    "name": "Iowa Women’s Basketball",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 78,
+    "clipability": 80,
+    "controversy": 50,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "team",
+    "content_focus": [
+      "crowd_energy",
+      "legacy",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Post-Clark fan identity remains useful."
+  },
+  {
+    "name": "NCAA March Madness Women",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 82,
+    "clipability": 84,
+    "controversy": 48,
+    "repost_value": 78,
+    "engagement_strength": 88,
+    "source_type": "official",
+    "content_focus": [
+      "crowd_energy",
+      "upsets",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "seasonal_hourly",
+    "notes": "Tournament emotion."
+  },
+  {
+    "name": "Women’s Hoop Network",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 76,
+    "clipability": 72,
+    "controversy": 42,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "creator",
+    "content_focus": [
+      "wbb_clips",
+      "debate",
+      "aura"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Good trend signal."
+  },
+  {
+    "name": "Girls Talk Sports TV",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 68,
+    "clipability": 66,
+    "controversy": 42,
+    "repost_value": 60,
+    "engagement_strength": 72,
+    "source_type": "creator",
+    "content_focus": [
+      "debate",
+      "personality"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use when takes are sharp."
+  },
+  {
+    "name": "HighlightHER",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 82,
+    "clipability": 78,
+    "controversy": 48,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "creator",
+    "content_focus": [
+      "viral_moments",
+      "personality",
+      "confidence"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Strong women sports culture packaging."
+  },
+  {
+    "name": "On Her Turf",
+    "platform": "instagram",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 64,
+    "clipability": 66,
+    "controversy": 28,
+    "repost_value": 60,
+    "engagement_strength": 72,
+    "source_type": "media",
+    "content_focus": [
+      "olympic_stars",
+      "profiles"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use personality, avoid corporate framing."
+  },
+  {
+    "name": "The Gist Sports",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 62,
+    "clipability": 64,
+    "controversy": 34,
+    "repost_value": 58,
+    "engagement_strength": 70,
+    "source_type": "media",
+    "content_focus": [
+      "culture",
+      "quick_context"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Good context, lower clip pace."
+  },
+  {
+    "name": "Women’s Sports Foundation Clips",
+    "platform": "instagram",
+    "category": "official",
+    "tier": "C",
+    "priority_score": 58,
+    "emotionality": 52,
+    "clipability": 50,
+    "controversy": 12,
+    "repost_value": 44,
+    "engagement_strength": 60,
+    "source_type": "institutional",
+    "content_focus": [
+      "profiles"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use rarely; avoid empowerment tone."
+  },
+  {
+    "name": "NWSL on ESPN",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 68,
+    "clipability": 70,
+    "controversy": 36,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "media",
+    "content_focus": [
+      "goals",
+      "interviews",
+      "fan_culture"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use celebrations and player personality."
+  },
+  {
+    "name": "USWNT",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 72,
+    "clipability": 82,
+    "controversy": 44,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "team",
+    "content_focus": [
+      "national_team",
+      "locker_room",
+      "press"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Star identity and rivalry."
+  },
+  {
+    "name": "Women’s Soccer Fan Reactions",
+    "platform": "tiktok",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 84,
+    "clipability": 70,
+    "controversy": 48,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "ugc",
+    "content_focus": [
+      "fan_reactions",
+      "rivalry",
+      "celebrations"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Fan culture signal."
+  },
+  {
+    "name": "Midge Purce Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 70,
+    "clipability": 68,
+    "controversy": 36,
+    "repost_value": 62,
+    "engagement_strength": 74,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "personality",
+      "style",
+      "soccer"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Charisma clips."
+  },
+  {
+    "name": "Trinity Rodman Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 80,
+    "clipability": 80,
+    "controversy": 48,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "swagger",
+      "style",
+      "goals"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High aura and personality."
+  },
+  {
+    "name": "Sophia Smith Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 72,
+    "clipability": 78,
+    "controversy": 34,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "goals",
+      "confidence",
+      "style"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Star soccer clips."
+  },
+  {
+    "name": "Alex Morgan Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 78,
+    "emotionality": 68,
+    "clipability": 76,
+    "controversy": 38,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "legacy",
+      "fan_identity",
+      "press"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Legacy and mainstream pull."
+  },
+  {
+    "name": "Serena Williams Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 76,
+    "clipability": 80,
+    "controversy": 50,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "legacy",
+      "aura",
+      "fashion"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use relevant current/public moments."
+  },
+  {
+    "name": "Coco Gauff Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 78,
+    "clipability": 82,
+    "controversy": 44,
+    "repost_value": 78,
+    "engagement_strength": 88,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "confidence",
+      "press",
+      "style"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Press and personality source."
+  },
+  {
+    "name": "Naomi Osaka Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 78,
+    "emotionality": 70,
+    "clipability": 76,
+    "controversy": 42,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "fashion",
+      "press",
+      "personality"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use when current and emotionally clear."
+  },
+  {
+    "name": "Women’s Tennis Association",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 62,
+    "clipability": 72,
+    "controversy": 34,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "league",
+    "content_focus": [
+      "press",
+      "celebrations",
+      "rivalry"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Avoid match recap; use personality."
+  },
+  {
+    "name": "Good Follow WBB",
+    "platform": "tiktok",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 76,
+    "clipability": 70,
+    "controversy": 44,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "creator",
+    "content_focus": [
+      "wbb_debate",
+      "player_aura"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Trend discovery."
+  },
+  {
+    "name": "NIL Daily Women",
+    "platform": "tiktok",
+    "category": "NIL",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 70,
+    "clipability": 68,
+    "controversy": 50,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "creator",
+    "content_focus": [
+      "NIL",
+      "fashion",
+      "brand_moments"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use for culture and money/fame dynamics."
+  },
+  {
+    "name": "Women’s NIL Watch",
+    "platform": "instagram",
+    "category": "NIL",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 66,
+    "clipability": 66,
+    "controversy": 44,
+    "repost_value": 62,
+    "engagement_strength": 74,
+    "source_type": "creator",
+    "content_focus": [
+      "NIL",
+      "brand_deals",
+      "athlete_business"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "NIL culture signal."
+  },
+  {
+    "name": "Fashion Bomb Sports Women",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 72,
+    "clipability": 70,
+    "controversy": 28,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "fashion",
+    "content_focus": [
+      "fashion",
+      "tunnel_fits",
+      "style_debate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Style discovery."
+  },
+  {
+    "name": "GQ Sports Women",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 58,
+    "clipability": 64,
+    "controversy": 24,
+    "repost_value": 58,
+    "engagement_strength": 70,
+    "source_type": "media",
+    "content_focus": [
+      "style",
+      "interviews",
+      "personality"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use only candid moments."
+  },
+  {
+    "name": "Complex Sneakers Women Athletes",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "B",
+    "priority_score": 68,
+    "emotionality": 64,
+    "clipability": 66,
+    "controversy": 24,
+    "repost_value": 60,
+    "engagement_strength": 72,
+    "source_type": "fashion",
+    "content_focus": [
+      "sneakers",
+      "style",
+      "NIL"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Style + athlete identity."
+  },
+  {
+    "name": "Sports Are Fun Women Clips",
+    "platform": "tiktok",
+    "category": "meme",
+    "tier": "B",
+    "priority_score": 68,
+    "emotionality": 78,
+    "clipability": 66,
+    "controversy": 48,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "meme",
+    "content_focus": [
+      "memes",
+      "reactions",
+      "friendships"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use for internet-native tone."
+  },
+  {
+    "name": "WNBA Twitter Reactions",
+    "platform": "x",
+    "category": "reactions",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 90,
+    "clipability": 72,
+    "controversy": 78,
+    "repost_value": 76,
+    "engagement_strength": 90,
+    "source_type": "community",
+    "content_focus": [
+      "debate",
+      "fan_meltdowns",
+      "player_stans"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Trend signal for controversy and stans."
+  },
+  {
+    "name": "WBB Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 82,
+    "clipability": 60,
+    "controversy": 64,
+    "repost_value": 60,
+    "engagement_strength": 76,
+    "source_type": "community",
+    "content_focus": [
+      "fan_reactions",
+      "rivalry",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use as signal."
+  },
+  {
+    "name": "WNBA Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 84,
+    "clipability": 62,
+    "controversy": 66,
+    "repost_value": 62,
+    "engagement_strength": 78,
+    "source_type": "community",
+    "content_focus": [
+      "fan_reactions",
+      "debate",
+      "player_stans"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use as signal."
+  },
+  {
+    "name": "NWSL Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "C",
+    "priority_score": 62,
+    "emotionality": 68,
+    "clipability": 54,
+    "controversy": 44,
+    "repost_value": 50,
+    "engagement_strength": 66,
+    "source_type": "community",
+    "content_focus": [
+      "fan_culture",
+      "rivalry"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Trend signal only."
+  },
+  {
+    "name": "Women’s Sports Meme Page",
+    "platform": "instagram",
+    "category": "meme",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 78,
+    "clipability": 68,
+    "controversy": 58,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "meme",
+    "content_focus": [
+      "memes",
+      "player_stans",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Verify context before ingest."
+  },
+  {
+    "name": "Women Hooping Daily",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 76,
+    "clipability": 72,
+    "controversy": 40,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "creator",
+    "content_focus": [
+      "wbb",
+      "wnba",
+      "aura"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Clip discovery."
+  },
+  {
+    "name": "Queens of the Court",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 68,
+    "clipability": 70,
+    "controversy": 42,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "podcast",
+    "content_focus": [
+      "wnba_debate",
+      "player_personality"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Use sharp debate."
+  },
+  {
+    "name": "Her Hoop Stats Podcast",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "C",
+    "priority_score": 58,
+    "emotionality": 46,
+    "clipability": 52,
+    "controversy": 24,
+    "repost_value": 44,
+    "engagement_strength": 60,
+    "source_type": "podcast",
+    "content_focus": [
+      "analysis"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use rarely; too analytical."
+  },
+  {
+    "name": "Dawn Staley Clips",
+    "platform": "tiktok",
+    "category": "coach",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 78,
+    "clipability": 78,
+    "controversy": 44,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "coach_energy",
+      "locker_room",
+      "press"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Coach aura and leadership moments."
+  },
+  {
+    "name": "Kim Mulkey Clips",
+    "platform": "tiktok",
+    "category": "coach",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 80,
+    "clipability": 76,
+    "controversy": 70,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "controversy",
+      "press",
+      "outfits"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High controversy and visual identity."
+  },
+  {
+    "name": "Becky Hammon Clips",
+    "platform": "tiktok",
+    "category": "coach",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 68,
+    "clipability": 68,
+    "controversy": 36,
+    "repost_value": 60,
+    "engagement_strength": 74,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "press",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use direct soundbites."
+  },
+  {
+    "name": "Las Vegas Aces",
+    "platform": "youtube",
+    "category": "team",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 78,
+    "clipability": 80,
+    "controversy": 38,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "team",
+    "content_focus": [
+      "locker_room",
+      "championship_swagger",
+      "friendships"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Elite team personality."
+  },
+  {
+    "name": "New York Liberty",
+    "platform": "youtube",
+    "category": "team",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 74,
+    "clipability": 78,
+    "controversy": 42,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "team",
+    "content_focus": [
+      "ny_fandom",
+      "locker_room",
+      "style"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Big-market women hoops energy."
+  },
+  {
+    "name": "Indiana Fever",
+    "platform": "youtube",
+    "category": "team",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 82,
+    "clipability": 82,
+    "controversy": 60,
+    "repost_value": 78,
+    "engagement_strength": 88,
+    "source_type": "team",
+    "content_focus": [
+      "caitlin_effect",
+      "crowd",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High attention source."
+  },
+  {
+    "name": "Chicago Sky",
+    "platform": "youtube",
+    "category": "team",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 80,
+    "clipability": 80,
+    "controversy": 62,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "team",
+    "content_focus": [
+      "angel_reese",
+      "confidence",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High personality source."
+  },
+  {
+    "name": "Seattle Storm",
+    "platform": "youtube",
+    "category": "team",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 66,
+    "clipability": 70,
+    "controversy": 30,
+    "repost_value": 60,
+    "engagement_strength": 74,
+    "source_type": "team",
+    "content_focus": [
+      "locker_room",
+      "legacy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use personality moments."
+  },
+  {
+    "name": "Phoenix Mercury",
+    "platform": "youtube",
+    "category": "team",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 68,
+    "clipability": 72,
+    "controversy": 34,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "team",
+    "content_focus": [
+      "veteran_stars",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use star clips."
+  },
+  {
+    "name": "Portland Thorns",
+    "platform": "youtube",
+    "category": "team",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 70,
+    "clipability": 70,
+    "controversy": 36,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "team",
+    "content_focus": [
+      "soccer_fandom",
+      "goals",
+      "style"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "NWSL team identity."
+  },
+  {
+    "name": "Angel City FC",
+    "platform": "youtube",
+    "category": "team",
+    "tier": "A",
+    "priority_score": 78,
+    "emotionality": 74,
+    "clipability": 76,
+    "controversy": 36,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "team",
+    "content_focus": [
+      "la_culture",
+      "style",
+      "fan_culture"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong culture and celebrity market."
+  },
+  {
+    "name": "Gotham FC",
+    "platform": "youtube",
+    "category": "team",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 70,
+    "clipability": 72,
+    "controversy": 36,
+    "repost_value": 64,
+    "engagement_strength": 78,
+    "source_type": "team",
+    "content_focus": [
+      "ny_culture",
+      "style",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Big-market NWSL."
+  },
+  {
+    "name": "Women’s Locker Room Edits",
+    "platform": "tiktok",
+    "category": "locker_room",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 84,
+    "clipability": 74,
+    "controversy": 38,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "ugc",
+    "content_focus": [
+      "locker_room",
+      "friendships",
+      "celebrations"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use authentic team energy."
+  },
+  {
+    "name": "Women Athlete Fits",
+    "platform": "tiktok",
+    "category": "tunnel_fits",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 76,
+    "clipability": 72,
+    "controversy": 28,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "ugc",
+    "content_focus": [
+      "fashion",
+      "tunnel_fits",
+      "NIL"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Style and confidence source."
+  },
+  {
+    "name": "NIL Storefront Athletes",
+    "platform": "tiktok",
+    "category": "NIL",
+    "tier": "B",
+    "priority_score": 68,
+    "emotionality": 70,
+    "clipability": 68,
+    "controversy": 42,
+    "repost_value": 62,
+    "engagement_strength": 74,
+    "source_type": "ugc",
+    "content_focus": [
+      "NIL",
+      "brand_deals",
+      "personality"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use money/fame culture moments."
+  },
+  {
+    "name": "Women Sports Pressers",
+    "platform": "youtube",
+    "category": "press_conference",
+    "tier": "A",
+    "priority_score": 78,
+    "emotionality": 70,
+    "clipability": 72,
+    "controversy": 54,
+    "repost_value": 66,
+    "engagement_strength": 80,
+    "source_type": "press",
+    "content_focus": [
+      "press_tension",
+      "player_quotes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Clip sharp answers only."
+  },
+  {
+    "name": "Women Athlete Friendships",
+    "platform": "tiktok",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 82,
+    "clipability": 70,
+    "controversy": 28,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "ugc",
+    "content_focus": [
+      "friendships",
+      "inside_jokes",
+      "team_energy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Positive but not corporate."
+  },
+  {
+    "name": "Women Sports Edits",
+    "platform": "tiktok",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 80,
+    "clipability": 72,
+    "controversy": 40,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "ugc",
+    "content_focus": [
+      "aura",
+      "confidence",
+      "viral_edits"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Discovery signal for momentum."
+  },
+  {
+    "name": "Athletes Unlimited",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "C",
+    "priority_score": 62,
+    "emotionality": 58,
+    "clipability": 60,
+    "controversy": 22,
+    "repost_value": 50,
+    "engagement_strength": 66,
+    "source_type": "league",
+    "content_focus": [
+      "volleyball",
+      "softball",
+      "locker_room"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Lower priority but useful diversity."
+  },
+  {
+    "name": "NCAA Volleyball",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 74,
+    "clipability": 72,
+    "controversy": 30,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "official",
+    "content_focus": [
+      "crowd_energy",
+      "student_sections",
+      "celebrations"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use high crowd energy clips."
+  },
+  {
+    "name": "Nebraska Volleyball",
+    "platform": "youtube",
+    "category": "team",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 78,
+    "clipability": 72,
+    "controversy": 34,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "team",
+    "content_focus": [
+      "student_section",
+      "crowd_energy",
+      "dominance"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong fandom identity."
+  },
+  {
+    "name": "Women’s Gymnastics NCAA",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 78,
+    "clipability": 74,
+    "controversy": 30,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "official",
+    "content_focus": [
+      "celebrations",
+      "personality",
+      "crowd"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High clipability."
+  },
+  {
+    "name": "Livvy Dunne Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "A",
+    "priority_score": 78,
+    "emotionality": 76,
+    "clipability": 76,
+    "controversy": 56,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "NIL",
+      "internet_fame",
+      "personality"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "NIL/internet-native athlete source."
+  },
+  {
+    "name": "Sunisa Lee Clips",
+    "platform": "tiktok",
+    "category": "athlete",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 68,
+    "clipability": 72,
+    "controversy": 26,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "athlete_fan",
+    "content_focus": [
+      "gymnastics",
+      "style",
+      "confidence"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use current personality moments."
+  }
+]

@@ -9,8 +9,6 @@
     "build:worker": "tsc -p tsconfig.worker.json",
     "start": "next start",
     "worker": "npm --prefix backend start",
-    "smoke:post-package": "tsx scripts/post-package-smoke-test.ts",
-    "smoke:performance-feedback": "tsx scripts/performance-feedback-smoke-test.ts",
     "smoke:v1": "tsx scripts/smoke-v1-flow.ts",
     "smoke:metricool-export": "tsx scripts/smoke-metricool-export-flow.ts",
     "import:apify": "tsx scripts/run-apify-import.ts",

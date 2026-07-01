@@ -1,0 +1,107 @@
+[
+  {
+    "name": "VALORANT Champions Tour",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 94,
+    "emotionality": 84,
+    "clipability": 95,
+    "controversy": 52,
+    "repost_value": 90,
+    "engagement_strength": 93,
+    "source_type": "league",
+    "content_focus": [
+      "clutches",
+      "comms",
+      "stage_moments",
+      "trash_talk"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Primary source for live-event clutches, reactions, and stage-energy moments."
+  },
+  {
+    "name": "LoL Esports",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 92,
+    "emotionality": 80,
+    "clipability": 91,
+    "controversy": 46,
+    "repost_value": 87,
+    "engagement_strength": 92,
+    "source_type": "league",
+    "content_focus": [
+      "teamfights",
+      "trash_talk",
+      "walkouts",
+      "crowd_pop"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Use for rivalry clips, walkouts, and high-signal teamfight reactions."
+  },
+  {
+    "name": "Counter-Strike",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 88,
+    "emotionality": 76,
+    "clipability": 90,
+    "controversy": 48,
+    "repost_value": 84,
+    "engagement_strength": 88,
+    "source_type": "league",
+    "content_focus": [
+      "clutches",
+      "rage",
+      "comms",
+      "upsets"
+    ],
+    "recommended_ingest_frequency": "3x_daily",
+    "notes": "Strong for clutch rounds, team comms, and upset reactions."
+  },
+  {
+    "name": "Call of Duty League",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 78,
+    "clipability": 88,
+    "controversy": 58,
+    "repost_value": 82,
+    "engagement_strength": 86,
+    "source_type": "league",
+    "content_focus": [
+      "trash_talk",
+      "walkouts",
+      "game_winners",
+      "player_beefs"
+    ],
+    "recommended_ingest_frequency": "3x_daily",
+    "notes": "Best for rivalry-driven moments and player personality clips."
+  },
+  {
+    "name": "Rocket League Esports",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 72,
+    "clipability": 86,
+    "controversy": 34,
+    "repost_value": 79,
+    "engagement_strength": 83,
+    "source_type": "league",
+    "content_focus": [
+      "overtime",
+      "clutches",
+      "crowd_pop",
+      "reverse_sweeps"
+    ],
+    "recommended_ingest_frequency": "2x_daily",
+    "notes": "Prioritize overtime chaos and reverse-sweep momentum swings."
+  }
+]

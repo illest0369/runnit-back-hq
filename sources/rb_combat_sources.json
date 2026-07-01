@@ -1,0 +1,1615 @@
+[
+  {
+    "name": "UFC",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 98,
+    "emotionality": 82,
+    "clipability": 94,
+    "controversy": 70,
+    "repost_value": 90,
+    "engagement_strength": 96,
+    "source_type": "promotion",
+    "content_focus": [
+      "faceoffs",
+      "weigh_ins",
+      "knockouts",
+      "press_conference"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Primary combat source; prioritize tension before violence."
+  },
+  {
+    "name": "MMA Fighting",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 88,
+    "emotionality": 76,
+    "clipability": 82,
+    "controversy": 72,
+    "repost_value": 78,
+    "engagement_strength": 88,
+    "source_type": "media",
+    "content_focus": [
+      "interviews",
+      "callouts",
+      "press_tension"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Strong personality and conflict source."
+  },
+  {
+    "name": "DAZN Boxing",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 74,
+    "clipability": 82,
+    "controversy": 62,
+    "repost_value": 76,
+    "engagement_strength": 84,
+    "source_type": "promotion",
+    "content_focus": [
+      "boxing",
+      "faceoffs",
+      "walkouts",
+      "knockouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use anticipation and disrespect."
+  },
+  {
+    "name": "PFL MMA",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 68,
+    "clipability": 74,
+    "controversy": 48,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "promotion",
+    "content_focus": [
+      "fighter_stories",
+      "faceoffs",
+      "finishes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Lower volume but useful."
+  },
+  {
+    "name": "Bellator MMA",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 68,
+    "clipability": 74,
+    "controversy": 48,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "promotion",
+    "content_focus": [
+      "faceoffs",
+      "knockouts",
+      "interviews"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Archive/current combat clips."
+  },
+  {
+    "name": "ONE Championship",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 74,
+    "clipability": 82,
+    "controversy": 44,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "promotion",
+    "content_focus": [
+      "striking",
+      "walkouts",
+      "finishes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High visual action and aura."
+  },
+  {
+    "name": "Top Rank Boxing",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 70,
+    "clipability": 78,
+    "controversy": 54,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "promotion",
+    "content_focus": [
+      "boxing",
+      "press_conference",
+      "knockouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Prestige boxing source."
+  },
+  {
+    "name": "Matchroom Boxing",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 74,
+    "clipability": 80,
+    "controversy": 64,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "promotion",
+    "content_focus": [
+      "faceoffs",
+      "trash_talk",
+      "weigh_ins"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Great UK boxing tension."
+  },
+  {
+    "name": "Queensberry Promotions",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 68,
+    "clipability": 72,
+    "controversy": 58,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "promotion",
+    "content_focus": [
+      "boxing_callouts",
+      "press_tension"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Useful UK boxing conflict."
+  },
+  {
+    "name": "Premier Boxing Champions",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 78,
+    "emotionality": 68,
+    "clipability": 74,
+    "controversy": 52,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "promotion",
+    "content_focus": [
+      "boxing",
+      "knockouts",
+      "walkouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use only sharp conflict/action."
+  },
+  {
+    "name": "Glory Kickboxing",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 66,
+    "clipability": 76,
+    "controversy": 42,
+    "repost_value": 62,
+    "engagement_strength": 74,
+    "source_type": "promotion",
+    "content_focus": [
+      "kickboxing",
+      "knockouts",
+      "staredowns"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High finish clipability."
+  },
+  {
+    "name": "Rizin FF",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 66,
+    "clipability": 74,
+    "controversy": 42,
+    "repost_value": 60,
+    "engagement_strength": 72,
+    "source_type": "promotion",
+    "content_focus": [
+      "japan_mma",
+      "walkouts",
+      "finishes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Visual spectacle and walkouts."
+  },
+  {
+    "name": "Karate Combat",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 68,
+    "clipability": 74,
+    "controversy": 46,
+    "repost_value": 62,
+    "engagement_strength": 74,
+    "source_type": "promotion",
+    "content_focus": [
+      "striking",
+      "trash_talk",
+      "finishes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Internet-native combat product."
+  },
+  {
+    "name": "UFC Embedded",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 92,
+    "emotionality": 82,
+    "clipability": 88,
+    "controversy": 60,
+    "repost_value": 84,
+    "engagement_strength": 92,
+    "source_type": "series",
+    "content_focus": [
+      "backstage",
+      "weight_cut",
+      "ego",
+      "team_energy"
+    ],
+    "recommended_ingest_frequency": "event_daily",
+    "notes": "Best pre-fight emotion."
+  },
+  {
+    "name": "UFC Countdown",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 74,
+    "clipability": 78,
+    "controversy": 52,
+    "repost_value": 72,
+    "engagement_strength": 82,
+    "source_type": "series",
+    "content_focus": [
+      "backstory",
+      "violence_anticipation"
+    ],
+    "recommended_ingest_frequency": "event_weekly",
+    "notes": "Use high-emotion setup clips."
+  },
+  {
+    "name": "UFC Press Conference",
+    "platform": "youtube",
+    "category": "press_conference",
+    "tier": "S",
+    "priority_score": 94,
+    "emotionality": 86,
+    "clipability": 88,
+    "controversy": 82,
+    "repost_value": 86,
+    "engagement_strength": 94,
+    "source_type": "press",
+    "content_focus": [
+      "callouts",
+      "disrespect",
+      "faceoffs"
+    ],
+    "recommended_ingest_frequency": "event_daily",
+    "notes": "Elite combat tension."
+  },
+  {
+    "name": "UFC Weigh-In",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 92,
+    "emotionality": 84,
+    "clipability": 90,
+    "controversy": 76,
+    "repost_value": 86,
+    "engagement_strength": 92,
+    "source_type": "weigh_in",
+    "content_focus": [
+      "staredowns",
+      "body_language",
+      "disrespect"
+    ],
+    "recommended_ingest_frequency": "event_daily",
+    "notes": "High retention visual tension."
+  },
+  {
+    "name": "The MMA Hour",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 74,
+    "clipability": 78,
+    "controversy": 72,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "podcast",
+    "content_focus": [
+      "fighter_interviews",
+      "callouts",
+      "drama"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Ariel conflict and fighter honesty."
+  },
+  {
+    "name": "Morning Kombat",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 62,
+    "clipability": 66,
+    "controversy": 50,
+    "repost_value": 58,
+    "engagement_strength": 72,
+    "source_type": "podcast",
+    "content_focus": [
+      "fight_debate",
+      "analysis"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Use only heated or funny clips."
+  },
+  {
+    "name": "Joe Rogan MMA Show",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 70,
+    "clipability": 76,
+    "controversy": 62,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "podcast",
+    "content_focus": [
+      "fighter_psychology",
+      "ego",
+      "stories"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Clip fighter stories and bold claims."
+  },
+  {
+    "name": "DC & RC",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 66,
+    "clipability": 70,
+    "controversy": 52,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "podcast",
+    "content_focus": [
+      "ufc_debate",
+      "champion_perspective"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use Cormier perspective."
+  },
+  {
+    "name": "Believe You Me",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 78,
+    "emotionality": 70,
+    "clipability": 72,
+    "controversy": 60,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "podcast",
+    "content_focus": [
+      "fighter_opinion",
+      "trash_talk"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Bisping sharp takes."
+  },
+  {
+    "name": "JAXXON Podcast",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 74,
+    "clipability": 76,
+    "controversy": 68,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "podcast",
+    "content_focus": [
+      "fighter_stories",
+      "ego",
+      "street_energy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Good raw fighter personality."
+  },
+  {
+    "name": "Food Truck Diaries",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 66,
+    "clipability": 70,
+    "controversy": 48,
+    "repost_value": 60,
+    "engagement_strength": 74,
+    "source_type": "podcast",
+    "content_focus": [
+      "fighter_interviews",
+      "personality"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use relaxed but revealing clips."
+  },
+  {
+    "name": "Full Send MMA",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 72,
+    "clipability": 74,
+    "controversy": 62,
+    "repost_value": 66,
+    "engagement_strength": 80,
+    "source_type": "creator",
+    "content_focus": [
+      "fighter_personality",
+      "party_energy",
+      "callouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Internet-native fighter clips."
+  },
+  {
+    "name": "Nelk Fighters",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 72,
+    "clipability": 72,
+    "controversy": 60,
+    "repost_value": 64,
+    "engagement_strength": 78,
+    "source_type": "creator",
+    "content_focus": [
+      "fighter_personality",
+      "viral_moments"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use when fighter ego pops."
+  },
+  {
+    "name": "ESPN MMA",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 68,
+    "clipability": 76,
+    "controversy": 54,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "media",
+    "content_focus": [
+      "interviews",
+      "debate",
+      "rankings"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Official UFC-adjacent source."
+  },
+  {
+    "name": "BT Sport UFC",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 76,
+    "clipability": 80,
+    "controversy": 64,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "media",
+    "content_focus": [
+      "interviews",
+      "press_tension",
+      "uk_fighters"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Great UK emotion."
+  },
+  {
+    "name": "TNT Sports Boxing",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 66,
+    "clipability": 72,
+    "controversy": 52,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "media",
+    "content_focus": [
+      "boxing_interviews",
+      "press"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use conflict."
+  },
+  {
+    "name": "Sky Sports Boxing",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 78,
+    "emotionality": 70,
+    "clipability": 74,
+    "controversy": 58,
+    "repost_value": 64,
+    "engagement_strength": 78,
+    "source_type": "media",
+    "content_focus": [
+      "boxing_press",
+      "callouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High UK boxing tension."
+  },
+  {
+    "name": "Fight Hub TV",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 74,
+    "clipability": 78,
+    "controversy": 68,
+    "repost_value": 70,
+    "engagement_strength": 84,
+    "source_type": "interviews",
+    "content_focus": [
+      "callouts",
+      "trainer_quotes",
+      "backstage"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong boxing/MMA interview source."
+  },
+  {
+    "name": "Seconds Out",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 70,
+    "clipability": 72,
+    "controversy": 60,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "interviews",
+    "content_focus": [
+      "boxing_callouts",
+      "press"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Useful fight-week clips."
+  },
+  {
+    "name": "iFL TV",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 78,
+    "emotionality": 72,
+    "clipability": 74,
+    "controversy": 64,
+    "repost_value": 64,
+    "engagement_strength": 78,
+    "source_type": "interviews",
+    "content_focus": [
+      "boxing_personality",
+      "callouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "UK boxing personalities."
+  },
+  {
+    "name": "The Mac Life",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 76,
+    "clipability": 78,
+    "controversy": 72,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "media",
+    "content_focus": [
+      "conor_orbit",
+      "ufc_press",
+      "callouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High drama source."
+  },
+  {
+    "name": "MMA Junkie",
+    "platform": "youtube",
+    "category": "media",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 62,
+    "clipability": 68,
+    "controversy": 44,
+    "repost_value": 58,
+    "engagement_strength": 72,
+    "source_type": "media",
+    "content_focus": [
+      "interviews",
+      "press"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use quick quotes."
+  },
+  {
+    "name": "Sherdog",
+    "platform": "youtube",
+    "category": "media",
+    "tier": "C",
+    "priority_score": 60,
+    "emotionality": 48,
+    "clipability": 54,
+    "controversy": 34,
+    "repost_value": 44,
+    "engagement_strength": 60,
+    "source_type": "media",
+    "content_focus": [
+      "analysis"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Low priority; avoid slow clips."
+  },
+  {
+    "name": "Bloody Elbow",
+    "platform": "youtube",
+    "category": "media",
+    "tier": "C",
+    "priority_score": 62,
+    "emotionality": 52,
+    "clipability": 56,
+    "controversy": 44,
+    "repost_value": 46,
+    "engagement_strength": 62,
+    "source_type": "media",
+    "content_focus": [
+      "controversy",
+      "analysis"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use as story signal."
+  },
+  {
+    "name": "Combat Sports Today",
+    "platform": "tiktok",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 78,
+    "clipability": 72,
+    "controversy": 66,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "creator",
+    "content_focus": [
+      "drama",
+      "callouts",
+      "memes"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Trend signal."
+  },
+  {
+    "name": "MMA Orbit",
+    "platform": "x",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 64,
+    "clipability": 62,
+    "controversy": 58,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "aggregator",
+    "content_focus": [
+      "news",
+      "callouts",
+      "rumors"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Use as trend signal."
+  },
+  {
+    "name": "Home of Fight",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 82,
+    "clipability": 82,
+    "controversy": 68,
+    "repost_value": 78,
+    "engagement_strength": 88,
+    "source_type": "aggregator",
+    "content_focus": [
+      "knockouts",
+      "faceoffs",
+      "drama"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High viral combat aggregator."
+  },
+  {
+    "name": "MMA Uncensored",
+    "platform": "instagram",
+    "category": "meme",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 78,
+    "clipability": 70,
+    "controversy": 72,
+    "repost_value": 68,
+    "engagement_strength": 82,
+    "source_type": "meme",
+    "content_focus": [
+      "fighter_memes",
+      "controversy"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Verify before ingest."
+  },
+  {
+    "name": "UFC Fight Pass",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 68,
+    "clipability": 82,
+    "controversy": 40,
+    "repost_value": 72,
+    "engagement_strength": 82,
+    "source_type": "archive",
+    "content_focus": [
+      "finishes",
+      "classic_beefs",
+      "submissions"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Archive finishes and old beefs."
+  },
+  {
+    "name": "Fighter Faceoff Clips",
+    "platform": "tiktok",
+    "category": "reactions",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 88,
+    "clipability": 84,
+    "controversy": 76,
+    "repost_value": 78,
+    "engagement_strength": 88,
+    "source_type": "ugc",
+    "content_focus": [
+      "faceoffs",
+      "body_language",
+      "crowd_reactions"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Great retention visual format."
+  },
+  {
+    "name": "Weigh-In Reaction Clips",
+    "platform": "tiktok",
+    "category": "reactions",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 86,
+    "clipability": 82,
+    "controversy": 72,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "ugc",
+    "content_focus": [
+      "weigh_ins",
+      "disrespect",
+      "crowd"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Use crowd and body language."
+  },
+  {
+    "name": "Knockout Reactions",
+    "platform": "tiktok",
+    "category": "reactions",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 92,
+    "clipability": 86,
+    "controversy": 56,
+    "repost_value": 78,
+    "engagement_strength": 90,
+    "source_type": "ugc",
+    "content_focus": [
+      "reactions",
+      "shock",
+      "violence_anticipation"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Prefer reactions over raw impact."
+  },
+  {
+    "name": "Fighter Walkouts",
+    "platform": "tiktok",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 78,
+    "clipability": 78,
+    "controversy": 36,
+    "repost_value": 70,
+    "engagement_strength": 80,
+    "source_type": "ugc",
+    "content_focus": [
+      "walkouts",
+      "aura",
+      "crowd_energy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Aura and sound priority."
+  },
+  {
+    "name": "Conor McGregor Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "S",
+    "priority_score": 92,
+    "emotionality": 88,
+    "clipability": 88,
+    "controversy": 86,
+    "repost_value": 86,
+    "engagement_strength": 94,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "ego",
+      "callouts",
+      "disrespect",
+      "aura"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High attention; avoid stale repeats."
+  },
+  {
+    "name": "Sean O’Malley Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 80,
+    "clipability": 82,
+    "controversy": 62,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "swagger",
+      "fashion",
+      "ego"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong Gen Z fight personality."
+  },
+  {
+    "name": "Israel Adesanya Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 78,
+    "clipability": 82,
+    "controversy": 58,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "aura",
+      "anime",
+      "ego",
+      "walkouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Style and aura."
+  },
+  {
+    "name": "Alex Pereira Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 74,
+    "clipability": 84,
+    "controversy": 50,
+    "repost_value": 78,
+    "engagement_strength": 88,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "aura",
+      "stoicism",
+      "knockout_threat"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Visual intimidation source."
+  },
+  {
+    "name": "Khamzat Chimaev Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 82,
+    "clipability": 80,
+    "controversy": 68,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "violence_anticipation",
+      "callouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Threat energy."
+  },
+  {
+    "name": "Nate Diaz Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 82,
+    "clipability": 78,
+    "controversy": 76,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "disrespect",
+      "street_energy",
+      "ego"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Evergreen disrespect."
+  },
+  {
+    "name": "Jorge Masvidal Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 78,
+    "clipability": 74,
+    "controversy": 70,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "street_energy",
+      "callouts"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use current/relevant moments."
+  },
+  {
+    "name": "Dricus Du Plessis Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 76,
+    "clipability": 76,
+    "controversy": 68,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "trash_talk",
+      "ego",
+      "press_tension"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Good current drama."
+  },
+  {
+    "name": "Colby Covington Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 78,
+    "emotionality": 78,
+    "clipability": 74,
+    "controversy": 82,
+    "repost_value": 70,
+    "engagement_strength": 84,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "trash_talk",
+      "controversy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High controversy; filter carefully."
+  },
+  {
+    "name": "Ilia Topuria Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 80,
+    "clipability": 82,
+    "controversy": 70,
+    "repost_value": 76,
+    "engagement_strength": 88,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "ego",
+      "aura",
+      "callouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Rising star swagger."
+  },
+  {
+    "name": "Ryan Garcia Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 82,
+    "clipability": 78,
+    "controversy": 84,
+    "repost_value": 76,
+    "engagement_strength": 88,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "chaos",
+      "callouts",
+      "controversy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High volatility; verify safety."
+  },
+  {
+    "name": "Gervonta Davis Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 76,
+    "clipability": 82,
+    "controversy": 64,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "knockout_threat",
+      "aura",
+      "ego"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High aura and violence anticipation."
+  },
+  {
+    "name": "Devin Haney Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 70,
+    "clipability": 72,
+    "controversy": 56,
+    "repost_value": 64,
+    "engagement_strength": 78,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "boxing_ego",
+      "press"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use fight-week tension."
+  },
+  {
+    "name": "Tyson Fury Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 78,
+    "clipability": 78,
+    "controversy": 70,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "trash_talk",
+      "showmanship",
+      "press"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong quotes and spectacle."
+  },
+  {
+    "name": "Anthony Joshua Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 68,
+    "clipability": 74,
+    "controversy": 46,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "boxing_aura",
+      "press"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use emotion and vulnerability."
+  },
+  {
+    "name": "Canelo Alvarez Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 70,
+    "clipability": 80,
+    "controversy": 46,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "aura",
+      "legacy",
+      "press"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Prestige boxing pull."
+  },
+  {
+    "name": "Jake Paul Boxing Clips",
+    "platform": "tiktok",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 84,
+    "clipability": 78,
+    "controversy": 86,
+    "repost_value": 78,
+    "engagement_strength": 90,
+    "source_type": "fighter_fan",
+    "content_focus": [
+      "internet_drama",
+      "callouts",
+      "controversy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High viral upside; filter noise."
+  },
+  {
+    "name": "Misfits Boxing",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 84,
+    "clipability": 76,
+    "controversy": 82,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "promotion",
+    "content_focus": [
+      "influencer_fights",
+      "chaos",
+      "faceoffs"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Internet-native combat chaos."
+  },
+  {
+    "name": "BKFC",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 78,
+    "clipability": 78,
+    "controversy": 64,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "promotion",
+    "content_focus": [
+      "bare_knuckle",
+      "faceoffs",
+      "finishes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Raw spectacle; safety filter."
+  },
+  {
+    "name": "Bare Knuckle Clips",
+    "platform": "tiktok",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 82,
+    "clipability": 76,
+    "controversy": 62,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "ugc",
+    "content_focus": [
+      "shock",
+      "reactions",
+      "finishes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Prioritize reactions and anticipation."
+  },
+  {
+    "name": "Streetbeefs",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "C",
+    "priority_score": 62,
+    "emotionality": 74,
+    "clipability": 66,
+    "controversy": 56,
+    "repost_value": 58,
+    "engagement_strength": 72,
+    "source_type": "creator",
+    "content_focus": [
+      "amateur_fights",
+      "crowd_reactions"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use carefully; avoid unsafe framing."
+  },
+  {
+    "name": "Boxing Gems",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 68,
+    "clipability": 72,
+    "controversy": 46,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "archive",
+    "content_focus": [
+      "boxing_archive",
+      "knockouts",
+      "trash_talk"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Archive source."
+  },
+  {
+    "name": "Fight Hype",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 68,
+    "clipability": 70,
+    "controversy": 58,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "interviews",
+    "content_focus": [
+      "boxing_callouts",
+      "trainer_quotes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Useful boxing soundbites."
+  },
+  {
+    "name": "Behind The Gloves",
+    "platform": "youtube",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 68,
+    "clipability": 70,
+    "controversy": 58,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "interviews",
+    "content_focus": [
+      "boxing_press",
+      "callouts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Good fight-week clips."
+  },
+  {
+    "name": "Submission Radio",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 64,
+    "clipability": 66,
+    "controversy": 48,
+    "repost_value": 58,
+    "engagement_strength": 72,
+    "source_type": "podcast",
+    "content_focus": [
+      "mma_interviews",
+      "callouts"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use when quote is direct."
+  },
+  {
+    "name": "Anik & Florian Podcast",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "C",
+    "priority_score": 62,
+    "emotionality": 50,
+    "clipability": 56,
+    "controversy": 34,
+    "repost_value": 46,
+    "engagement_strength": 62,
+    "source_type": "podcast",
+    "content_focus": [
+      "ufc_context"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Low priority."
+  },
+  {
+    "name": "Chael Sonnen Clips",
+    "platform": "youtube",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 78,
+    "clipability": 76,
+    "controversy": 76,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "creator",
+    "content_focus": [
+      "trash_talk",
+      "predictions",
+      "ego"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Elite monologue energy."
+  },
+  {
+    "name": "Michael Bisping Clips",
+    "platform": "youtube",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 74,
+    "clipability": 74,
+    "controversy": 66,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "creator",
+    "content_focus": [
+      "fighter_opinion",
+      "roasts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Sharp fighter takes."
+  },
+  {
+    "name": "Daniel Cormier Clips",
+    "platform": "youtube",
+    "category": "combat_personality",
+    "tier": "A",
+    "priority_score": 78,
+    "emotionality": 70,
+    "clipability": 72,
+    "controversy": 54,
+    "repost_value": 66,
+    "engagement_strength": 80,
+    "source_type": "creator",
+    "content_focus": [
+      "champion_perspective",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Authority + emotion."
+  },
+  {
+    "name": "UFC Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 88,
+    "clipability": 62,
+    "controversy": 78,
+    "repost_value": 62,
+    "engagement_strength": 82,
+    "source_type": "community",
+    "content_focus": [
+      "fan_reactions",
+      "controversy",
+      "memes"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Trend signal only."
+  },
+  {
+    "name": "Boxing Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 82,
+    "clipability": 60,
+    "controversy": 72,
+    "repost_value": 60,
+    "engagement_strength": 78,
+    "source_type": "community",
+    "content_focus": [
+      "fan_reactions",
+      "controversy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Trend signal."
+  },
+  {
+    "name": "Combat Twitter Spaces",
+    "platform": "x",
+    "category": "reactions",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 84,
+    "clipability": 62,
+    "controversy": 80,
+    "repost_value": 60,
+    "engagement_strength": 80,
+    "source_type": "community",
+    "content_focus": [
+      "fan_arguments",
+      "callouts"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Use only clear audio."
+  },
+  {
+    "name": "MMA Press Scrap Clips",
+    "platform": "tiktok",
+    "category": "press_conference",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 86,
+    "clipability": 78,
+    "controversy": 82,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "ugc",
+    "content_focus": [
+      "press_tension",
+      "disrespect",
+      "faceoffs"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High viral upside."
+  },
+  {
+    "name": "Fighter Corner Audio",
+    "platform": "tiktok",
+    "category": "locker_room",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 78,
+    "clipability": 72,
+    "controversy": 38,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "ugc",
+    "content_focus": [
+      "corner_audio",
+      "panic",
+      "coaching"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Retention through urgency."
+  },
+  {
+    "name": "Coach Callout Clips",
+    "platform": "tiktok",
+    "category": "interviews",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 72,
+    "clipability": 68,
+    "controversy": 54,
+    "repost_value": 60,
+    "engagement_strength": 74,
+    "source_type": "ugc",
+    "content_focus": [
+      "trainer_quotes",
+      "disrespect"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Good context around fighter beef."
+  },
+  {
+    "name": "Combat Walkout Music Clips",
+    "platform": "tiktok",
+    "category": "streamers",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 76,
+    "clipability": 72,
+    "controversy": 34,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "ugc",
+    "content_focus": [
+      "walkouts",
+      "sound",
+      "aura"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use sound-first aura clips."
+  }
+]

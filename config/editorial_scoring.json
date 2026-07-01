@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "score_components": {
+    "hook_speed": 0.16,
+    "emotional_spike": 0.2,
+    "identity_heat": 0.18,
+    "replay_loop": 0.14,
+    "quote_strength": 0.12,
+    "visual_clarity": 0.1,
+    "sound_energy": 0.1
+  },
+  "approval_thresholds": {
+    "auto_surface": 78,
+    "operator_priority": 84,
+    "urgent_review": 92
+  },
+  "channel_boosts": {
+    "rb_sports": [
+      "swagger",
+      "fan_reactions",
+      "micd_up",
+      "press_tension",
+      "tunnel_culture"
+    ],
+    "rb_arena": [
+      "clutches",
+      "trash_talk",
+      "walkouts",
+      "comms",
+      "rage",
+      "stage_moments"
+    ],
+    "rb_women": [
+      "confidence",
+      "personality",
+      "fashion",
+      "friendships",
+      "NIL",
+      "internet_native_athletes"
+    ],
+    "rb_combat": [
+      "ego",
+      "faceoffs",
+      "callouts",
+      "weigh_ins",
+      "fighter_disrespect"
+    ],
+    "rb_cfb": [
+      "tribal_hatred",
+      "student_sections",
+      "SEC_chaos",
+      "NIL",
+      "coach_meltdowns",
+      "recruiting_drama"
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "fingerprint_fields": [
+    "source_url",
+    "video_url",
+    "external_id",
+    "normalized_title",
+    "visual_hash",
+    "audio_hash"
+  ],
+  "title_similarity_threshold": 0.88,
+  "visual_hash_threshold": 0.92,
+  "audio_hash_threshold": 0.9,
+  "repost_cooldown_hours": {
+    "same_source": 72,
+    "same_event": 24,
+    "same_athlete": 8,
+    "same_topic": 6
+  },
+  "allow_repost_if": [
+    "new_angle",
+    "new_reaction",
+    "new_quote",
+    "higher_quality_asset",
+    "viral_spike_over_2x_baseline"
+  ]
+}

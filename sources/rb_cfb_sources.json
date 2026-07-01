@@ -1,0 +1,1724 @@
+[
+  {
+    "name": "ESPN College Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 94,
+    "emotionality": 82,
+    "clipability": 88,
+    "controversy": 62,
+    "repost_value": 86,
+    "engagement_strength": 94,
+    "source_type": "media",
+    "content_focus": [
+      "rivalry",
+      "coach_quotes",
+      "student_sections",
+      "playoff_pressure"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Top verified CFB emotion."
+  },
+  {
+    "name": "FOX College Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 88,
+    "emotionality": 78,
+    "clipability": 84,
+    "controversy": 58,
+    "repost_value": 78,
+    "engagement_strength": 88,
+    "source_type": "media",
+    "content_focus": [
+      "big_noon",
+      "rivalry",
+      "coach_pressure"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use crowd and rivalry."
+  },
+  {
+    "name": "SEC Network",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "S",
+    "priority_score": 92,
+    "emotionality": 86,
+    "clipability": 86,
+    "controversy": 70,
+    "repost_value": 84,
+    "engagement_strength": 92,
+    "source_type": "media",
+    "content_focus": [
+      "sec_chaos",
+      "coach_quotes",
+      "fan_hatred"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "SEC identity and chaos."
+  },
+  {
+    "name": "Big Ten Network",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 74,
+    "clipability": 80,
+    "controversy": 48,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "media",
+    "content_focus": [
+      "rivalry",
+      "student_sections",
+      "coach_quotes"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong school identity."
+  },
+  {
+    "name": "On3",
+    "platform": "youtube",
+    "category": "recruiting",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 74,
+    "clipability": 78,
+    "controversy": 68,
+    "repost_value": 76,
+    "engagement_strength": 88,
+    "source_type": "media",
+    "content_focus": [
+      "recruiting",
+      "NIL",
+      "coach_drama"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Best recruiting/NIL drama signal."
+  },
+  {
+    "name": "247Sports",
+    "platform": "youtube",
+    "category": "recruiting",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 70,
+    "clipability": 76,
+    "controversy": 62,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "media",
+    "content_focus": [
+      "recruiting",
+      "commitments",
+      "fan_reactions"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use commitment drama."
+  },
+  {
+    "name": "Rivals",
+    "platform": "youtube",
+    "category": "recruiting",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 66,
+    "clipability": 70,
+    "controversy": 54,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "media",
+    "content_focus": [
+      "recruiting",
+      "commitments"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Recruiting signal."
+  },
+  {
+    "name": "The Athletic CFB",
+    "platform": "youtube",
+    "category": "media",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 58,
+    "clipability": 64,
+    "controversy": 44,
+    "repost_value": 58,
+    "engagement_strength": 72,
+    "source_type": "media",
+    "content_focus": [
+      "coach_context",
+      "playoff"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use only high-conflict clips."
+  },
+  {
+    "name": "Barstool Sports CFB",
+    "platform": "instagram",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 88,
+    "emotionality": 88,
+    "clipability": 84,
+    "controversy": 78,
+    "repost_value": 82,
+    "engagement_strength": 92,
+    "source_type": "creator",
+    "content_focus": [
+      "student_sections",
+      "fan_hatred",
+      "tailgates"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Elite tribal chaos source."
+  },
+  {
+    "name": "Unnecessary Roughness",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 82,
+    "clipability": 76,
+    "controversy": 74,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "podcast",
+    "content_focus": [
+      "fan_hatred",
+      "sec_chaos",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Internet-native CFB tone."
+  },
+  {
+    "name": "College GameDay",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 80,
+    "clipability": 82,
+    "controversy": 52,
+    "repost_value": 78,
+    "engagement_strength": 88,
+    "source_type": "show",
+    "content_focus": [
+      "signs",
+      "crowds",
+      "student_sections"
+    ],
+    "recommended_ingest_frequency": "weekly_event",
+    "notes": "Crowd identity and signs."
+  },
+  {
+    "name": "Pat McAfee CFB Clips",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 78,
+    "clipability": 78,
+    "controversy": 64,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "show",
+    "content_focus": [
+      "coach_interviews",
+      "fan_energy",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use high-energy CFB segments."
+  },
+  {
+    "name": "Late Kick with Josh Pate",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 70,
+    "clipability": 72,
+    "controversy": 58,
+    "repost_value": 66,
+    "engagement_strength": 80,
+    "source_type": "podcast",
+    "content_focus": [
+      "program_identity",
+      "recruiting",
+      "coach_pressure"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Good CFB narrative; clip tight."
+  },
+  {
+    "name": "Cover 3 Podcast",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 58,
+    "clipability": 60,
+    "controversy": 44,
+    "repost_value": 52,
+    "engagement_strength": 68,
+    "source_type": "podcast",
+    "content_focus": [
+      "debate",
+      "playoff"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Use only disagreements."
+  },
+  {
+    "name": "Andy Staples On3",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 60,
+    "clipability": 64,
+    "controversy": 46,
+    "repost_value": 54,
+    "engagement_strength": 70,
+    "source_type": "podcast",
+    "content_focus": [
+      "coach_drama",
+      "recruiting"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Useful context source."
+  },
+  {
+    "name": "The Solid Verbal",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 68,
+    "emotionality": 58,
+    "clipability": 60,
+    "controversy": 42,
+    "repost_value": 52,
+    "engagement_strength": 68,
+    "source_type": "podcast",
+    "content_focus": [
+      "fan_culture",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use sharp/funny moments only."
+  },
+  {
+    "name": "CFB Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 92,
+    "clipability": 70,
+    "controversy": 84,
+    "repost_value": 72,
+    "engagement_strength": 88,
+    "source_type": "community",
+    "content_focus": [
+      "fan_hatred",
+      "meltdowns",
+      "memes"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Trend signal for tribalism."
+  },
+  {
+    "name": "SEC Reddit Reactions",
+    "platform": "reddit",
+    "category": "reactions",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 94,
+    "clipability": 72,
+    "controversy": 88,
+    "repost_value": 74,
+    "engagement_strength": 90,
+    "source_type": "community",
+    "content_focus": [
+      "sec_chaos",
+      "fan_hatred",
+      "coach_drama"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Highest tribal signal."
+  },
+  {
+    "name": "College Football Twitter",
+    "platform": "x",
+    "category": "reactions",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 88,
+    "clipability": 70,
+    "controversy": 82,
+    "repost_value": 72,
+    "engagement_strength": 88,
+    "source_type": "community",
+    "content_focus": [
+      "fan_meltdowns",
+      "debate",
+      "memes"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Trend signal."
+  },
+  {
+    "name": "Message Board Geniuses",
+    "platform": "x",
+    "category": "meme",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 90,
+    "clipability": 74,
+    "controversy": 88,
+    "repost_value": 76,
+    "engagement_strength": 90,
+    "source_type": "meme",
+    "content_focus": [
+      "message_board_chaos",
+      "fan_hatred"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Elite CFB internet-native source."
+  },
+  {
+    "name": "RedditCFB",
+    "platform": "x",
+    "category": "creator",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 82,
+    "clipability": 74,
+    "controversy": 68,
+    "repost_value": 72,
+    "engagement_strength": 86,
+    "source_type": "community",
+    "content_focus": [
+      "memes",
+      "fan_culture",
+      "score_reactions"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Fast fan culture."
+  },
+  {
+    "name": "Sickos Committee",
+    "platform": "x",
+    "category": "meme",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 84,
+    "clipability": 76,
+    "controversy": 62,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "meme",
+    "content_focus": [
+      "weird_games",
+      "chaos",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Great CFB-native absurdity."
+  },
+  {
+    "name": "No Context College Football",
+    "platform": "x",
+    "category": "meme",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 88,
+    "clipability": 78,
+    "controversy": 70,
+    "repost_value": 78,
+    "engagement_strength": 90,
+    "source_type": "meme",
+    "content_focus": [
+      "absurdity",
+      "student_sections",
+      "chaos"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High clip discovery."
+  },
+  {
+    "name": "CFB Campus Tour",
+    "platform": "tiktok",
+    "category": "student_section",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 86,
+    "clipability": 76,
+    "controversy": 42,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "ugc",
+    "content_focus": [
+      "student_sections",
+      "tailgates",
+      "crowd_energy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Crowd energy source."
+  },
+  {
+    "name": "SEC Tailgate Clips",
+    "platform": "tiktok",
+    "category": "student_section",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 92,
+    "clipability": 80,
+    "controversy": 62,
+    "repost_value": 76,
+    "engagement_strength": 88,
+    "source_type": "ugc",
+    "content_focus": [
+      "tailgates",
+      "fan_hatred",
+      "student_sections"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "SEC chaos and tribalism."
+  },
+  {
+    "name": "LSU Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 82,
+    "clipability": 82,
+    "controversy": 56,
+    "repost_value": 76,
+    "engagement_strength": 86,
+    "source_type": "team",
+    "content_focus": [
+      "locker_room",
+      "death_valley",
+      "swagger"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Crowd and swagger."
+  },
+  {
+    "name": "Alabama Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 72,
+    "clipability": 80,
+    "controversy": 48,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "team",
+    "content_focus": [
+      "dynasty",
+      "locker_room",
+      "coach_pressure"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Prestige and pressure."
+  },
+  {
+    "name": "Georgia Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 74,
+    "clipability": 80,
+    "controversy": 48,
+    "repost_value": 74,
+    "engagement_strength": 84,
+    "source_type": "team",
+    "content_focus": [
+      "dominance",
+      "locker_room",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Program aura."
+  },
+  {
+    "name": "Tennessee Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 84,
+    "clipability": 80,
+    "controversy": 60,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "team",
+    "content_focus": [
+      "neyland",
+      "student_section",
+      "sec_hate"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Crowd energy and rivalry."
+  },
+  {
+    "name": "Texas Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 78,
+    "clipability": 80,
+    "controversy": 58,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "team",
+    "content_focus": [
+      "swagger",
+      "NIL",
+      "sec_entry"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Brand heat and swagger."
+  },
+  {
+    "name": "Texas A&M Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 80,
+    "clipability": 74,
+    "controversy": 60,
+    "repost_value": 66,
+    "engagement_strength": 80,
+    "source_type": "team",
+    "content_focus": [
+      "yell_leaders",
+      "fan_culture",
+      "coach_drama"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Fan culture and chaos."
+  },
+  {
+    "name": "Ole Miss Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 78,
+    "emotionality": 78,
+    "clipability": 76,
+    "controversy": 54,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "team",
+    "content_focus": [
+      "lane_kiffin",
+      "tailgate",
+      "swagger"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Coach personality and Grove culture."
+  },
+  {
+    "name": "Auburn Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 82,
+    "clipability": 74,
+    "controversy": 62,
+    "repost_value": 66,
+    "engagement_strength": 80,
+    "source_type": "team",
+    "content_focus": [
+      "rivalry",
+      "fan_meltdowns",
+      "sec_chaos"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High drama fan base."
+  },
+  {
+    "name": "Florida Gators Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 78,
+    "clipability": 74,
+    "controversy": 58,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "team",
+    "content_focus": [
+      "rivalry",
+      "coach_pressure",
+      "swamp"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use rivalry and pressure."
+  },
+  {
+    "name": "FSU Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 78,
+    "emotionality": 78,
+    "clipability": 76,
+    "controversy": 58,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "team",
+    "content_focus": [
+      "swagger",
+      "fan_identity",
+      "rivalry"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong fan identity."
+  },
+  {
+    "name": "Miami Hurricanes Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 82,
+    "clipability": 80,
+    "controversy": 62,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "team",
+    "content_focus": [
+      "swagger",
+      "NIL",
+      "miami_culture"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Aura and culture."
+  },
+  {
+    "name": "Colorado Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 86,
+    "emotionality": 86,
+    "clipability": 84,
+    "controversy": 78,
+    "repost_value": 80,
+    "engagement_strength": 90,
+    "source_type": "team",
+    "content_focus": [
+      "coach_prime",
+      "NIL",
+      "swagger",
+      "controversy"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High internet-native drama."
+  },
+  {
+    "name": "Oregon Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 76,
+    "clipability": 80,
+    "controversy": 44,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "team",
+    "content_focus": [
+      "uniforms",
+      "swagger",
+      "recruiting"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Style and recruiting."
+  },
+  {
+    "name": "USC Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 78,
+    "emotionality": 74,
+    "clipability": 76,
+    "controversy": 52,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "team",
+    "content_focus": [
+      "la_culture",
+      "NIL",
+      "coach_pressure"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Brand + pressure."
+  },
+  {
+    "name": "Michigan Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 78,
+    "clipability": 80,
+    "controversy": 66,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "team",
+    "content_focus": [
+      "rivalry",
+      "scandal",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Huge tribal pull."
+  },
+  {
+    "name": "Ohio State Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 80,
+    "clipability": 80,
+    "controversy": 68,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "team",
+    "content_focus": [
+      "rivalry",
+      "fan_pressure",
+      "swagger"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Rivalry and pressure."
+  },
+  {
+    "name": "Penn State Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 78,
+    "emotionality": 78,
+    "clipability": 76,
+    "controversy": 44,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "team",
+    "content_focus": [
+      "whiteout",
+      "student_section",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Crowd clips."
+  },
+  {
+    "name": "Notre Dame Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 72,
+    "clipability": 78,
+    "controversy": 54,
+    "repost_value": 72,
+    "engagement_strength": 84,
+    "source_type": "team",
+    "content_focus": [
+      "tradition",
+      "rivalry",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Prestige and hate-watch."
+  },
+  {
+    "name": "Clemson Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 70,
+    "clipability": 74,
+    "controversy": 48,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "team",
+    "content_focus": [
+      "coach_quotes",
+      "program_identity"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use coach pressure."
+  },
+  {
+    "name": "Oklahoma Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 78,
+    "emotionality": 74,
+    "clipability": 76,
+    "controversy": 52,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "team",
+    "content_focus": [
+      "sec_entry",
+      "rivalry",
+      "tradition"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Rivalry/SEC transition."
+  },
+  {
+    "name": "Nebraska Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 78,
+    "clipability": 72,
+    "controversy": 50,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "team",
+    "content_focus": [
+      "fan_identity",
+      "program_pain"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Great emotional fan base."
+  },
+  {
+    "name": "Iowa Football",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "C",
+    "priority_score": 66,
+    "emotionality": 70,
+    "clipability": 66,
+    "controversy": 42,
+    "repost_value": 56,
+    "engagement_strength": 70,
+    "source_type": "team",
+    "content_focus": [
+      "sickos",
+      "defense",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Sickos value."
+  },
+  {
+    "name": "Army Navy Game",
+    "platform": "youtube",
+    "category": "official",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 72,
+    "clipability": 72,
+    "controversy": 32,
+    "repost_value": 66,
+    "engagement_strength": 76,
+    "source_type": "rivalry",
+    "content_focus": [
+      "tradition",
+      "rivalry",
+      "crowd"
+    ],
+    "recommended_ingest_frequency": "seasonal",
+    "notes": "Use rivalry tradition."
+  },
+  {
+    "name": "HBCU Gameday",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 84,
+    "clipability": 76,
+    "controversy": 38,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "creator",
+    "content_focus": [
+      "bands",
+      "student_sections",
+      "fan_culture"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Crowd and culture."
+  },
+  {
+    "name": "SWAC Football Clips",
+    "platform": "tiktok",
+    "category": "student_section",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 86,
+    "clipability": 74,
+    "controversy": 42,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "ugc",
+    "content_focus": [
+      "bands",
+      "crowd_energy",
+      "student_sections"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Culture and sound."
+  },
+  {
+    "name": "College Marching Bands",
+    "platform": "tiktok",
+    "category": "student_section",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 84,
+    "clipability": 72,
+    "controversy": 30,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "ugc",
+    "content_focus": [
+      "bands",
+      "sound",
+      "crowd_energy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Sound-first clips."
+  },
+  {
+    "name": "Student Section Chants",
+    "platform": "tiktok",
+    "category": "student_section",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 92,
+    "clipability": 80,
+    "controversy": 52,
+    "repost_value": 76,
+    "engagement_strength": 88,
+    "source_type": "ugc",
+    "content_focus": [
+      "chants",
+      "fan_hatred",
+      "crowd_energy"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High retention crowd clips."
+  },
+  {
+    "name": "Storm The Field Clips",
+    "platform": "tiktok",
+    "category": "student_section",
+    "tier": "A",
+    "priority_score": 84,
+    "emotionality": 94,
+    "clipability": 86,
+    "controversy": 48,
+    "repost_value": 80,
+    "engagement_strength": 90,
+    "source_type": "ugc",
+    "content_focus": [
+      "field_storming",
+      "upsets",
+      "crowd_energy"
+    ],
+    "recommended_ingest_frequency": "event_hourly",
+    "notes": "Elite emotion."
+  },
+  {
+    "name": "Coach Meltdown Clips",
+    "platform": "tiktok",
+    "category": "press_conference",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 86,
+    "clipability": 78,
+    "controversy": 74,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "ugc",
+    "content_focus": [
+      "coach_meltdowns",
+      "press_tension"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High conflict."
+  },
+  {
+    "name": "Recruit Commitment Edits",
+    "platform": "tiktok",
+    "category": "recruiting",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 76,
+    "clipability": 74,
+    "controversy": 50,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "ugc",
+    "content_focus": [
+      "recruiting",
+      "commitments",
+      "NIL"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Recruiting drama signal."
+  },
+  {
+    "name": "Transfer Portal Clips",
+    "platform": "tiktok",
+    "category": "NIL",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 74,
+    "clipability": 72,
+    "controversy": 66,
+    "repost_value": 68,
+    "engagement_strength": 80,
+    "source_type": "ugc",
+    "content_focus": [
+      "portal",
+      "NIL",
+      "fan_reactions"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Fast roster drama."
+  },
+  {
+    "name": "NIL Deal Watch CFB",
+    "platform": "x",
+    "category": "NIL",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 66,
+    "clipability": 66,
+    "controversy": 62,
+    "repost_value": 64,
+    "engagement_strength": 78,
+    "source_type": "creator",
+    "content_focus": [
+      "NIL",
+      "money",
+      "program_status"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "NIL culture signal."
+  },
+  {
+    "name": "Recruiting Edits Daily",
+    "platform": "instagram",
+    "category": "recruiting",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 72,
+    "clipability": 70,
+    "controversy": 46,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "creator",
+    "content_focus": [
+      "recruits",
+      "commitment_edits",
+      "swagger"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Visual recruit aura."
+  },
+  {
+    "name": "Friday Night Lights Recruits",
+    "platform": "tiktok",
+    "category": "recruiting",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 80,
+    "clipability": 74,
+    "controversy": 42,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "ugc",
+    "content_focus": [
+      "high_school_stars",
+      "crowd_energy"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Future-star clip source."
+  },
+  {
+    "name": "The Volume CFB",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 62,
+    "clipability": 66,
+    "controversy": 50,
+    "repost_value": 58,
+    "engagement_strength": 72,
+    "source_type": "podcast",
+    "content_focus": [
+      "debate",
+      "coach_pressure"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Clip sharp takes."
+  },
+  {
+    "name": "Joel Klatt Show",
+    "platform": "youtube",
+    "category": "podcast",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 58,
+    "clipability": 64,
+    "controversy": 44,
+    "repost_value": 56,
+    "engagement_strength": 70,
+    "source_type": "podcast",
+    "content_focus": [
+      "rankings",
+      "debate"
+    ],
+    "recommended_ingest_frequency": "3x_weekly",
+    "notes": "Use when he challenges fan bases."
+  },
+  {
+    "name": "Urban Meyer Clips",
+    "platform": "youtube",
+    "category": "coach",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 66,
+    "clipability": 70,
+    "controversy": 56,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "coach_perspective",
+      "sec_pressure"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Use direct coach criticism."
+  },
+  {
+    "name": "Lane Kiffin Clips",
+    "platform": "tiktok",
+    "category": "coach",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 80,
+    "clipability": 78,
+    "controversy": 64,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "twitter_trolling",
+      "swagger",
+      "sec"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Internet-native coach."
+  },
+  {
+    "name": "Deion Sanders Clips",
+    "platform": "tiktok",
+    "category": "coach",
+    "tier": "S",
+    "priority_score": 92,
+    "emotionality": 88,
+    "clipability": 88,
+    "controversy": 82,
+    "repost_value": 86,
+    "engagement_strength": 94,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "swagger",
+      "NIL",
+      "controversy",
+      "quotes"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Top CFB personality."
+  },
+  {
+    "name": "Kirby Smart Clips",
+    "platform": "tiktok",
+    "category": "coach",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 76,
+    "clipability": 76,
+    "controversy": 54,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "locker_room",
+      "dominance",
+      "press"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Intensity and dominance."
+  },
+  {
+    "name": "Nick Saban Clips",
+    "platform": "tiktok",
+    "category": "coach",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 72,
+    "clipability": 74,
+    "controversy": 50,
+    "repost_value": 70,
+    "engagement_strength": 82,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "legacy",
+      "discipline",
+      "roasts"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Evergreen authority."
+  },
+  {
+    "name": "Brian Kelly Clips",
+    "platform": "tiktok",
+    "category": "coach",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 74,
+    "clipability": 70,
+    "controversy": 66,
+    "repost_value": 64,
+    "engagement_strength": 78,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "coach_pressure",
+      "sec_chaos"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Meltdown and awkwardness value."
+  },
+  {
+    "name": "Ryan Day Clips",
+    "platform": "tiktok",
+    "category": "coach",
+    "tier": "B",
+    "priority_score": 76,
+    "emotionality": 72,
+    "clipability": 70,
+    "controversy": 66,
+    "repost_value": 64,
+    "engagement_strength": 78,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "rivalry_pressure",
+      "press"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Pressure source."
+  },
+  {
+    "name": "Jim Harbaugh CFB Archive",
+    "platform": "tiktok",
+    "category": "coach",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 70,
+    "clipability": 68,
+    "controversy": 54,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "coach_personality",
+    "content_focus": [
+      "weirdness",
+      "rivalry",
+      "archive"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Archive memes and rivalry."
+  },
+  {
+    "name": "College Football Revamped Streamers",
+    "platform": "youtube",
+    "category": "streamers",
+    "tier": "C",
+    "priority_score": 62,
+    "emotionality": 70,
+    "clipability": 64,
+    "controversy": 38,
+    "repost_value": 58,
+    "engagement_strength": 70,
+    "source_type": "streamer",
+    "content_focus": [
+      "gaming_cfb",
+      "culture"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Low priority crossover."
+  },
+  {
+    "name": "EA Sports College Football Streamers",
+    "platform": "tiktok",
+    "category": "streamers",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 76,
+    "clipability": 70,
+    "controversy": 42,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "streamer",
+    "content_focus": [
+      "gaming_cfb",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Use during game-cycle trends."
+  },
+  {
+    "name": "Tailgate TikTok",
+    "platform": "tiktok",
+    "category": "fan_culture",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 90,
+    "clipability": 78,
+    "controversy": 58,
+    "repost_value": 74,
+    "engagement_strength": 86,
+    "source_type": "ugc",
+    "content_focus": [
+      "tailgates",
+      "fan_identity",
+      "student_sections"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Crowd and fandom identity."
+  },
+  {
+    "name": "Frat Tailgate Clips",
+    "platform": "tiktok",
+    "category": "fan_culture",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 84,
+    "clipability": 72,
+    "controversy": 54,
+    "repost_value": 66,
+    "engagement_strength": 78,
+    "source_type": "ugc",
+    "content_focus": [
+      "tailgates",
+      "student_culture"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Filter for brand safety."
+  },
+  {
+    "name": "CFB Uniform Reveals",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 64,
+    "clipability": 70,
+    "controversy": 26,
+    "repost_value": 64,
+    "engagement_strength": 76,
+    "source_type": "team_style",
+    "content_focus": [
+      "uniforms",
+      "swagger",
+      "recruiting"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Style and recruiting aura."
+  },
+  {
+    "name": "College Football Fits",
+    "platform": "instagram",
+    "category": "tunnel_fits",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 66,
+    "clipability": 68,
+    "controversy": 24,
+    "repost_value": 62,
+    "engagement_strength": 74,
+    "source_type": "fashion",
+    "content_focus": [
+      "arrival_fits",
+      "swagger"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Arrival/tunnel culture."
+  },
+  {
+    "name": "Locker Room Speeches CFB",
+    "platform": "tiktok",
+    "category": "locker_room",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 88,
+    "clipability": 82,
+    "controversy": 40,
+    "repost_value": 76,
+    "engagement_strength": 88,
+    "source_type": "ugc",
+    "content_focus": [
+      "locker_room",
+      "coach_energy",
+      "celebration"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "High emotion."
+  },
+  {
+    "name": "Postgame Crying Fans",
+    "platform": "tiktok",
+    "category": "reactions",
+    "tier": "A",
+    "priority_score": 80,
+    "emotionality": 94,
+    "clipability": 76,
+    "controversy": 60,
+    "repost_value": 74,
+    "engagement_strength": 88,
+    "source_type": "ugc",
+    "content_focus": [
+      "fan_meltdowns",
+      "tribalism"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "High emotionality."
+  },
+  {
+    "name": "Rivalry Week Clips",
+    "platform": "tiktok",
+    "category": "rivalry",
+    "tier": "S",
+    "priority_score": 92,
+    "emotionality": 94,
+    "clipability": 88,
+    "controversy": 82,
+    "repost_value": 86,
+    "engagement_strength": 94,
+    "source_type": "ugc",
+    "content_focus": [
+      "rivalry",
+      "fan_hatred",
+      "student_sections"
+    ],
+    "recommended_ingest_frequency": "seasonal_hourly",
+    "notes": "Peak CFB lane."
+  },
+  {
+    "name": "SEC Shorts",
+    "platform": "youtube",
+    "category": "meme",
+    "tier": "A",
+    "priority_score": 82,
+    "emotionality": 84,
+    "clipability": 78,
+    "controversy": 68,
+    "repost_value": 76,
+    "engagement_strength": 88,
+    "source_type": "meme",
+    "content_focus": [
+      "sec_chaos",
+      "fan_identity",
+      "comedy"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Strong SEC meme signal."
+  },
+  {
+    "name": "FunnyMaine",
+    "platform": "youtube",
+    "category": "meme",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 78,
+    "clipability": 70,
+    "controversy": 60,
+    "repost_value": 66,
+    "engagement_strength": 80,
+    "source_type": "meme",
+    "content_focus": [
+      "alabama",
+      "sec_reactions",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "weekly",
+    "notes": "Great SEC fan comedy."
+  },
+  {
+    "name": "College Football Memes",
+    "platform": "instagram",
+    "category": "meme",
+    "tier": "B",
+    "priority_score": 74,
+    "emotionality": 82,
+    "clipability": 70,
+    "controversy": 70,
+    "repost_value": 70,
+    "engagement_strength": 84,
+    "source_type": "meme",
+    "content_focus": [
+      "memes",
+      "rivalry",
+      "fan_hatred"
+    ],
+    "recommended_ingest_frequency": "hourly",
+    "notes": "Verify context."
+  },
+  {
+    "name": "Saturday Down South",
+    "platform": "youtube",
+    "category": "creator",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 68,
+    "clipability": 66,
+    "controversy": 56,
+    "repost_value": 60,
+    "engagement_strength": 74,
+    "source_type": "media",
+    "content_focus": [
+      "sec_culture",
+      "coach_drama"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "SEC culture."
+  },
+  {
+    "name": "DawgNation",
+    "platform": "youtube",
+    "category": "fan_culture",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 70,
+    "clipability": 68,
+    "controversy": 50,
+    "repost_value": 60,
+    "engagement_strength": 74,
+    "source_type": "fan_media",
+    "content_focus": [
+      "georgia",
+      "fan_identity",
+      "recruiting"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Team tribal source."
+  },
+  {
+    "name": "Eleven Warriors",
+    "platform": "youtube",
+    "category": "fan_culture",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 74,
+    "clipability": 68,
+    "controversy": 56,
+    "repost_value": 62,
+    "engagement_strength": 76,
+    "source_type": "fan_media",
+    "content_focus": [
+      "ohio_state",
+      "fan_pressure",
+      "rivalry"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "OSU pressure."
+  },
+  {
+    "name": "Maize n Brew Clips",
+    "platform": "youtube",
+    "category": "fan_culture",
+    "tier": "B",
+    "priority_score": 70,
+    "emotionality": 74,
+    "clipability": 66,
+    "controversy": 56,
+    "repost_value": 60,
+    "engagement_strength": 74,
+    "source_type": "fan_media",
+    "content_focus": [
+      "michigan",
+      "rivalry",
+      "fan_identity"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Michigan fan signal."
+  },
+  {
+    "name": "TigerDroppings Clips",
+    "platform": "reddit",
+    "category": "fan_culture",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 88,
+    "clipability": 62,
+    "controversy": 82,
+    "repost_value": 62,
+    "engagement_strength": 80,
+    "source_type": "community",
+    "content_focus": [
+      "lsu",
+      "sec_chaos",
+      "message_board"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Trend signal only."
+  },
+  {
+    "name": "Vol Twitter Clips",
+    "platform": "x",
+    "category": "fan_culture",
+    "tier": "B",
+    "priority_score": 72,
+    "emotionality": 88,
+    "clipability": 64,
+    "controversy": 76,
+    "repost_value": 64,
+    "engagement_strength": 80,
+    "source_type": "community",
+    "content_focus": [
+      "tennessee",
+      "fan_hatred",
+      "meltdowns"
+    ],
+    "recommended_ingest_frequency": "daily",
+    "notes": "Strong fan emotion."
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "per_channel_mix": {
+    "official": 0.22,
+    "creator": 0.2,
+    "reactions": 0.16,
+    "athlete": 0.12,
+    "debate": 0.1,
+    "podcast": 0.08,
+    "meme": 0.06,
+    "other": 0.06
+  },
+  "max_same_source_consecutive": 2,
+  "max_same_category_percent_per_hour": 0.34,
+  "source_rotation": {
+    "enforce": true,
+    "cooldown_minutes_after_pick": 30,
+    "S_tier_override_minutes": 12
+  },
+  "empty_queue_backfill_order": [
+    "reactions",
+    "creator",
+    "official",
+    "podcast",
+    "meme"
+  ]
+}

@@ -6,3 +6,5 @@ dist
 node_modules
 *.tsbuildinfo
 .DS_Store
+youtube-cookies.txt
+*.cookies.txt

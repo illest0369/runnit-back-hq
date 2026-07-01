@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "tiers": {
+    "S": 1.35,
+    "A": 1.15,
+    "B": 0.9,
+    "C": 0.65
+  },
+  "signals": {
+    "priority_score": 0.22,
+    "emotionality": 0.18,
+    "clipability": 0.2,
+    "controversy": 0.13,
+    "repost_value": 0.12,
+    "engagement_strength": 0.15
+  },
+  "category_boosts": {
+    "reactions": 1.18,
+    "rivalry": 1.16,
+    "locker_room": 1.14,
+    "press_conference": 1.12,
+    "tunnel_fits": 1.08,
+    "NIL": 1.1,
+    "student_section": 1.18,
+    "ultras": 1.16,
+    "combat_personality": 1.16,
+    "meme": 1.08,
+    "official": 0.96
+  },
+  "penalties": {
+    "generic_highlights": 0.55,
+    "stat_pages": 0.35,
+    "slow_analysis": 0.45,
+    "broadcast_recap": 0.5
+  }
+}
