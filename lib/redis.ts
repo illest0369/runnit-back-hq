@@ -38,3 +38,13 @@ export function getSharedRedisConnection() {
 
   return sharedRedisConnection
 }
+
+export async function closeSharedRedisConnection() {
+  if (!sharedRedisConnection) {
+    return
+  }
+
+  const connection = sharedRedisConnection
+  sharedRedisConnection = undefined
+  await connection.quit()
+}

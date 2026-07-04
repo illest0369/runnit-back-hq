@@ -14,7 +14,12 @@ export type MetricoolHandoffStatus = 'skipped' | 'accepted' | 'failed'
 
 export type MetricoolHandoffResult = {
   status: MetricoolHandoffStatus
-  publishStatus: 'needs_clip_render' | 'metricool_scheduled' | 'metricool_published' | 'metricool_failed'
+  publishStatus:
+    | 'needs_clip_render'
+    | 'ready_for_manual_publish'
+    | 'metricool_scheduled'
+    | 'metricool_published'
+    | 'metricool_failed'
   brandId: string | null
   endpoint: string | null
   requestPayload: Record<string, unknown> | null
@@ -30,6 +35,17 @@ type MetricoolConfig = {
   userId: string
 }
 
+export type MetricoolConfigStatus = {
+  ok: boolean
+  mode: 'live' | 'dry_run'
+  testMode: boolean
+  brandEnvName: MetricoolBrandKey | null
+  hasBrandId: boolean
+  hasLiveCredentials: boolean
+  missing: string[]
+  error: string | null
+}
+
 const CHANNEL_TO_METRICOOL_ENV: Record<string, MetricoolBrandKey> = {
   'a1000000-0000-0000-0000-000000000001': 'METRICOOL_BRAND_RB_SPORTS',
   'a1000000-0000-0000-0000-000000000002': 'METRICOOL_BRAND_RB_ARENA',
@@ -37,6 +53,12 @@ const CHANNEL_TO_METRICOOL_ENV: Record<string, MetricoolBrandKey> = {
   'a1000000-0000-0000-0000-000000000003': 'METRICOOL_BRAND_RB_COMBAT',
   '93484eef-06d8-46fd-bce2-ce252422c58e': 'METRICOOL_BRAND_RB_CFB',
 }
+
+const METRICOOL_LIVE_ENV_NAMES = [
+  'METRICOOL_API_URL',
+  'METRICOOL_API_KEY',
+  'METRICOOL_USER_ID',
+] as const
 
 function isTruthy(value: string | undefined): boolean {
   if (!value) return false
@@ -67,27 +89,164 @@ export function resolveMetricoolBrandId(channelId: string | null | undefined): s
   return readRequiredEnv(envName)
 }
 
-export function validateMetricoolConfigForChannel(channelId: string | null | undefined): { ok: true } | { ok: false; error: string } {
+export function getMetricoolConfigStatusForChannel(channelId: string | null | undefined): MetricoolConfigStatus {
   const envName = getMetricoolBrandEnvName(channelId)
+  const testMode = isMetricoolTestMode()
   if (!envName) {
-    return { ok: false, error: `No Metricool brand mapping for channel ${channelId ?? 'unknown'}.` }
+    return {
+      ok: false,
+      mode: 'dry_run',
+      testMode,
+      brandEnvName: null,
+      hasBrandId: false,
+      hasLiveCredentials: false,
+      missing: [],
+      error: `No Metricool brand mapping for channel ${channelId ?? 'unknown'}.`,
+    }
   }
 
-  if (!process.env[envName]?.trim()) {
-    return { ok: false, error: `${envName} is required for this channel.` }
+  const missing = [
+    ...(!process.env[envName]?.trim() ? [envName] : []),
+    ...METRICOOL_LIVE_ENV_NAMES.filter((name) => !process.env[name]?.trim()),
+  ]
+  const hasBrandId = Boolean(process.env[envName]?.trim())
+  const hasLiveCredentials = METRICOOL_LIVE_ENV_NAMES.every((name) => Boolean(process.env[name]?.trim()))
+  const liveReady = hasBrandId && hasLiveCredentials && !testMode
+
+  return {
+    ok: true,
+    mode: liveReady ? 'live' : 'dry_run',
+    testMode,
+    brandEnvName: envName,
+    hasBrandId,
+    hasLiveCredentials,
+    missing,
+    error: null,
+  }
+}
+
+export function validateMetricoolConfigForChannel(channelId: string | null | undefined): { ok: true } | { ok: false; error: string } {
+  const status = getMetricoolConfigStatusForChannel(channelId)
+  if (!status.ok) {
+    return { ok: false, error: status.error ?? 'Metricool is not configured for this channel.' }
   }
 
-  if (isMetricoolTestMode()) {
-    return { ok: true }
+  return { ok: true }
+}
+
+export function validateMetricoolLiveConfigForChannel(channelId: string | null | undefined): { ok: true } | { ok: false; error: string } {
+  const status = getMetricoolConfigStatusForChannel(channelId)
+  if (!status.ok) {
+    return { ok: false, error: status.error ?? 'Metricool is not configured for this channel.' }
   }
 
-  for (const name of ['METRICOOL_API_URL', 'METRICOOL_API_KEY', 'METRICOOL_USER_ID']) {
-    if (!process.env[name]?.trim()) {
-      return { ok: false, error: `${name} is required for Metricool publishing.` }
+  if (status.mode !== 'live') {
+    return {
+      ok: false,
+      error: status.testMode
+        ? 'METRICOOL_TEST_MODE is enabled.'
+        : `Missing Metricool live env: ${status.missing.join(', ')}`,
     }
   }
 
   return { ok: true }
+}
+
+export function getMetricoolConfigReport() {
+  const channels = Object.entries(CHANNEL_TO_METRICOOL_ENV).map(([channelId, brandEnvName]) => {
+    const status = getMetricoolConfigStatusForChannel(channelId)
+    return {
+      channelId,
+      brandEnvName,
+      mode: status.mode,
+      testMode: status.testMode,
+      hasBrandId: status.hasBrandId,
+      hasLiveCredentials: status.hasLiveCredentials,
+      missing: status.missing,
+      ok: status.ok,
+    }
+  })
+
+  return {
+    testMode: isMetricoolTestMode(),
+    env: {
+      METRICOOL_API_URL: Boolean(process.env.METRICOOL_API_URL?.trim()),
+      METRICOOL_API_KEY: Boolean(process.env.METRICOOL_API_KEY?.trim()),
+      METRICOOL_USER_ID: Boolean(process.env.METRICOOL_USER_ID?.trim()),
+      METRICOOL_TEST_MODE: Boolean(process.env.METRICOOL_TEST_MODE?.trim()),
+      METRICOOL_TIMEZONE: Boolean(process.env.METRICOOL_TIMEZONE?.trim()),
+    },
+    channels,
+  }
+}
+
+export async function validateMetricoolConnectivity(): Promise<{
+  ok: boolean
+  status: number | null
+  error: string | null
+}> {
+  if (isMetricoolTestMode()) {
+    return { ok: true, status: null, error: 'Skipped in METRICOOL_TEST_MODE.' }
+  }
+
+  for (const name of METRICOOL_LIVE_ENV_NAMES) {
+    if (!process.env[name]?.trim()) {
+      return { ok: false, status: null, error: `${name} is required for live Metricool validation.` }
+    }
+  }
+
+  try {
+    const config = getMetricoolConfig()
+    const url = new URL(`${config.apiUrl}/admin/simpleProfiles`)
+    url.searchParams.set('userId', config.userId)
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Mc-Auth': config.apiKey,
+        'Content-Type': 'application/json',
+      },
+    })
+    await readResponseBody(response)
+    return {
+      ok: response.ok,
+      status: response.status,
+      error: response.ok ? null : 'Metricool connectivity check failed.',
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      status: null,
+      error: error instanceof Error ? error.message : 'Metricool connectivity check failed.',
+    }
+  }
+}
+
+export function assertMetricoolLiveConfigForChannel(channelId: string | null | undefined): void {
+  const status = getMetricoolConfigStatusForChannel(channelId)
+  if (!status.ok) {
+    throw new Error(status.error ?? 'Metricool is not configured for this channel.')
+  }
+
+  if (status.mode !== 'live') {
+    throw new Error(
+      status.testMode
+        ? 'METRICOOL_TEST_MODE is enabled; live Metricool calls are disabled.'
+        : `Missing Metricool live env: ${status.missing.join(', ')}`,
+    )
+  }
+}
+
+function getMetricoolBrandIdForDryRun(channelId: string | null | undefined): string | null {
+  const envName = getMetricoolBrandEnvName(channelId)
+  if (!envName) {
+    return null
+  }
+
+  if (!process.env[envName]?.trim()) {
+    return null
+  }
+
+  return process.env[envName]?.trim() ?? null
 }
 
 export function hasMetricoolConfigForChannel(channelId: string | null | undefined): boolean {
@@ -286,21 +445,48 @@ export async function sendClipToMetricool(
   let requestPayload: Record<string, unknown> | null = null
 
   try {
-    brandId = resolveMetricoolBrandId(clip.channel_id)
-    if (isMetricoolTestMode()) {
+    const configStatus = getMetricoolConfigStatusForChannel(clip.channel_id)
+    if (!configStatus.ok) {
+      const result: MetricoolHandoffResult = {
+        status: 'failed',
+        publishStatus: 'metricool_failed',
+        brandId: null,
+        endpoint: null,
+        requestPayload: null,
+        responseStatus: null,
+        responseBody: null,
+        metricoolPostId: null,
+        error: configStatus.error ?? 'Metricool is not configured for this channel.',
+      }
+      await recordMetricoolHandoff({ clip, ...result })
+      return result
+    }
+
+    brandId = configStatus.mode === 'live'
+      ? resolveMetricoolBrandId(clip.channel_id)
+      : getMetricoolBrandIdForDryRun(clip.channel_id)
+
+    if (configStatus.mode !== 'live') {
       const result: MetricoolHandoffResult = {
         status: 'accepted',
-        publishStatus: mode === 'publish_now' ? 'metricool_published' : 'metricool_scheduled',
+        publishStatus: 'ready_for_manual_publish',
         brandId,
         endpoint: null,
         requestPayload: {
           mode,
           scheduledAt: input.scheduledAt ?? null,
           mediaUrl: mp4Url,
+          dryRunReason: configStatus.testMode ? 'METRICOOL_TEST_MODE' : 'METRICOOL_LIVE_ENV_MISSING',
+          missingEnv: configStatus.missing,
         },
         responseStatus: 202,
-        responseBody: { ok: true, testMode: true, mode },
-        metricoolPostId: `metricool-test-${clip.id}`,
+        responseBody: {
+          ok: true,
+          dryRun: true,
+          testMode: configStatus.testMode,
+          mode,
+        },
+        metricoolPostId: null,
         error: null,
       }
       await recordMetricoolHandoff({ clip, ...result })
@@ -346,6 +532,22 @@ export async function sendClipToMetricool(
         responseBody: normalizeBody,
         metricoolPostId: null,
         error: 'Metricool did not return a mediaId.',
+      }
+      await recordMetricoolHandoff({ clip, ...result })
+      return result
+    }
+
+    if (!brandId) {
+      const result: MetricoolHandoffResult = {
+        status: 'failed',
+        publishStatus: 'metricool_failed',
+        brandId,
+        endpoint: null,
+        requestPayload: null,
+        responseStatus: null,
+        responseBody: null,
+        metricoolPostId: null,
+        error: 'Metricool brand ID is required for live publishing.',
       }
       await recordMetricoolHandoff({ clip, ...result })
       return result

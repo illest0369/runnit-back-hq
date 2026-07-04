@@ -1,0 +1,26 @@
+{
+  "version": "rbhq-n8n-publish-v1",
+  "provider": "n8n",
+  "testMode": true,
+  "publishAction": "dry_run",
+  "requestedPublishAction": "publish_now",
+  "scheduledAt": null,
+  "postId": "00000000-0000-0000-0000-000000000001",
+  "clipId": "00000000-0000-0000-0000-000000000001",
+  "channelId": "a1000000-0000-0000-0000-000000000001",
+  "title": "RB Sports: Sample approved clip",
+  "caption": "Sample approved clip caption.\n#Sports #RunnitBack",
+  "hashtags": ["#Sports", "#RunnitBack"],
+  "media": {
+    "url": "https://cdn.example.com/rbhq/sample-approved-clip.mp4",
+    "path": null,
+    "thumbnailUrl": "https://cdn.example.com/rbhq/sample-approved-clip.jpg"
+  },
+  "source": {
+    "name": "RBHQ Sample",
+    "sport": "sports",
+    "league": null
+  },
+  "approvedAt": "2026-07-04T12:00:00.000Z",
+  "createdAt": "2026-07-04T12:01:00.000Z"
+}

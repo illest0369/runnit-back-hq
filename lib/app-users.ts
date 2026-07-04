@@ -212,7 +212,7 @@ function canConfiguredUserAuthenticate(user: NormalizedAppUser): boolean {
     return true
   }
 
-  return user.role === 'user' && user.channelIds.length > 0
+  return user.channelIds.length > 0
 }
 
 export async function authenticateAppUserByPin(secret: string): Promise<SessionUser | null> {
@@ -222,9 +222,7 @@ export async function authenticateAppUserByPin(secret: string): Promise<SessionU
     return null
   }
 
-  const configuredUsers = getConfiguredAppUsers().filter(
-    (user) => user.role === 'admin' || RBHQ_OPERATOR_USERNAMES.has(user.username),
-  )
+  const configuredUsers = getConfiguredAppUsers().filter(canConfiguredUserAuthenticate)
   for (const user of configuredUsers) {
     const matches = await matchesPinOnly(user, normalizedSecret)
 
@@ -289,11 +287,11 @@ async function authenticateDatabaseAppUser(
   }
 
   const role = normalizeRole(user.role)
-  if (role !== 'admin' && !RBHQ_OPERATOR_USERNAMES.has(user.username)) {
+  const channelIds = await loadUserChannelIds(user.id)
+  if (!canDatabaseUserAuthenticate({ username: user.username, role, channelIds })) {
     return null
   }
 
-  const channelIds = await loadUserChannelIds(user.id)
   return {
     userId: user.id,
     username: user.username,
@@ -330,11 +328,11 @@ async function authenticateDatabaseAppUserByEmailPassword(
   }
 
   const role = normalizeRole(user.role)
-  if (role !== 'admin' && !RBHQ_OPERATOR_USERNAMES.has(user.username)) {
+  const channelIds = await loadUserChannelIds(user.id)
+  if (!canDatabaseUserAuthenticate({ username: user.username, role, channelIds })) {
     return null
   }
 
-  const channelIds = await loadUserChannelIds(user.id)
   return {
     userId: user.id,
     username: user.username,
@@ -369,11 +367,27 @@ async function loadUserChannelIds(userId: string): Promise<string[]> {
     ...new Set(
       [...(accessRows ?? []), ...(legacyRows ?? [])]
         .map((row: { channel_id: string | null }) => row.channel_id)
-      .filter((value): value is string => Boolean(value)),
+        .filter((value): value is string => Boolean(value && getChannelMeta(value))),
     ),
   ]
 
   return channelIds
+}
+
+function canDatabaseUserAuthenticate(input: {
+  username: string
+  role: Role
+  channelIds: string[]
+}): boolean {
+  if (input.role === 'admin') {
+    return true
+  }
+
+  if (RBHQ_OPERATOR_USERNAMES.has(input.username)) {
+    return true
+  }
+
+  return input.channelIds.length > 0
 }
 
 function isMissingRelationError(message: string): boolean {
@@ -393,8 +407,7 @@ async function authenticateDatabaseAppUserByPin(secret: string): Promise<Session
   const { data: users, error } = await supabaseAdminClient
     .from('users')
     .select('id, username, pin_hash, role')
-    .in('role', ['operator', 'admin'])
-    .in('username', [...RBHQ_OPERATOR_USERNAMES])
+    .in('role', ['operator', 'admin', 'user'])
 
   if (error) {
     throw new Error(error.message)

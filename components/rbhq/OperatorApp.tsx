@@ -25,6 +25,17 @@ import type { PublishExportPackage } from "@/lib/export/types";
 type AppTab = "queue" | "publish" | "sources";
 type ClipStatus = "pending" | "held" | "approving" | "approved" | "rejecting" | "rejected";
 type PublishStatus =
+  | "draft"
+  | "ready_for_review"
+  | "approved"
+  | "queued"
+  | "scheduled"
+  | "published"
+  | "failed"
+  | "ready_for_automation"
+  | "sent_to_n8n"
+  | "automation_queued"
+  | "automation_failed"
   | "not_ready"
   | "metricool_ready_manual_export"
   | "ready_for_manual_publish"
@@ -180,6 +191,16 @@ function parseNumber(value: unknown): number | null {
 }
 
 function readMetricoolStatus(notes: string[] | null | undefined, fallback: PublishStatus | null | undefined): PublishStatus {
+  const n8nMarker = notes?.find((note) => note.startsWith("n8n_status:"))?.slice("n8n_status:".length);
+  if (
+    n8nMarker === "ready_for_automation" ||
+    n8nMarker === "sent_to_n8n" ||
+    n8nMarker === "automation_queued" ||
+    n8nMarker === "automation_failed"
+  ) {
+    return n8nMarker;
+  }
+
   const marker = notes?.find((note) => note.startsWith("metricool_status:"))?.slice("metricool_status:".length);
   if (
     marker === "metricool_scheduled" ||

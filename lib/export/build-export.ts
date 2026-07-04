@@ -64,6 +64,10 @@ export function assertExportableClip(clip: ExportableClip) {
     ![
       'metricool_ready_manual_export',
       'ready_for_manual_publish',
+      'ready_for_automation',
+      'sent_to_n8n',
+      'automation_queued',
+      'automation_failed',
       'manually_published',
       'metricool_published',
       'metricool_failed',

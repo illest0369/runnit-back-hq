@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, Copy, Download, ExternalLink, RefreshCw } from 'lucide-react'
+import { Check, Copy, Download, ExternalLink, RefreshCw, Send } from 'lucide-react'
 import type { ReactNode } from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
@@ -33,8 +33,18 @@ async function copyText(value: string) {
   await navigator.clipboard.writeText(value)
 }
 
+type N8nConfig = {
+  provider: 'manual' | 'metricool' | 'n8n'
+  webhookUrlPresent: boolean
+  secretPresent: boolean
+  testMode: boolean
+  timeoutMs: number
+  configured: boolean
+}
+
 export default function MetricoolExportClient() {
   const [items, setItems] = useState<MetricoolExportItem[]>([])
+  const [n8nConfig, setN8nConfig] = useState<N8nConfig | null>(null)
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [message, setMessage] = useState('')
@@ -57,12 +67,31 @@ export default function MetricoolExportClient() {
     }
   }, [])
 
+  const loadN8nConfig = useCallback(async () => {
+    try {
+      const response = await fetch('/api/n8n-export/config', { cache: 'no-store' })
+      const json = await readJson(response)
+      if (response.status === 403 || response.status === 401) {
+        setN8nConfig(null)
+        return
+      }
+      if (!response.ok || !json?.ok) {
+        throw new Error(json?.error || 'n8n config unavailable')
+      }
+      setN8nConfig(json.data as N8nConfig)
+    } catch {
+      setN8nConfig(null)
+    }
+  }, [])
+
   useEffect(() => {
     void loadItems()
-  }, [loadItems])
+    void loadN8nConfig()
+  }, [loadItems, loadN8nConfig])
 
   const readyCount = items.length
   const newest = useMemo(() => items[0]?.createdAt ? formatDate(items[0].createdAt) : 'No clips', [items])
+  const n8nConfigured = Boolean(n8nConfig?.configured)
 
   async function markExported(id: string) {
     setBusyId(id)
@@ -82,6 +111,38 @@ export default function MetricoolExportClient() {
       setError('')
     } catch (markError) {
       setError(markError instanceof Error ? markError.message : 'Unable to mark exported')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function sendToN8n(id: string) {
+    setBusyId(id)
+    setMessage('')
+    try {
+      const headers = await getCsrfHeaders()
+      const response = await fetch(`/api/n8n-export/${id}/send`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'publish_now' }),
+      })
+      const json = await readJson(response)
+      if (!response.ok || !json?.ok) {
+        throw new Error(json?.error || 'Unable to send to n8n')
+      }
+      const n8nStatus = json.data?.n8nStatus || 'sent_to_n8n'
+      const publishStatus = json.data?.publishStatus
+      setItems((current) =>
+        current.map((item) =>
+          item.id === id && typeof publishStatus === 'string'
+            ? { ...item, publishStatus, updatedAt: json.data?.updatedAt ?? item.updatedAt }
+            : item,
+        ),
+      )
+      setMessage(n8nStatus.replaceAll('_', ' '))
+      setError('')
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : 'Unable to send to n8n')
     } finally {
       setBusyId(null)
     }
@@ -111,6 +172,22 @@ export default function MetricoolExportClient() {
             <Metric label="Ready" value={String(readyCount)} />
             <Metric label="Newest" value={newest} />
           </div>
+
+          {n8nConfig ? (
+            <div className="mt-3 rounded-[18px] border border-white/[0.08] bg-white/[0.045] px-3 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[10px] font-black uppercase tracking-[0.16em] text-white/42">Publishing provider</p>
+                <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-black">
+                  {n8nConfig.provider}
+                </span>
+              </div>
+              <p className="mt-2 text-xs font-semibold leading-5 text-white/58">
+                {n8nConfigured
+                  ? `n8n automation is configured${n8nConfig.testMode ? ' in test mode' : ''}. Manual export remains available.`
+                  : 'n8n automation is not configured. Manual export remains available.'}
+              </p>
+            </div>
+          ) : null}
 
           {message ? <p className="mt-3 text-xs font-bold lowercase text-[#ff4d00]">{message}</p> : null}
           {error ? <p className="mt-3 text-xs font-bold lowercase text-red-300">{error}</p> : null}
@@ -151,7 +228,7 @@ export default function MetricoolExportClient() {
                   <Field label="Hashtags" value={formatMetricoolHashtags(item.hashtags)} />
                   <Field label="Source" value={item.sourceUrl || item.sourceName || ''} />
 
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-6">
                     <ActionButton label="Copy caption" onClick={() => void copyText(item.caption).then(() => setMessage('caption copied'))}>
                       <Copy className="h-4 w-4" />
                     </ActionButton>
@@ -176,6 +253,18 @@ export default function MetricoolExportClient() {
                     >
                       <ExternalLink className="h-4 w-4" />
                     </a>
+                    {n8nConfig ? (
+                      <button
+                        type="button"
+                        onClick={() => void sendToN8n(item.id)}
+                        disabled={busyId === item.id || !n8nConfigured}
+                        className="grid h-11 place-items-center rounded-[14px] border border-white/[0.08] bg-white/[0.06] text-white active:scale-[0.98] disabled:opacity-35"
+                        aria-label={n8nConfigured ? 'Send to n8n' : 'n8n automation not configured'}
+                        title={n8nConfigured ? 'Send to n8n' : 'n8n automation not configured'}
+                      >
+                        <Send className="h-4 w-4" />
+                      </button>
+                    ) : null}
                     <button
                       type="button"
                       onClick={() => void markExported(item.id)}

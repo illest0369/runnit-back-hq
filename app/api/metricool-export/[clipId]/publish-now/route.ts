@@ -83,7 +83,9 @@ export async function POST(request: Request, context: RouteContext) {
   const metricool = await sendClipToMetricool(current, { mode: 'publish_now' })
   const updated = await updateClipMetricoolStatus(clipId, {
     channelIds: session.channelIds,
-    publishStatus: metricool.publishStatus === 'metricool_published' ? 'metricool_published' : 'metricool_failed',
+    publishStatus: metricool.status === 'accepted' && metricool.publishStatus !== 'needs_clip_render'
+      ? metricool.publishStatus
+      : 'metricool_failed',
     metricoolPostId: metricool.metricoolPostId,
   })
 

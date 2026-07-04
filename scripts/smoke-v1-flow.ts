@@ -31,6 +31,7 @@ const {
 } = require('../lib/moderation-queue') as typeof import('../lib/moderation-queue')
 const {
   validateMetricoolConfigForChannel,
+  validateMetricoolLiveConfigForChannel,
 } = require('../lib/metricool') as typeof import('../lib/metricool')
 const {
   getSessionSecret,
@@ -38,9 +39,12 @@ const {
 const {
   signSessionPayload,
 } = require('../lib/session') as typeof import('../lib/session')
+const {
+  closeSharedRedisConnection,
+} = require('../lib/redis') as typeof import('../lib/redis')
 
-config({ path: '.env.local' })
-config()
+config({ path: '.env.local', quiet: true })
+config({ quiet: true })
 
 const SPORTS_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000001'
 const ARENA_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000002'
@@ -288,7 +292,9 @@ async function main() {
     delete process.env.METRICOOL_USER_ID
     process.env.METRICOOL_BRAND_RB_SPORTS = 'smoke-rb-sports'
     const missingEnv = validateMetricoolConfigForChannel(SPORTS_CHANNEL_ID)
-    assert(!missingEnv.ok && missingEnv.error.includes('METRICOOL_API_URL'), 'Missing Metricool env did not return a clear error.')
+    const missingLiveEnv = validateMetricoolLiveConfigForChannel(SPORTS_CHANNEL_ID)
+    assert(missingEnv.ok, 'Missing Metricool live env should allow dry-run/manual fallback.')
+    assert(!missingLiveEnv.ok && missingLiveEnv.error.includes('METRICOOL_API_URL'), 'Missing Metricool live env did not return a clear error.')
 
     process.env.METRICOOL_TEST_MODE = '1'
     process.env.METRICOOL_BRAND_RB_SPORTS = 'smoke-rb-sports'
@@ -306,26 +312,26 @@ async function main() {
     assert(publishResponse.status === 200 && publishResponse.body?.ok, 'Publish-now route test mode was not accepted.')
     const published = await getClipById(ids.publish, { channelIds: [SPORTS_CHANNEL_ID] })
     assert(
-      published?.publish_status === 'metricool_published' || published?.publish_status === 'manually_published',
-      'Publish-now status did not persist.',
+      published?.publish_status === 'ready_for_manual_publish',
+      'Publish-now test mode should keep clip ready for manual publish.',
     )
 
     const scheduledAt = new Date(Date.now() + 60 * 60 * 1000).toISOString()
     const scheduleResponse = await callScheduleRoute(ids.schedule, scheduledAt)
     assert(scheduleResponse.status === 200 && scheduleResponse.body?.ok, 'Schedule route test mode was not accepted.')
     const scheduled = await getClipById(ids.schedule, { channelIds: [SPORTS_CHANNEL_ID] })
-    assert(scheduled && effectiveMetricoolStatus(scheduled) === 'metricool_scheduled', 'Schedule status did not persist.')
+    assert(scheduled && effectiveMetricoolStatus(scheduled) === 'ready_for_manual_publish', 'Schedule test mode should keep clip ready for manual publish.')
 
     const reloadedPublish = await getClipById(ids.publish, { channelIds: [SPORTS_CHANNEL_ID] })
     const reloadedSchedule = await getClipById(ids.schedule, { channelIds: [SPORTS_CHANNEL_ID] })
     assert(reloadedPublish && effectiveMetricoolStatus(reloadedPublish) === effectiveMetricoolStatus(published), 'Publish status failed DB reload.')
-    assert(reloadedSchedule && effectiveMetricoolStatus(reloadedSchedule) === 'metricool_scheduled', 'Schedule status failed DB reload.')
+    assert(reloadedSchedule && effectiveMetricoolStatus(reloadedSchedule) === 'ready_for_manual_publish', 'Schedule status failed DB reload.')
 
     const publishHandoff = await readLatestMetricoolHandoffStatus(supabase, ids.publish)
     const scheduleHandoff = await readLatestMetricoolHandoffStatus(supabase, ids.schedule)
     if (publishHandoff.available || scheduleHandoff.available) {
-      assert(publishHandoff.publishStatus === 'metricool_published', 'Publish handoff status did not persist to metricool_handoffs.')
-      assert(scheduleHandoff.publishStatus === 'metricool_scheduled', 'Schedule handoff status did not persist to metricool_handoffs.')
+      assert(publishHandoff.publishStatus === 'ready_for_manual_publish', 'Publish handoff dry-run status did not persist to metricool_handoffs.')
+      assert(scheduleHandoff.publishStatus === 'ready_for_manual_publish', 'Schedule handoff dry-run status did not persist to metricool_handoffs.')
     } else {
       assert(effectiveMetricoolStatus(reloadedPublish), 'Fallback status reload was empty without metricool_handoffs.')
       assert(effectiveMetricoolStatus(reloadedSchedule), 'Fallback schedule reload was empty without metricool_handoffs.')
@@ -366,6 +372,7 @@ async function main() {
     process.env.METRICOOL_API_KEY = originalMetricool.apiKey
     process.env.METRICOOL_USER_ID = originalMetricool.userId
     await supabase.from('clips').delete().in('id', Object.values(ids))
+    await closeSharedRedisConnection()
   }
 }
 

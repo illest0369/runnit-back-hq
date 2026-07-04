@@ -5,8 +5,8 @@ const {
   markClipMetricoolPublished,
 } = require('../lib/moderation-queue') as typeof import('../lib/moderation-queue')
 
-config({ path: '.env.local' })
-config()
+config({ path: '.env.local', quiet: true })
+config({ quiet: true })
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''

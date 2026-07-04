@@ -5,33 +5,22 @@ import { NextResponse } from 'next/server'
 
 import { getSessionFromRequest } from '@/lib/auth'
 import { validateCsrfRequest } from '@/lib/csrf'
-import { sendClipToMetricool, validateMetricoolConfigForChannel } from '@/lib/metricool'
 import {
   getClipById,
   isMetricoolExportReadyStatus,
-  updateClipMetricoolStatus,
+  updateClipAutomationStatus,
   type ModerationClip,
 } from '@/lib/moderation-queue'
+import { sendClipToN8n, type N8nHandoffResult } from '@/lib/n8n-publisher'
 
 type RouteContext = {
   params: Promise<{ clipId: string }>
 }
 
-type ScheduleBody = {
+type SendBody = {
+  action?: 'publish_now' | 'schedule'
   scheduledAt?: string
   scheduled_at?: string
-}
-
-function responsePayload(clip: ModerationClip, metricool: Awaited<ReturnType<typeof sendClipToMetricool>>, scheduledAt: string) {
-  return {
-    clipId: clip.id,
-    reviewStatus: clip.status,
-    publishStatus: clip.publish_status,
-    metricoolStatus: metricool.status,
-    metricoolPostId: metricool.metricoolPostId,
-    scheduledAt,
-    updatedAt: clip.updated_at,
-  }
 }
 
 function parseScheduleTime(value: string | undefined): string | null {
@@ -43,13 +32,24 @@ function parseScheduleTime(value: string | undefined): string | null {
   return parsed.toISOString()
 }
 
+function responsePayload(clip: ModerationClip, n8n: N8nHandoffResult) {
+  return {
+    clipId: clip.id,
+    reviewStatus: clip.status,
+    publishStatus: clip.publish_status,
+    n8nStatus: n8n.status,
+    responseStatus: n8n.responseStatus,
+    updatedAt: clip.updated_at,
+  }
+}
+
 export async function POST(request: Request, context: RouteContext) {
   const session = await getSessionFromRequest(request)
   if (!session) {
     return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
   }
 
-  if (session.role !== 'admin' && session.channelIds.length === 0) {
+  if (session.role !== 'admin') {
     return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 })
   }
 
@@ -57,9 +57,13 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: 'Invalid CSRF token.' }, { status: 403 })
   }
 
-  const body = (await request.json().catch(() => ({}))) as ScheduleBody
-  const scheduledAt = parseScheduleTime(body.scheduledAt ?? body.scheduled_at)
-  if (!scheduledAt) {
+  const body = (await request.json().catch(() => ({}))) as SendBody
+  const requestedAction = body.action === 'schedule' ? 'schedule' : 'publish_now'
+  const scheduledAt = requestedAction === 'schedule'
+    ? parseScheduleTime(body.scheduledAt ?? body.scheduled_at)
+    : null
+
+  if (requestedAction === 'schedule' && !scheduledAt) {
     return NextResponse.json({ ok: false, error: 'A future schedule date/time is required.' }, { status: 400 })
   }
 
@@ -69,19 +73,11 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: 'Clip not found.' }, { status: 404 })
   }
 
-  if (current.status === 'rejected') {
-    return NextResponse.json({ ok: false, error: 'Rejected content cannot be scheduled.' }, { status: 409 })
-  }
-
-  if (current.status === 'skipped') {
-    return NextResponse.json({ ok: false, error: 'Held content must be approved before scheduling.' }, { status: 409 })
-  }
-
   if (current.status !== 'approved' || !isMetricoolExportReadyStatus(current.publish_status)) {
     return NextResponse.json(
       {
         ok: false,
-        error: 'Clip is not approved and ready for Metricool scheduling.',
+        error: 'Clip is not approved and ready for n8n automation.',
         data: {
           clipId: current.id,
           reviewStatus: current.status,
@@ -96,27 +92,30 @@ export async function POST(request: Request, context: RouteContext) {
     return NextResponse.json({ ok: false, error: 'Clip is missing a video URL.' }, { status: 409 })
   }
 
-  const config = validateMetricoolConfigForChannel(current.channel_id)
-  if (!config.ok) {
-    return NextResponse.json({ ok: false, error: config.error }, { status: 424 })
-  }
+  const n8n = await sendClipToN8n(current, { action: requestedAction, scheduledAt })
+  const targetPublishStatus =
+    n8n.automationStatus === 'automation_queued'
+      ? 'automation_queued'
+      : n8n.status === 'sent_to_n8n'
+      ? 'sent_to_n8n'
+      : n8n.status === 'n8n_failed'
+        ? 'automation_failed'
+        : null
 
-  const metricool = await sendClipToMetricool(current, { mode: 'schedule', scheduledAt })
-  const updated = await updateClipMetricoolStatus(clipId, {
-    channelIds: session.channelIds,
-    publishStatus: metricool.status === 'accepted' && metricool.publishStatus !== 'needs_clip_render'
-      ? metricool.publishStatus
-      : 'metricool_failed',
-    metricoolPostId: metricool.metricoolPostId,
-  })
+  const updated = targetPublishStatus
+    ? await updateClipAutomationStatus(clipId, {
+        channelIds: session.channelIds,
+        publishStatus: targetPublishStatus,
+      })
+    : current
 
   if (!updated) {
-    return NextResponse.json({ ok: false, error: 'Metricool status could not be persisted.' }, { status: 409 })
+    return NextResponse.json({ ok: false, error: 'n8n status could not be persisted.' }, { status: 409 })
   }
 
-  const ok = metricool.status === 'accepted'
+  const ok = n8n.status !== 'n8n_failed'
   return NextResponse.json(
-    { ok, data: responsePayload(updated, metricool, scheduledAt), error: ok ? null : metricool.error },
+    { ok, data: responsePayload(updated, n8n), error: ok ? null : n8n.error },
     { status: ok ? 200 : 502, headers: { 'Cache-Control': 'no-store' } },
   )
 }

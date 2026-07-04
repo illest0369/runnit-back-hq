@@ -5,6 +5,17 @@ import { isDownloadableMp4Url } from './media-url'
 
 export type ClipModerationStatus = 'pending' | 'approved' | 'rejected' | 'skipped'
 export type ClipPublishStatus =
+  | 'draft'
+  | 'ready_for_review'
+  | 'approved'
+  | 'queued'
+  | 'scheduled'
+  | 'published'
+  | 'failed'
+  | 'ready_for_automation'
+  | 'sent_to_n8n'
+  | 'automation_queued'
+  | 'automation_failed'
   | 'not_ready'
   | 'metricool_ready_manual_export'
   | 'metricool_scheduled'
@@ -62,6 +73,7 @@ export type ModerationSource = {
 const METRICOOL_READY_PUBLISH_STATUSES = [
   'metricool_ready_manual_export',
   'ready_for_manual_publish',
+  'ready_for_automation',
 ] as const satisfies readonly ClipPublishStatus[]
 
 const METRICOOL_EXPORTED_PUBLISH_STATUSES = [
@@ -79,6 +91,9 @@ const METRICOOL_EXPORTED_PUBLISH_STATUS_SET: ReadonlySet<ClipPublishStatus> = ne
 
 const METRICOOL_WORKFLOW_PUBLISH_STATUSES = [
   ...METRICOOL_READY_PUBLISH_STATUSES,
+  'sent_to_n8n',
+  'automation_queued',
+  'automation_failed',
   'metricool_scheduled',
   'metricool_published',
   'manually_published',
@@ -92,11 +107,25 @@ const METRICOOL_SCHEMA_BACKED_PUBLISH_STATUSES = [
 ] as const satisfies readonly ClipPublishStatus[]
 
 const METRICOOL_STATUS_NOTE_PREFIX = 'metricool_status:'
+const N8N_STATUS_NOTE_PREFIX = 'n8n_status:'
+const N8N_SCHEMA_BACKED_PUBLISH_STATUSES = [
+  'ready_for_automation',
+  'sent_to_n8n',
+  'automation_queued',
+  'automation_failed',
+] as const satisfies readonly ClipPublishStatus[]
 
 function withMetricoolStatusNote(notes: string[], publishStatus: ClipPublishStatus): string[] {
   return [
     ...notes.filter((note) => !note.startsWith(METRICOOL_STATUS_NOTE_PREFIX)),
     `${METRICOOL_STATUS_NOTE_PREFIX}${publishStatus}`,
+  ]
+}
+
+function withN8nStatusNote(notes: string[], publishStatus: ClipPublishStatus): string[] {
+  return [
+    ...notes.filter((note) => !note.startsWith(N8N_STATUS_NOTE_PREFIX)),
+    `${N8N_STATUS_NOTE_PREFIX}${publishStatus}`,
   ]
 }
 
@@ -360,13 +389,21 @@ async function enqueueApprovedClipRender(
 }
 
 function normalizeClip(row: ClipRow): ModerationClip {
+  const moderationNotes = normalizeStringArray(row.moderation_notes)
+  const n8nStatusNote = moderationNotes
+    .find((note) => note.startsWith(N8N_STATUS_NOTE_PREFIX))
+    ?.slice(N8N_STATUS_NOTE_PREFIX.length)
+  const effectivePublishStatus = N8N_SCHEMA_BACKED_PUBLISH_STATUSES.includes(n8nStatusNote as never)
+    ? n8nStatusNote as ClipPublishStatus
+    : row.publish_status
   const publishStatus =
     row.status === 'approved' &&
-    (row.publish_status === 'metricool_ready_manual_export' ||
-      row.publish_status === 'ready_for_manual_publish') &&
+    (effectivePublishStatus === 'metricool_ready_manual_export' ||
+      effectivePublishStatus === 'ready_for_manual_publish' ||
+      effectivePublishStatus === 'ready_for_automation') &&
     !isDownloadableMp4Url(row.video_url)
       ? 'needs_clip_render'
-      : row.publish_status
+      : effectivePublishStatus
 
   return {
     ...row,
@@ -376,7 +413,7 @@ function normalizeClip(row: ClipRow): ModerationClip {
     ai_score: Number(row.ai_score ?? 0),
     virality_score: row.virality_score === null ? null : Number(row.virality_score),
     hook_strength: row.hook_strength === null ? null : Number(row.hook_strength),
-    moderation_notes: normalizeStringArray(row.moderation_notes),
+    moderation_notes: moderationNotes,
     risk_flags: normalizeStringArray(row.risk_flags),
   }
 }
@@ -429,7 +466,7 @@ function isSchemaBackedMetricoolStatus(value: unknown): value is (typeof METRICO
 async function persistMetricoolStatusHandoff(
   clip: ModerationClip,
   input: {
-    publishStatus: Extract<ClipPublishStatus, 'metricool_scheduled' | 'metricool_published' | 'metricool_failed'>
+    publishStatus: Extract<ClipPublishStatus, 'ready_for_manual_publish' | 'metricool_scheduled' | 'metricool_published' | 'metricool_failed'>
     metricoolPostId?: string | null
   },
 ): Promise<void> {
@@ -1136,7 +1173,7 @@ export async function updateClipMetricoolStatus(
   clipId: string,
   input: {
     channelIds?: string[]
-    publishStatus: Extract<ClipPublishStatus, 'metricool_scheduled' | 'metricool_published' | 'metricool_failed'>
+    publishStatus: Extract<ClipPublishStatus, 'ready_for_manual_publish' | 'metricool_scheduled' | 'metricool_published' | 'metricool_failed'>
     publishedAt?: string | null
     metricoolPostId?: string | null
   },
@@ -1199,6 +1236,65 @@ export async function updateClipMetricoolStatus(
       .eq('id', clipId)
       .eq('status', 'approved')
       .in('publish_status', [...METRICOOL_READY_PUBLISH_STATUSES])
+      .select(CLIP_SELECT)
+      .maybeSingle())
+  }
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  if (!data) return null
+  const updated = normalizeClip(data as ClipRow)
+  updated.channel_id = current.channel_id
+  return updated
+}
+
+export async function updateClipAutomationStatus(
+  clipId: string,
+  input: {
+    channelIds?: string[]
+    publishStatus: Extract<ClipPublishStatus, 'sent_to_n8n' | 'automation_queued' | 'automation_failed' | 'ready_for_automation'>
+  },
+): Promise<ModerationClip | null> {
+  assertSupabaseQueue()
+  const current = await getClipById(clipId, {
+    channelIds: input.channelIds,
+    includeMetricoolHandoffStatus: false,
+  })
+  if (!current || current.status !== 'approved') {
+    return null
+  }
+
+  if (
+    !isMetricoolExportReadyStatus(current.publish_status) &&
+    !N8N_SCHEMA_BACKED_PUBLISH_STATUSES.includes(current.publish_status as never)
+  ) {
+    return null
+  }
+
+  const patch = {
+    publish_status: input.publishStatus,
+    updated_at: new Date().toISOString(),
+  }
+
+  let { data, error } = await supabaseAdmin
+    .from('clips')
+    .update(patch)
+    .eq('id', clipId)
+    .eq('status', 'approved')
+    .select(CLIP_SELECT)
+    .maybeSingle()
+
+  if (isPublishStatusConstraintError(error)) {
+    ;({ data, error } = await supabaseAdmin
+      .from('clips')
+      .update({
+        moderation_notes: withN8nStatusNote(current.moderation_notes, input.publishStatus),
+        updated_at: patch.updated_at,
+      })
+      .eq('id', clipId)
+      .eq('status', 'approved')
       .select(CLIP_SELECT)
       .maybeSingle())
   }
