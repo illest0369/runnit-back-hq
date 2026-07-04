@@ -14,6 +14,7 @@
     "smoke:n8n-export": "tsx scripts/smoke-n8n-export-flow.ts",
     "metricool:probe": "tsx scripts/probe-metricool-config.ts",
     "n8n:probe": "tsx scripts/probe-n8n-config.ts",
+    "n8n:help": "tsx scripts/print-n8n-dry-run-help.ts",
     "import:apify": "tsx scripts/run-apify-import.ts",
     "source-system:summary": "tsx scripts/source-system-summary.ts",
     "worker:clips": "node dist/workers/startWorker.js",
