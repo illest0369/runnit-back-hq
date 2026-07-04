@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns:yt="http://www.youtube.com/xml/schemas/2015"
+      xmlns:media="http://search.yahoo.com/mrss/"
+      xmlns="http://www.w3.org/2005/Atom">
+  <title>RBHQ Sample Feed</title>
+  <entry>
+    <id>yt:video:SMOKEVID001</id>
+    <yt:videoId>SMOKEVID001</yt:videoId>
+    <yt:channelId>UC_RBHQ_SAMPLE</yt:channelId>
+    <title>Fourth quarter comeback sends crowd into chaos</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=SMOKEVID001"/>
+    <published>2026-07-04T18:30:00+00:00</published>
+    <updated>2026-07-04T18:31:00+00:00</updated>
+    <media:group>
+      <media:title>Fourth quarter comeback sends crowd into chaos</media:title>
+      <media:description>Late-game sequence with a huge swing and strong fan reaction.</media:description>
+      <media:thumbnail url="https://i.ytimg.com/vi/SMOKEVID001/hqdefault.jpg" width="480" height="360"/>
+    </media:group>
+  </entry>
+  <entry>
+    <id>yt:video:SMOKEVID002</id>
+    <yt:videoId>SMOKEVID002</yt:videoId>
+    <yt:channelId>UC_RBHQ_SAMPLE</yt:channelId>
+    <title>Rookie answers pressure with a highlight finish</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=SMOKEVID002"/>
+    <published>2026-07-04T19:00:00+00:00</published>
+    <updated>2026-07-04T19:01:00+00:00</updated>
+    <media:group>
+      <media:title>Rookie answers pressure with a highlight finish</media:title>
+      <media:description>Good candidate for review, but no timestamps should be inferred from RSS alone.</media:description>
+      <media:thumbnail url="https://i.ytimg.com/vi/SMOKEVID002/hqdefault.jpg" width="480" height="360"/>
+    </media:group>
+  </entry>
+  <entry>
+    <id>yt:video:SMOKEVID002</id>
+    <yt:videoId>SMOKEVID002</yt:videoId>
+    <title>Duplicate entry should be deduped</title>
+    <link rel="alternate" href="https://www.youtube.com/watch?v=SMOKEVID002"/>
+    <published>2026-07-04T19:05:00+00:00</published>
+  </entry>
+</feed>
