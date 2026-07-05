@@ -17,6 +17,7 @@
     "smoke:candidate-promotion": "tsx scripts/smoke-candidate-promotion.ts",
     "smoke:tiktok-render": "tsx scripts/smoke-tiktok-render.ts",
     "smoke:tiktok-full-loop": "tsx scripts/smoke-tiktok-full-loop.ts",
+    "smoke:tiktok-n8n-package": "tsx scripts/smoke-tiktok-n8n-package.ts",
     "metricool:probe": "tsx scripts/probe-metricool-config.ts",
     "n8n:probe": "tsx scripts/probe-n8n-config.ts",
     "n8n:help": "tsx scripts/print-n8n-dry-run-help.ts",

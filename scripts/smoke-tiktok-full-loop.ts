@@ -191,6 +191,7 @@ async function main() {
   const media = readObject(payload.media)
   const timing = readObject(payload.timing)
   const source = readObject(payload.source)
+  const tiktokDraft = readObject(payload.tiktokDraft)
   const finalClip = readObject(handoffRun.finalClip)
 
   assert(handoffRun.result === 'PASS', 'n8n handoff script did not pass.')
@@ -201,8 +202,28 @@ async function main() {
   assert(payload.testMode === true, 'n8n payload was not test mode.')
   assert(payload.publishAction === 'dry_run', 'n8n payload did not use dry_run publish action.')
   assert(media.path === renderedPath, 'n8n payload did not include rendered MP4 path.')
+  assert(media.localPath === renderedPath, 'n8n payload did not include rendered MP4 localPath.')
+  assert(media.durationSeconds === 15, 'n8n payload did not include rendered MP4 duration.')
+  assert(media.width === 1080, 'n8n payload did not include rendered MP4 width.')
+  assert(media.height === 1920, 'n8n payload did not include rendered MP4 height.')
+  assert(typeof media.sizeBytes === 'number' && media.sizeBytes > 0, 'n8n payload did not include rendered MP4 size.')
+  assert(media.mimeType === 'video/mp4', 'n8n payload did not include rendered MP4 MIME type.')
+  assert(media.format === 'mp4', 'n8n payload did not include rendered MP4 format.')
   assert(timing.startSeconds !== null && timing.endSeconds !== null, 'n8n payload did not include candidate timing.')
   assert(typeof source.videoUrl === 'string' && source.videoUrl.length > 0, 'n8n payload did not include source video reference.')
+  assert(tiktokDraft.clipId === promotedClipId, 'TikTok draft package did not include clip id.')
+  assert(tiktokDraft.mediaPath === renderedPath, 'TikTok draft package did not include rendered MP4 path.')
+  assert(tiktokDraft.durationSeconds === media.durationSeconds, 'TikTok draft package duration mismatch.')
+  assert(tiktokDraft.width === media.width && tiktokDraft.height === media.height, 'TikTok draft package dimensions mismatch.')
+  assert(tiktokDraft.sizeBytes === media.sizeBytes, 'TikTok draft package size mismatch.')
+  assert(tiktokDraft.mimeType === 'video/mp4' && tiktokDraft.format === 'mp4', 'TikTok draft package format metadata missing.')
+  assert(tiktokDraft.caption && typeof tiktokDraft.caption === 'string', 'TikTok draft package caption missing.')
+  assert(Array.isArray(tiktokDraft.hashtags) && tiktokDraft.hashtags.length > 0, 'TikTok draft package hashtags missing.')
+  assert(tiktokDraft.title && typeof tiktokDraft.title === 'string', 'TikTok draft package title missing.')
+  assert(tiktokDraft.hook && typeof tiktokDraft.hook === 'string', 'TikTok draft package hook missing.')
+  assert(tiktokDraft.sourceVideoUrl === source.videoUrl, 'TikTok draft package source video mismatch.')
+  assert(tiktokDraft.startSeconds === timing.startSeconds && tiktokDraft.endSeconds === timing.endSeconds, 'TikTok draft package timing mismatch.')
+  assert(tiktokDraft.publishAction === 'dry_run' && tiktokDraft.testMode === true, 'TikTok draft package is not dry-run test mode.')
   assert(finalClip.status === 'approved', 'Final clip did not remain approved.')
   assert(finalClip.publishStatus === 'automation_queued', 'Final clip did not record automation-only handoff status.')
   assert(finalClip.manuallyPublishedAt === null, 'Final clip was marked manually published.')
@@ -234,8 +255,18 @@ async function main() {
         publishAction: payload.publishAction,
         testMode: payload.testMode,
         mediaPath: media.path,
+        localPath: media.localPath,
+        media: {
+          durationSeconds: media.durationSeconds,
+          width: media.width,
+          height: media.height,
+          sizeBytes: media.sizeBytes,
+          mimeType: media.mimeType,
+          format: media.format,
+        },
         timing,
         sourceVideoUrl: source.videoUrl,
+        tiktokDraft,
       },
       finalClip,
       safety: {

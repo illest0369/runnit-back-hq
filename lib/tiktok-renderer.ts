@@ -27,6 +27,10 @@ export type TikTokRenderResult = {
   outputPath: string
   durationSeconds: number
   sizeBytes: number
+  width: number
+  height: number
+  mimeType: 'video/mp4'
+  format: 'mp4'
   startSeconds: number
   endSeconds: number
 }
@@ -131,15 +135,24 @@ async function resolveSourceMedia(input: {
   return match
 }
 
-async function probeDurationSeconds(filePath: string): Promise<number> {
+async function probeMedia(filePath: string): Promise<{ durationSeconds: number; width: number | null; height: number | null }> {
   await requireBinary('ffprobe')
   const { stdout } = await execFileAsync(
     'ffprobe',
-    ['-v', 'error', '-show_entries', 'format=duration', '-of', 'default=noprint_wrappers=1:nokey=1', filePath],
+    ['-v', 'error', '-show_entries', 'stream=width,height', '-show_entries', 'format=duration', '-of', 'json', filePath],
     { maxBuffer: 1024 * 1024 },
   )
-  const parsed = Number(stdout.trim())
-  return Number.isFinite(parsed) ? parsed : 0
+  const parsed = JSON.parse(stdout) as {
+    streams?: Array<{ width?: number; height?: number }>
+    format?: { duration?: string }
+  }
+  const videoStream = parsed.streams?.find((stream) => Number.isFinite(stream.width) && Number.isFinite(stream.height))
+  const duration = Number(parsed.format?.duration)
+  return {
+    durationSeconds: Number.isFinite(duration) ? duration : 0,
+    width: Number.isFinite(videoStream?.width) ? videoStream?.width ?? null : null,
+    height: Number.isFinite(videoStream?.height) ? videoStream?.height ?? null : null,
+  }
 }
 
 export async function renderTikTokClipFromReview(
@@ -231,7 +244,10 @@ export async function renderTikTokClipFromReview(
     throw new Error('ffmpeg did not produce a non-empty TikTok MP4.')
   }
 
-  const probedDuration = await probeDurationSeconds(outputPath)
+  const media = await probeMedia(outputPath)
+  const probedDuration = media.durationSeconds
+  const width = media.width ?? 1080
+  const height = media.height ?? 1920
   const now = new Date().toISOString()
   const riskFlags = normalizeStringArray(clip.risk_flags)
     .filter((flag) => flag !== 'needs_clip_render' && flag !== 'render_failed')
@@ -241,6 +257,10 @@ export async function renderTikTokClipFromReview(
     `render_status:rendered_local_mp4`,
     `render_duration_seconds:${probedDuration || durationSeconds}`,
     `render_size_bytes:${stat.size}`,
+    `render_width:${width}`,
+    `render_height:${height}`,
+    `render_mime_type:video/mp4`,
+    `render_format:mp4`,
     'Manual approval still required before export or n8n handoff.',
   ]
 
@@ -267,6 +287,10 @@ export async function renderTikTokClipFromReview(
     outputPath,
     durationSeconds: probedDuration || durationSeconds,
     sizeBytes: stat.size,
+    width,
+    height,
+    mimeType: 'video/mp4',
+    format: 'mp4',
     startSeconds,
     endSeconds,
   }
