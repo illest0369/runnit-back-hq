@@ -25,6 +25,7 @@ export type ExportableClip = {
   sport: string | null
   league: string | null
   video_url: string | null
+  source_url?: string | null
   thumbnail_url: string | null
   moderation_notes: string[]
   approved_at: string | null

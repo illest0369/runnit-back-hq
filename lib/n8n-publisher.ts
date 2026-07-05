@@ -28,10 +28,12 @@ export type N8nPostPayload = {
   publishAction: N8nPublishAction
   requestedPublishAction: Exclude<N8nPublishAction, 'dry_run'>
   scheduledAt: string | null
+  targetPlatform: 'tiktok'
   postId: string
   clipId: string
   channelId: string | null
   title: string
+  hook: string
   caption: string
   hashtags: string[]
   media: {
@@ -39,8 +41,13 @@ export type N8nPostPayload = {
     path: string | null
     thumbnailUrl: string | null
   }
+  timing: {
+    startSeconds: number | null
+    endSeconds: number | null
+  }
   source: {
     name: string
+    videoUrl: string | null
     sport: string | null
     league: string | null
   }
@@ -66,6 +73,39 @@ function readObject(value: unknown): Record<string, unknown> | null {
 function readAutomationStatus(responseBody: unknown): 'automation_queued' | null {
   const object = readObject(responseBody)
   return object?.status === 'automation_queued' ? 'automation_queued' : null
+}
+
+function readNoteValue(notes: string[], prefix: string): string | null {
+  const note = notes.find((item) => item.startsWith(prefix))
+  const value = note?.slice(prefix.length).trim()
+  return value || null
+}
+
+function readNoteNumber(notes: string[], prefix: string): number | null {
+  const value = readNoteValue(notes, prefix)
+  if (!value) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function readCandidateHashtags(notes: string[]): string[] | null {
+  const value = readNoteValue(notes, 'candidate_hashtags:')
+  if (!value) return null
+  const tags = value
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.startsWith('#') ? item : `#${item}`)
+  return tags.length > 0 ? [...new Set(tags)] : null
+}
+
+function isHttpMediaReference(value: string): boolean {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+  } catch {
+    return false
+  }
 }
 
 const DEFAULT_N8N_TIMEOUT_MS = 10_000
@@ -128,6 +168,13 @@ export function buildN8nPostPayload(
   const exportPackage = buildPublishExportPackage(clip)
   const requestedPublishAction = input.action ?? (input.scheduledAt ? 'schedule' : 'publish_now')
   const testMode = isN8nTestMode()
+  const notes = exportPackage.moderation_notes
+  const renderedPath = readNoteValue(notes, 'rendered_tiktok_mp4:')
+  const mediaReference = renderedPath || exportPackage.video_url
+  const candidateCaption = readNoteValue(notes, 'candidate_caption:')
+  const candidateHashtags = readCandidateHashtags(notes)
+  const startSeconds = readNoteNumber(notes, 'candidate_start_seconds:')
+  const endSeconds = readNoteNumber(notes, 'candidate_end_seconds:')
 
   return {
     version: 'rbhq-n8n-publish-v1',
@@ -136,19 +183,26 @@ export function buildN8nPostPayload(
     publishAction: testMode ? 'dry_run' : requestedPublishAction,
     requestedPublishAction,
     scheduledAt: input.scheduledAt ?? null,
+    targetPlatform: 'tiktok',
     postId: clip.id,
     clipId: clip.id,
     channelId: clip.channel_id ?? null,
     title: exportPackage.title,
-    caption: exportPackage.caption,
-    hashtags: exportPackage.hashtags,
+    hook: exportPackage.hook,
+    caption: candidateCaption || exportPackage.caption,
+    hashtags: candidateHashtags || exportPackage.hashtags,
     media: {
-      url: exportPackage.video_url,
-      path: null,
+      url: isHttpMediaReference(mediaReference) ? mediaReference : null,
+      path: isHttpMediaReference(mediaReference) ? null : mediaReference,
       thumbnailUrl: exportPackage.thumbnail_url,
+    },
+    timing: {
+      startSeconds,
+      endSeconds,
     },
     source: {
       name: exportPackage.source_name,
+      videoUrl: clip.source_url ?? null,
       sport: exportPackage.sport,
       league: exportPackage.league,
     },
