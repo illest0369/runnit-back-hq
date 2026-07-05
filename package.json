@@ -18,6 +18,7 @@
     "smoke:tiktok-render": "tsx scripts/smoke-tiktok-render.ts",
     "smoke:tiktok-full-loop": "tsx scripts/smoke-tiktok-full-loop.ts",
     "smoke:tiktok-n8n-package": "tsx scripts/smoke-tiktok-n8n-package.ts",
+    "smoke:tiktok-browser-profiles": "tsx scripts/smoke-tiktok-browser-profiles.ts",
     "metricool:probe": "tsx scripts/probe-metricool-config.ts",
     "n8n:probe": "tsx scripts/probe-n8n-config.ts",
     "n8n:help": "tsx scripts/print-n8n-dry-run-help.ts",
@@ -28,6 +29,9 @@
     "render:clip": "tsx scripts/render-clip.ts",
     "approve:clip": "tsx scripts/approve-clip.ts",
     "handoff:n8n": "tsx scripts/handoff-n8n.ts",
+    "tiktok:web-upload-dry-run": "tsx scripts/tiktok-web-upload-dry-run.ts",
+    "tiktok:login": "tsx scripts/tiktok-web-upload-dry-run.ts --login",
+    "tiktok:session-check": "tsx scripts/tiktok-web-upload-dry-run.ts --session-check",
     "import:apify": "tsx scripts/run-apify-import.ts",
     "source-system:summary": "tsx scripts/source-system-summary.ts",
     "worker:clips": "node dist/workers/startWorker.js",
@@ -67,6 +71,7 @@
   "devDependencies": {
     "@types/node": "25.5.0",
     "@types/react": "19.2.14",
+    "playwright": "^1.61.1",
     "tsx": "^4.21.0",
     "typescript": "5.9.3"
   }
