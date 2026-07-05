@@ -90,6 +90,63 @@ Without transcripts, the candidate is intentionally conservative:
 
 Real Opus-style moment detection needs transcript timing, content understanding, and later clipping/rendering work.
 
+## Transcript Acquisition
+
+Script:
+
+```bash
+npm run transcript:video -- --video-id <ingested_video_id>
+```
+
+V1 attempts keyless YouTube caption acquisition with `yt-dlp`; it does not use the YouTube Data API and does not require platform posting credentials. When timed captions are available, RBHQ stores a `video_transcripts` row:
+
+- `transcript_source = yt-dlp-subtitles`
+- `transcript_text` as plain full text
+- `transcript_json` as timed segment objects:
+
+```json
+[
+  {
+    "start": 0,
+    "duration": 3,
+    "end": 3,
+    "text": "Nobody expected this rookie to answer the pressure like this."
+  }
+]
+```
+
+If captions are unavailable, the script reports `UNAVAILABLE`, updates ingest status best-effort, and does not invent timestamps.
+
+Fixture-backed smoke coverage lives in:
+
+```text
+docs/fixtures/timed-transcript.sample.json
+scripts/smoke-transcript-scout.ts
+```
+
+Run:
+
+```bash
+npm run smoke:transcript-scout
+```
+
+## TikTok Candidate Scouting
+
+TikTok is the only current posting target. RBHQ still does not post to TikTok directly, and TikTok credentials do not belong in RBHQ.
+
+When a timed transcript exists, `scout:video` creates TikTok clip candidates with:
+
+- target duration from 15 to 60 seconds
+- `start_seconds` and `end_seconds` from transcript segment timing
+- score signals for hook strength, emotion/surprise, quote strength, standalone context, captionability, and sports/social shareability
+- `score_breakdown.platform = "tiktok"`
+
+When no timed transcript exists, `scout:video` keeps the conservative placeholder behavior:
+
+- timestamps remain `null`
+- score remains low
+- `score_breakdown.limitations` explains the missing timed transcript
+
 ## Promotion To Review
 
 Do not send `clip_candidates` directly to n8n.
