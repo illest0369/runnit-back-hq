@@ -6,6 +6,7 @@
 .vercel
 dist
 node_modules
+tmp/
 *.tsbuildinfo
 .DS_Store
 youtube-cookies.txt
