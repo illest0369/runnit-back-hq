@@ -187,6 +187,7 @@ const RB_CHANNEL_IDS = {
   arena: 'a1000000-0000-0000-0000-000000000002',
   combat: 'a1000000-0000-0000-0000-000000000003',
   women: 'a1000000-0000-0000-0000-000000000004',
+  futbol: 'a1000000-0000-0000-0000-000000000005',
   cfb: '93484eef-06d8-46fd-bce2-ce252422c58e',
 } as const
 
@@ -559,7 +560,7 @@ function normalizeChannelIds(value: string[] | undefined): string[] {
 // Canonical channel normalization
 // ---------------------------------------------------------------------------
 
-type CanonicalCategory = 'sports' | 'arena' | 'women' | 'combat' | 'cfb'
+type CanonicalCategory = 'sports' | 'arena' | 'women' | 'combat' | 'futbol' | 'cfb'
 
 /** UUID → canonical category */
 const CHANNEL_ID_TO_CATEGORY: Record<string, CanonicalCategory> = {
@@ -567,6 +568,7 @@ const CHANNEL_ID_TO_CATEGORY: Record<string, CanonicalCategory> = {
   [RB_CHANNEL_IDS.arena]: 'arena',
   [RB_CHANNEL_IDS.combat]: 'combat',
   [RB_CHANNEL_IDS.women]: 'women',
+  [RB_CHANNEL_IDS.futbol]: 'futbol',
   [RB_CHANNEL_IDS.cfb]: 'cfb',
 }
 
@@ -576,6 +578,7 @@ const CATEGORY_TO_CHANNEL_ID: Record<CanonicalCategory, string> = {
   arena: RB_CHANNEL_IDS.arena,
   combat: RB_CHANNEL_IDS.combat,
   women: RB_CHANNEL_IDS.women,
+  futbol: RB_CHANNEL_IDS.futbol,
   cfb: RB_CHANNEL_IDS.cfb,
 }
 
@@ -590,7 +593,6 @@ const CATEGORY_KEYWORDS: Record<CanonicalCategory, string[]> = {
     'sports', 'rb_sports', 'rbsports', 'rb sports',
     // specific sport keywords
     'nba', 'basketball', 'nfl', 'football', 'mlb', 'baseball',
-    'soccer', 'mls', 'espn fc', 'premier league', 'champions league',
     // common sports media source names
     'espn', 'nbc sports', 'cbs sports', 'fox sports', 'nfl network', 'nba tv',
     'bleacher report', 'bleacherreport', 'the athletic', 'first take',
@@ -616,6 +618,15 @@ const CATEGORY_KEYWORDS: Record<CanonicalCategory, string[]> = {
     'combat', 'rb_combat', 'rbcombat', 'rb combat',
     // specific keywords
     'ufc', 'mma', 'boxing', 'fight', 'dazn', 'glory', 'pfl', 'bellator',
+  ],
+  futbol: [
+    // channel name aliases
+    'futbol', 'rb_futbol', 'rbfutbol', 'rb futbol',
+    'runnitbackliga', 'runnit back liga', 'rb_liga', 'rb liga',
+    // specific keywords
+    'soccer', 'mls', 'espn fc', 'premier league', 'champions league',
+    'la liga', 'liga mx', 'serie a', 'bundesliga', 'uefa', 'fifa',
+    'concacaf', 'copa america', 'world cup', 'goal',
   ],
   cfb: [
     // channel name aliases
@@ -644,7 +655,7 @@ function categoryFromText(
 
   // Check from most specific to most generic to avoid false positives.
   // arena before sports so 'esports' wins over generic 'sports'.
-  const order: CanonicalCategory[] = ['arena', 'women', 'combat', 'cfb', 'sports']
+  const order: CanonicalCategory[] = ['arena', 'women', 'combat', 'futbol', 'cfb', 'sports']
   for (const cat of order) {
     if (matchesAny(combined, CATEGORY_KEYWORDS[cat])) return cat
   }
@@ -700,6 +711,8 @@ function isAllowedSourceForChannel(
       return matchesAny(combined, CATEGORY_KEYWORDS.women)
     case RB_CHANNEL_IDS.combat:
       return matchesAny(combined, CATEGORY_KEYWORDS.combat)
+    case RB_CHANNEL_IDS.futbol:
+      return matchesAny(combined, CATEGORY_KEYWORDS.futbol)
     case RB_CHANNEL_IDS.cfb:
       return matchesAny(combined, CATEGORY_KEYWORDS.cfb)
     default:
@@ -1467,44 +1480,39 @@ export async function importClips(input: {
   const videoUrls = candidates
     .map((candidate) => candidate.clip.video_url)
     .filter((value): value is string => Boolean(value))
-  const candidateChannelIds = normalizeChannelIds(candidates.map((candidate) => candidate.clip.channel_id ?? ''))
   const duplicateKeys = new Set<string>()
 
   if (externalIds.length > 0) {
     const query = supabaseAdmin
       .from('clips')
-      .select('external_id')
+      .select('channel_id, external_id')
       .in('external_id', externalIds)
 
     const { data, error } = await query
 
     if (error) throw new Error(error.message)
 
-    for (const row of (data ?? []) as Array<{ external_id: string | null }>) {
+    for (const row of (data ?? []) as Array<{ channel_id: string | null; external_id: string | null }>) {
       if (row.external_id) {
-        for (const channelId of candidateChannelIds.length > 0 ? candidateChannelIds : ['']) {
-          duplicateKeys.add(`${channelId}\u0000${row.external_id}`)
-        }
+        duplicateKeys.add(`${row.channel_id ?? ''}\u0000${row.external_id}`)
       }
     }
   }
 
-  let existingVideos: Array<{ video_url: string | null }> | null = []
+  let existingVideos: Array<{ channel_id: string | null; video_url: string | null }> | null = []
   if (videoUrls.length > 0) {
     const { data, error: videoError } = await supabaseAdmin
       .from('clips')
-      .select('video_url')
+      .select('channel_id, video_url')
       .in('video_url', videoUrls)
 
     if (videoError) throw new Error(videoError.message)
-    existingVideos = (data ?? []) as Array<{ video_url: string | null }>
+    existingVideos = (data ?? []) as Array<{ channel_id: string | null; video_url: string | null }>
   }
 
-  for (const row of (existingVideos ?? []) as Array<{ video_url: string | null }>) {
+  for (const row of (existingVideos ?? []) as Array<{ channel_id: string | null; video_url: string | null }>) {
     if (row.video_url) {
-      for (const channelId of candidateChannelIds.length > 0 ? candidateChannelIds : ['']) {
-        duplicateKeys.add(`${channelId}\u0000${row.video_url}`)
-      }
+      duplicateKeys.add(`${row.channel_id ?? ''}\u0000${row.video_url}`)
     }
   }
 

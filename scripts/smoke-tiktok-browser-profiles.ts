@@ -9,6 +9,7 @@ const expectedProfiles = {
   rb_arena: 'tmp/browser-profiles/tiktok-rb-arena',
   rb_women: 'tmp/browser-profiles/tiktok-rb-women',
   rb_combat: 'tmp/browser-profiles/tiktok-rb-combat',
+  rb_futbol: 'tmp/browser-profiles/tiktok-rb-futbol',
   rb_cfb: 'tmp/browser-profiles/tiktok-rb-cfb',
 } as const
 
@@ -51,8 +52,15 @@ async function expectMissingChannelFailure() {
 
 async function main() {
   const profiles: Record<string, string> = {}
+  const channelArgIndex = process.argv.indexOf('--channel')
+  const onlyChannel = channelArgIndex >= 0 ? process.argv[channelArgIndex + 1] : null
+  const expectedEntries = onlyChannel && !onlyChannel.startsWith('--')
+    ? Object.entries(expectedProfiles).filter(([channelKey]) => channelKey === onlyChannel)
+    : Object.entries(expectedProfiles)
 
-  for (const [channelKey, relativeProfileDir] of Object.entries(expectedProfiles)) {
+  assert(expectedEntries.length > 0, `Unsupported smoke channel: ${String(onlyChannel)}.`)
+
+  for (const [channelKey, relativeProfileDir] of expectedEntries) {
     const result = await resolveProfile(channelKey)
     const expectedProfileDir = path.resolve(relativeProfileDir)
     assert(result.result === 'PASS', `${channelKey} profile resolution did not pass.`)
@@ -61,13 +69,15 @@ async function main() {
     profiles[channelKey] = result.profileDir
   }
 
-  await expectMissingChannelFailure()
+  if (!onlyChannel) {
+    await expectMissingChannelFailure()
+  }
 
   console.log(JSON.stringify(
     {
       result: 'PASS',
       profiles,
-      missingChannelFailure: 'TIKTOK_CHANNEL_REQUIRED',
+      missingChannelFailure: onlyChannel ? 'skipped' : 'TIKTOK_CHANNEL_REQUIRED',
       safety: {
         opensTikTok: false,
         requiresTikTokLogin: false,

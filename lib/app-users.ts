@@ -39,8 +39,20 @@ const RBHQ_OPERATOR_USERNAMES = new Set([
   'rb_arena',
   'rb_women',
   'rb_combat',
+  'rb_futbol',
   'rb_cfb',
 ])
+
+const RB_WOMEN_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000004'
+const RB_COMBAT_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000003'
+const RB_FUTBOL_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000005'
+const MALY_ASSIGNED_CHANNEL_IDS = [
+  RB_WOMEN_CHANNEL_ID,
+  RB_COMBAT_CHANNEL_ID,
+  RB_FUTBOL_CHANNEL_ID,
+]
+const EXTRA_APP_CHANNEL_IDS = new Set([RB_FUTBOL_CHANNEL_ID])
+const MALY_USERNAMES = new Set(['maly', 'malyhernandez'])
 
 function normalizeRole(value: string | undefined): Role {
   if (value === 'admin' || value === 'operator' || value === 'user') {
@@ -62,7 +74,7 @@ function normalizeChannelIds(value: unknown): string[] {
     }
 
     const channelId = entry.trim()
-    if (channelId && getChannelMeta(channelId)) {
+    if (channelId && isKnownAppChannelId(channelId)) {
       channelIds.add(channelId)
     }
   }
@@ -166,10 +178,7 @@ export async function authenticateConfiguredAppUser(
     userId: user.userId,
     username: user.username,
     role: user.role,
-    channelIds:
-      user.role === 'admin' && user.channelIds.length === 0
-        ? listChannelMeta().map((channel) => channel.id)
-        : user.channelIds,
+    channelIds: resolveSessionChannelIds(user),
   }
 }
 
@@ -261,10 +270,7 @@ function sessionUserFromConfiguredUser(user: NormalizedAppUser): SessionUser {
     userId: user.userId,
     username: user.username,
     role: user.role,
-    channelIds:
-      user.role === 'admin' && user.channelIds.length === 0
-        ? listChannelMeta().map((channel) => channel.id)
-        : user.channelIds,
+    channelIds: resolveSessionChannelIds(user),
   }
 }
 
@@ -296,10 +302,7 @@ async function authenticateDatabaseAppUser(
     userId: user.id,
     username: user.username,
     role,
-    channelIds:
-      role === 'admin' && channelIds.length === 0
-        ? listChannelMeta().map((channel) => channel.id)
-        : channelIds,
+    channelIds: resolveSessionChannelIds({ username: user.username, role, channelIds }),
   }
 }
 
@@ -337,11 +340,28 @@ async function authenticateDatabaseAppUserByEmailPassword(
     userId: user.id,
     username: user.username,
     role,
-    channelIds:
-      role === 'admin' && channelIds.length === 0
-        ? listChannelMeta().map((channel) => channel.id)
-        : channelIds,
+    channelIds: resolveSessionChannelIds({ username: user.username, role, channelIds }),
   }
+}
+
+function resolveSessionChannelIds(user: Pick<NormalizedAppUser, 'username' | 'role' | 'channelIds'>): string[] {
+  if (isMalyUser(user.username)) {
+    return MALY_ASSIGNED_CHANNEL_IDS
+  }
+
+  if (user.role === 'admin' && user.channelIds.length === 0) {
+    return listChannelMeta().map((channel) => channel.id)
+  }
+
+  return user.channelIds
+}
+
+function isMalyUser(username: string): boolean {
+  return MALY_USERNAMES.has(username.trim().toLowerCase())
+}
+
+function isKnownAppChannelId(channelId: string): boolean {
+  return Boolean(getChannelMeta(channelId) || EXTRA_APP_CHANNEL_IDS.has(channelId))
 }
 
 async function loadUserChannelIds(userId: string): Promise<string[]> {

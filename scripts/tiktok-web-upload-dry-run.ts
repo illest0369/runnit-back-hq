@@ -4,7 +4,7 @@ import path from 'node:path'
 import { chromium, type BrowserContext, type Page } from 'playwright'
 
 type DraftPackage = Record<string, unknown>
-type ChannelKey = 'rb_sports' | 'rb_arena' | 'rb_women' | 'rb_combat' | 'rb_cfb'
+type ChannelKey = 'rb_sports' | 'rb_arena' | 'rb_women' | 'rb_combat' | 'rb_futbol' | 'rb_cfb'
 type RunMode = 'dry-run' | 'login' | 'session-check' | 'print-profile'
 
 type CliOptions = {
@@ -30,6 +30,7 @@ const CHANNEL_PROFILE_DIRS: Record<ChannelKey, string> = {
   rb_arena: 'tmp/browser-profiles/tiktok-rb-arena',
   rb_women: 'tmp/browser-profiles/tiktok-rb-women',
   rb_combat: 'tmp/browser-profiles/tiktok-rb-combat',
+  rb_futbol: 'tmp/browser-profiles/tiktok-rb-futbol',
   rb_cfb: 'tmp/browser-profiles/tiktok-rb-cfb',
 }
 const SUPPORTED_CHANNEL_KEYS = Object.keys(CHANNEL_PROFILE_DIRS) as ChannelKey[]
@@ -111,6 +112,13 @@ function normalizeChannelKey(value: string): ChannelKey | null {
     rb_combat: 'rb_combat',
     combat: 'rb_combat',
     tiktok_rb_combat: 'rb_combat',
+    rb_futbol: 'rb_futbol',
+    futbol: 'rb_futbol',
+    soccer: 'rb_futbol',
+    rb_liga: 'rb_futbol',
+    liga: 'rb_futbol',
+    runnitbackliga: 'rb_futbol',
+    tiktok_rb_futbol: 'rb_futbol',
     rb_cfb: 'rb_cfb',
     cfb: 'rb_cfb',
     tiktok_rb_cfb: 'rb_cfb',
