@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
-    statusBarStyle: 'black-translucent',
+    statusBarStyle: 'default',
     title: 'RunnitBack',
   },
   formatDetection: {
@@ -30,7 +30,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: 'cover',
-  themeColor: '#000000',
+  themeColor: '#f3f1ed',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -38,11 +38,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-        <meta name="theme-color" content="#000000" />
-        <meta name="msapplication-navbutton-color" content="#000000" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="theme-color" content="#f3f1ed" />
+        <meta name="msapplication-navbutton-color" content="#f3f1ed" />
       </head>
-      <body className="bg-black text-white antialiased overscroll-none">
+      <body className="bg-[var(--bg-void)] text-[var(--text-primary)] antialiased overscroll-none">
         <PwaRegistrar />
         {children}
       </body>

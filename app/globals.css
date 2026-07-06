@@ -82,35 +82,35 @@
   --outline:              var(--color-outline);
   --outline-variant:      var(--color-outline-variant);
 
-  --bg-void:        #000000;
-  --bg-surface:     #0a0a0a;
-  --bg-raised:      #111111;
-  --bg-muted:       #181818;
+  --bg-void:        #f3f1ed;
+  --bg-surface:     #ffffff;
+  --bg-raised:      #f9f7f4;
+  --bg-muted:       #ece9e3;
 
-  --border-default: #222222;
-  --border-subtle:  #151515;
-  --border-mid:     #3a3a3a;
+  --border-default: #d6d2c9;
+  --border-subtle:  #e8e4dd;
+  --border-mid:     #b8b3a8;
 
-  --accent-green:   #d7d7d7;
+  --accent-green:   #1a9e5c;
   --accent-yellow:  #c99b34;
   --accent-red:     #e2162b;
 
-  --text-primary:   #ffffff;
-  --text-secondary: #d4d4d4;
-  --text-muted:     #8a8a8a;
-  --text-dim:       #5f5f5f;
+  --text-primary:   #1b1915;
+  --text-secondary: #443f38;
+  --text-muted:     #7a7269;
+  --text-dim:       #a09890;
 
   --font-display:   "Clash Display", "Clash Grotesk", "Avenir Next", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono:      "Clash Display", "SFMono-Regular", "Menlo", monospace;
 
-  --rb-bg: #000000;
-  --rb-surface: #090909;
-  --rb-graphite: #121212;
-  --rb-line: rgba(255,255,255,0.08);
-  --rb-line-soft: rgba(255,255,255,0.045);
-  --rb-text: #f5f3ee;
-  --rb-muted: rgba(245,243,238,0.48);
-  --rb-faint: rgba(245,243,238,0.28);
+  --rb-bg: #f3f1ed;
+  --rb-surface: #ffffff;
+  --rb-graphite: #f0ede7;
+  --rb-line: rgba(0,0,0,0.09);
+  --rb-line-soft: rgba(0,0,0,0.05);
+  --rb-text: #1b1915;
+  --rb-muted: rgba(27,25,21,0.50);
+  --rb-faint: rgba(27,25,21,0.32);
   --rb-accent: #e2162b;
   --rb-motion-fast: 180ms;
   --rb-motion: 220ms;
@@ -136,8 +136,8 @@ body {
 
 body {
   font-family: var(--font-display);
-  background: #000000;
-  color: #ffffff;
+  background: var(--bg-void);
+  color: var(--text-primary);
   touch-action: manipulation;
 }
 
@@ -173,8 +173,6 @@ button {
 
 .rbhq-theme-women {
   --rb-accent: #c99b34;
-  --rb-text: #f3eee4;
-  --rb-muted: rgba(243,238,228,0.52);
 }
 
 .rbhq-theme-combat {
@@ -200,7 +198,7 @@ button {
 
 ::-webkit-scrollbar { width: 0; height: 0; }
 ::-webkit-scrollbar-track { background: var(--bg-void); }
-::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 9999px; }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 9999px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--accent-red); }
 
 .hide-scrollbar::-webkit-scrollbar { display: none; }

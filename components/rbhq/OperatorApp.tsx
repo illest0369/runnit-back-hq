@@ -586,7 +586,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
 
   if (loading || !user) {
     return (
-      <main className="rbhq-system min-h-dvh bg-black text-white">
+      <main className="rbhq-system min-h-dvh bg-[var(--rb-bg)] text-[var(--rb-text)]">
         <div className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col items-center justify-center px-8 text-center">
           {authRequired ? (
             <>
@@ -608,14 +608,14 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
   }
 
   return (
-    <main className={`rbhq-system rbhq-theme-${channelTheme} min-h-dvh overflow-hidden bg-black text-[var(--rb-text)]`}>
-      <div className="operator-phone-shell relative mx-auto min-h-dvh w-full max-w-[520px] bg-black">
+    <main className={`rbhq-system rbhq-theme-${channelTheme} min-h-dvh bg-[var(--rb-bg)] text-[var(--rb-text)]`}>
+      <div className="operator-phone-shell relative mx-auto min-h-dvh w-full max-w-[520px]">
         <button
           type="button"
           aria-label="Log out"
           title="Log out"
           onClick={handleLogout}
-          className="absolute right-4 top-[calc(env(safe-area-inset-top,0px)+18px)] z-[60] grid h-9 w-9 place-items-center rounded-full text-[var(--rb-faint)] transition active:scale-90 active:text-[var(--rb-text)]"
+          className="absolute right-4 top-[calc(env(safe-area-inset-top,0px)+18px)] z-[60] grid h-9 w-9 place-items-center rounded-full text-[var(--rb-muted)] transition active:scale-90 active:text-[var(--rb-text)]"
         >
           <LogOut className="h-[18px] w-[18px]" strokeWidth={1.5} />
         </button>
@@ -673,7 +673,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
               onAnimationComplete={() => window.setTimeout(() => setToast(""), 720)}
-              className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top,0px)+104px)] z-[70] -translate-x-1/2 rounded-full border border-white/[0.08] bg-black/72 px-4 py-2 text-[var(--rb-text)] shadow-[0_18px_54px_rgba(0,0,0,0.36)] backdrop-blur-xl"
+              className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top,0px)+104px)] z-[70] -translate-x-1/2 rounded-full border border-black/[0.10] bg-white px-4 py-2 text-[var(--rb-text)] shadow-[0_8px_32px_rgba(0,0,0,0.14)] backdrop-blur-xl"
             >
               <div className="flex items-center gap-2">
                 {toast === "approved" && <Check className="h-4 w-4 text-[var(--rb-accent)]" strokeWidth={1.8} />}
@@ -775,44 +775,49 @@ function QueueScreen({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.99 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="relative h-dvh overflow-hidden bg-black"
+      className="flex min-h-dvh flex-col bg-[var(--rb-bg)]"
     >
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between px-5 pt-[calc(env(safe-area-inset-top,0px)+22px)]">
-        <div>
-          <p className="text-[13px] font-medium lowercase leading-none tracking-[-0.01em] text-[var(--rb-text)]">{label}</p>
-          <p className="mt-2 text-[10px] font-medium uppercase leading-none text-[var(--rb-accent)]">live</p>
-          {channels.length > 1 && (
-            <ChannelSelect
-              channels={channels}
-              selectedChannelId={selectedChannelId}
-              onSelectChannel={onSelectChannel}
-            />
-          )}
-        </div>
-        <div className="flex items-center gap-1.5 text-[11px] font-normal text-[var(--rb-text)]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--rb-accent)] motion-safe:animate-[rbhq-live-breathe_1.8s_ease-in-out_infinite]" />
-          <motion.span key={clips.length} initial={{ opacity: 0.45 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }}>
-            {formatCompactCount(clips.length)}
-          </motion.span>
+      {/* Sticky header */}
+      <header className="sticky top-0 z-30 border-b border-[var(--rb-line)] bg-[var(--rb-bg)]/95 px-5 pb-3 pt-[calc(env(safe-area-inset-top,0px)+14px)] backdrop-blur-md">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-[13px] font-medium lowercase leading-none tracking-[-0.01em] text-[var(--rb-text)]">{label}</p>
+            <div className="mt-2 flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-[var(--rb-accent)] motion-safe:animate-[rbhq-live-breathe_1.8s_ease-in-out_infinite]" />
+              <p className="text-[10px] font-medium uppercase leading-none text-[var(--rb-accent)]">live</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {channels.length > 1 && (
+              <ChannelSelect
+                channels={channels}
+                selectedChannelId={selectedChannelId}
+                onSelectChannel={onSelectChannel}
+              />
+            )}
+            <motion.span key={clips.length} initial={{ opacity: 0.45 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }} className="text-[13px] font-semibold tabular-nums text-[var(--rb-muted)]">
+              {formatCompactCount(clips.length)}
+            </motion.span>
+          </div>
         </div>
       </header>
 
+      {/* Source filter rail – in document flow */}
       <SourceRail
         sources={sources}
         selectedSource={selectedSource}
         queueMode={queueMode}
-        hasChannelSwitcher={channels.length > 1}
+        hasChannelSwitcher={false}
         onSelectSource={onSelectSource}
         onQueueMode={onQueueMode}
       />
 
       {error && clips.length > 0 && (
-        <div className="absolute left-1/2 top-[calc(env(safe-area-inset-top,0px)+126px)] z-40 -translate-x-1/2 text-[11px] lowercase text-[var(--rb-muted)]">
-          reconnecting
-        </div>
+        <p className="px-5 py-1 text-center text-[11px] lowercase text-[var(--rb-muted)]">reconnecting</p>
       )}
 
-      <div className="relative z-10 h-dvh">
+      {/* Clip review area */}
+      <div className="flex-1 px-4 pb-[calc(env(safe-area-inset-bottom,0px)+100px)] pt-3">
         {error && clips.length === 0 ? (
           <LiveEmptyState title="syncing clips" body="reconnecting live sources" />
         ) : clips.length === 0 ? (
@@ -856,7 +861,7 @@ function ChannelSelect({
       <select
         value={selectedChannelId}
         onChange={(event) => onSelectChannel(event.target.value)}
-        className="h-8 max-w-[168px] rounded-full border border-white/[0.14] bg-black/58 px-3 pr-8 text-[11px] font-medium lowercase text-[var(--rb-text)] outline-none backdrop-blur-xl transition focus:border-[var(--rb-accent)]"
+        className="h-8 max-w-[168px] rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3 pr-8 text-[11px] font-medium lowercase text-[var(--rb-text)] outline-none transition focus:border-[var(--rb-accent)]"
         aria-label="Channel"
       >
         {channels.map((channel) => (
@@ -887,18 +892,18 @@ function SourceRail({
   const sourceItems = sources.slice(0, 18);
 
   return (
-    <div className={`absolute inset-x-0 z-30 ${hasChannelSwitcher ? "top-[calc(env(safe-area-inset-top,0px)+102px)]" : "top-[calc(env(safe-area-inset-top,0px)+62px)]"}`}>
-      <div className="hide-scrollbar flex gap-3 overflow-x-auto px-5 pb-2">
+    <div className="border-b border-[var(--rb-line)]">
+      <div className="hide-scrollbar flex gap-2 overflow-x-auto px-4 py-3">
         <button
           type="button"
           onClick={() => {
             onQueueMode("pending");
             onSelectSource("");
           }}
-          className={`grid h-12 w-12 shrink-0 place-items-center rounded-full border text-[10px] font-medium uppercase tracking-[-0.01em] backdrop-blur-xl transition active:scale-95 ${
+          className={`grid h-9 shrink-0 place-items-center rounded-full border px-4 text-[10px] font-semibold uppercase tracking-[0.06em] transition active:scale-95 ${
             selectedSource === "" && queueMode === "pending"
-              ? "border-[var(--rb-accent)] bg-[var(--rb-accent)] text-black"
-              : "border-white/[0.12] bg-black/42 text-[var(--rb-text)]"
+              ? "border-[var(--rb-accent)] bg-[var(--rb-accent)] text-white"
+              : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
           }`}
           aria-label="All sources"
           title="All sources"
@@ -911,10 +916,10 @@ function SourceRail({
             onQueueMode("held");
             onSelectSource("");
           }}
-          className={`grid h-12 w-12 shrink-0 place-items-center rounded-full border text-[10px] font-medium uppercase tracking-[-0.01em] backdrop-blur-xl transition active:scale-95 ${
+          className={`grid h-9 shrink-0 place-items-center rounded-full border px-4 text-[10px] font-semibold uppercase tracking-[0.06em] transition active:scale-95 ${
             queueMode === "held"
-              ? "border-[var(--rb-accent)] bg-[var(--rb-accent)] text-black"
-              : "border-white/[0.12] bg-black/42 text-[var(--rb-text)]"
+              ? "border-[var(--rb-accent)] bg-[var(--rb-accent)] text-white"
+              : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
           }`}
           aria-label="Held clips"
           title="Held clips"
@@ -931,17 +936,17 @@ function SourceRail({
                 onQueueMode("pending");
                 onSelectSource(item.source_name);
               }}
-              className={`relative grid h-12 w-12 shrink-0 place-items-center rounded-full border text-[11px] font-medium uppercase backdrop-blur-xl transition active:scale-95 ${
+              className={`relative grid h-9 shrink-0 place-items-center rounded-full border px-4 text-[10px] font-semibold uppercase tracking-[0.06em] transition active:scale-95 ${
                 selected
-                  ? "border-[var(--rb-accent)] bg-[var(--rb-accent)] text-black"
-                  : "border-white/[0.12] bg-black/42 text-[var(--rb-text)]"
+                  ? "border-[var(--rb-accent)] bg-[var(--rb-accent)] text-white"
+                  : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
               }`}
               aria-label={item.source_name}
               title={item.source_name}
             >
               {sourceAvatar(item.source_name)}
               {item.pending_count > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-black px-1 text-[9px] leading-none text-[var(--rb-text)] ring-1 ring-white/[0.12]">
+                <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--rb-accent)] px-1 text-[9px] leading-none text-white ring-1 ring-[var(--rb-bg)]">
                   {Math.min(99, item.pending_count)}
                 </span>
               )}
@@ -1004,120 +1009,124 @@ function QueueClipCard({
   const canModerate = clip.status === "pending" || clip.status === "held";
 
   return (
-    <motion.div
-      ref={ref}
-      style={{ x, rotate, scale }}
-      drag={canModerate ? "x" : false}
-      dragConstraints={{ left: 0, right: 0 }}
-      dragElastic={0.13}
-      onDragEnd={(_, info) => {
-        if (!canModerate) return;
-        if (info.offset.x > 112 || info.velocity.x > 700) onModerate(clip.id, "approve");
-        if (info.offset.x < -84 || info.velocity.x < -560) onModerate(clip.id, "reject");
-      }}
-      initial={{ opacity: 0.98, y: 8, scale: 0.992 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{
-        x: exitDirection === "reject" ? -540 : 540,
-        rotate: exitDirection === "reject" ? -6 : exitDirection === "hold" ? 0 : 6,
-        opacity: 0,
-        scale: exitDirection === "approve" ? 0.965 : exitDirection === "hold" ? 0.97 : 0.94,
-        transition: exitDirection === "approve"
-          ? { type: "spring", stiffness: 760, damping: 36, mass: 0.5 }
-          : { duration: 0.13, ease: [0.4, 0, 1, 1] },
-      }}
-      transition={{ type: "spring", stiffness: 560, damping: 38, mass: 0.55 }}
-      className="relative h-full min-h-dvh"
-      onClick={() => setPaused((value) => !value)}
-    >
-      <article className="relative h-full overflow-hidden bg-black">
-      <motion.div style={{ opacity: approveOpacity }} className="absolute inset-0 z-10 bg-[var(--rb-accent)]" />
-      <motion.div style={{ opacity: rejectOpacity }} className="absolute inset-0 z-10 bg-white grayscale" />
+    <div>
+      {/* Clip card — draggable, bounded to card dimensions */}
+      <motion.div
+        ref={ref}
+        style={{ x, rotate, scale, aspectRatio: "9/16", maxHeight: "62dvh" }}
+        drag={canModerate ? "x" : false}
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.13}
+        onDragEnd={(_, info) => {
+          if (!canModerate) return;
+          if (info.offset.x > 112 || info.velocity.x > 700) onModerate(clip.id, "approve");
+          if (info.offset.x < -84 || info.velocity.x < -560) onModerate(clip.id, "reject");
+        }}
+        initial={{ opacity: 0.98, y: 8, scale: 0.992 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{
+          x: exitDirection === "reject" ? -540 : 540,
+          rotate: exitDirection === "reject" ? -6 : exitDirection === "hold" ? 0 : 6,
+          opacity: 0,
+          scale: exitDirection === "approve" ? 0.965 : exitDirection === "hold" ? 0.97 : 0.94,
+          transition: exitDirection === "approve"
+            ? { type: "spring", stiffness: 760, damping: 36, mass: 0.5 }
+            : { duration: 0.13, ease: [0.4, 0, 1, 1] },
+        }}
+        transition={{ type: "spring", stiffness: 560, damping: 38, mass: 0.55 }}
+        className="relative w-full cursor-grab overflow-hidden rounded-[24px] active:cursor-grabbing"
+        onClick={() => setPaused((value) => !value)}
+      >
+        <article className="relative h-full overflow-hidden bg-[#0a0a0a]">
+          <motion.div style={{ opacity: approveOpacity }} className="absolute inset-0 z-10 bg-[var(--rb-accent)]" />
+          <motion.div style={{ opacity: rejectOpacity }} className="absolute inset-0 z-10 bg-white grayscale" />
 
-      <motion.div style={{ y: mediaY }} className="absolute inset-0">
-        {clip.thumbnailUrl && (
-          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${clip.thumbnailUrl})` }} />
-        )}
-        {clip.videoUrl && (
-          <video
-            ref={videoRef}
-            src={clip.videoUrl}
-            poster={clip.thumbnailUrl ?? undefined}
-            muted
-            playsInline
-            loop
-            preload={active ? "auto" : "metadata"}
-            className="absolute inset-0 h-full w-full bg-[#111111] object-cover"
-          />
-        )}
+          <motion.div style={{ y: mediaY }} className="absolute inset-0">
+            {clip.thumbnailUrl && (
+              <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${clip.thumbnailUrl})` }} />
+            )}
+            {clip.videoUrl && (
+              <video
+                ref={videoRef}
+                src={clip.videoUrl}
+                poster={clip.thumbnailUrl ?? undefined}
+                muted
+                playsInline
+                loop
+                preload={active ? "auto" : "metadata"}
+                className="absolute inset-0 h-full w-full bg-[#111] object-cover"
+              />
+            )}
+          </motion.div>
+          {nextVideoUrl && <video src={nextVideoUrl} muted playsInline preload="auto" aria-hidden className="sr-only" />}
+          <div className="absolute inset-0 bg-black/10" />
+          <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-black/60 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 h-[52%] bg-gradient-to-t from-black via-black/60 to-transparent" />
+
+          <div className="absolute inset-x-0 bottom-0 z-20 px-4 pb-5 text-white">
+            <p className="text-[11px] font-medium lowercase leading-none text-[var(--rb-accent)]">
+              {formatDuration(clip.durationSeconds)}
+            </p>
+            <h2 className="mt-2 max-w-[88%] text-[clamp(18px,5.5vw,24px)] font-semibold lowercase leading-[1.06] tracking-[-0.02em] [text-shadow:0_2px_18px_rgba(0,0,0,0.72)]">
+              {clip.title}
+            </h2>
+            <p className="mt-2 max-w-[80%] truncate text-[12px] font-normal lowercase leading-5 text-white/62 [text-shadow:0_2px_14px_rgba(0,0,0,0.74)]">
+              {clip.sourceName}
+              {clip.league ? ` · ${clip.league}` : clip.sport ? ` · ${clip.sport}` : ""}
+              {remainingCount > 1 ? ` · ${remainingCount - 1} next` : ""}
+              {Math.round(clip.score) > 0 ? ` · score ${Math.round(clip.score)}` : ""}
+            </p>
+          </div>
+
+          {/* Pause indicator */}
+          {paused && (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/28">
+              <Pause className="h-10 w-10 text-white/72" strokeWidth={1.5} />
+            </div>
+          )}
+        </article>
       </motion.div>
-      {nextVideoUrl && <video src={nextVideoUrl} muted playsInline preload="auto" aria-hidden className="sr-only" />}
-      <div className="absolute inset-0 bg-black/10" />
-      <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-black/64 to-transparent" />
-      <div className="absolute inset-x-0 bottom-0 h-[48%] bg-gradient-to-t from-black via-black/62 to-transparent" />
 
-      <div className="absolute inset-x-0 bottom-0 z-20 px-5 pb-[calc(env(safe-area-inset-bottom,0px)+116px)] text-[var(--rb-text)]">
-        <p className="text-[11px] font-normal lowercase leading-none text-[var(--rb-accent)]">
-          {formatDuration(clip.durationSeconds)}
-        </p>
-        <h2 className="mt-2 max-w-[82%] text-[clamp(22px,6.8vw,30px)] font-normal lowercase leading-[1.06] tracking-[-0.02em] [text-shadow:0_2px_18px_rgba(0,0,0,0.72)]">
-          {clip.title}
-        </h2>
-        <p className="mt-3 max-w-[78%] truncate text-[13px] font-normal lowercase leading-5 text-[var(--rb-muted)] [text-shadow:0_2px_14px_rgba(0,0,0,0.74)]">
-          {clip.sourceName}
-          {clip.league ? ` · ${clip.league}` : clip.sport ? ` · ${clip.sport}` : ""}
-          {remainingCount > 1 ? ` · ${remainingCount - 1} next` : ""}
-          {Math.round(clip.score) > 0 ? ` · ${Math.round(clip.score)}` : ""}
-        </p>
-        <div className="mt-5 h-px w-full bg-white/[0.08]" />
-      </div>
-
-      <div className="absolute bottom-[calc(env(safe-area-inset-bottom,0px)+104px)] right-5 z-30 flex flex-col items-center gap-4">
+      {/* Action buttons — always visible below the card */}
+      <div className="mt-4 flex items-center justify-center gap-4">
         <motion.button
           type="button"
           whileTap={{ scale: 0.9 }}
-          onClick={(event) => {
-            event.stopPropagation();
-            onModerate(clip.id, "approve");
-          }}
+          onClick={() => onModerate(clip.id, "reject")}
           disabled={!canModerate}
-          aria-label="Approve clip for publishing"
-          title="Approve for publishing"
-          className="grid h-14 w-14 place-items-center rounded-full bg-black/34 text-[var(--rb-accent)] shadow-[0_12px_34px_rgba(0,0,0,0.32)] ring-1 ring-white/[0.10] backdrop-blur-xl transition-opacity active:opacity-70 disabled:opacity-35"
+          aria-label="Reject clip"
+          title="Reject"
+          className="grid h-14 w-14 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)] text-[#e2162b] shadow-sm transition active:scale-90 disabled:opacity-35"
         >
-          <Flame className="h-7 w-7" strokeWidth={1.7} />
+          <X className="h-6 w-6" strokeWidth={2} />
         </motion.button>
         <motion.button
           type="button"
           whileTap={{ scale: 0.9 }}
-          onClick={(event) => {
-            event.stopPropagation();
-            onModerate(clip.id, "hold");
-          }}
+          onClick={() => onModerate(clip.id, "hold")}
           disabled={!canModerate || clip.status === "held"}
           aria-label="Hold clip for later review"
-          title="Hold for later review"
-          className="grid h-12 w-12 place-items-center rounded-full bg-black/30 text-[var(--rb-text)] shadow-[0_12px_34px_rgba(0,0,0,0.28)] ring-1 ring-white/[0.10] backdrop-blur-xl transition-opacity active:opacity-70 disabled:opacity-35"
+          title="Hold"
+          className="grid h-11 w-11 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)] shadow-sm transition active:scale-90 disabled:opacity-35"
         >
           <Pause className="h-5 w-5" strokeWidth={1.8} />
         </motion.button>
         <motion.button
           type="button"
           whileTap={{ scale: 0.9 }}
-          onClick={(event) => {
-            event.stopPropagation();
-            onModerate(clip.id, "reject");
-          }}
+          onClick={() => onModerate(clip.id, "approve")}
           disabled={!canModerate}
-          aria-label="Reject clip"
-          title="Reject clip"
-          className="grid h-14 w-14 place-items-center rounded-full bg-black/34 text-[#ff2a3f] shadow-[0_12px_34px_rgba(0,0,0,0.32)] ring-1 ring-white/[0.10] backdrop-blur-xl transition-opacity active:opacity-70 disabled:opacity-35"
+          aria-label="Approve clip for publishing"
+          title="Approve"
+          className="grid h-14 w-14 place-items-center rounded-full bg-[var(--rb-accent)] text-white shadow-[0_6px_24px_rgba(226,22,43,0.28)] transition active:scale-90 disabled:opacity-35"
         >
-          <X className="h-7 w-7" strokeWidth={1.8} />
+          <Flame className="h-6 w-6" strokeWidth={1.8} />
         </motion.button>
       </div>
-      </article>
-    </motion.div>
+      {canModerate && (
+        <p className="mt-3 text-center text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--rb-faint)]">swipe or tap to decide</p>
+      )}
+    </div>
   );
 }
 
@@ -1141,10 +1150,10 @@ function PublishScreen({
         <MetricCard value={metricoolTestMode ? "Test" : "Live"} label="Metricool mode" />
       </div>
 
-      <div className={`mt-3 rounded-[18px] border px-4 py-3 text-sm font-bold leading-5 ${
+      <div className={`mt-3 rounded-[18px] border px-4 py-3 text-sm font-semibold leading-5 ${
         metricoolTestMode
-          ? "border-[#ff4d00]/28 bg-[#ff4d00]/10 text-white/72"
-          : "border-white/[0.08] bg-white/[0.06] text-white/58"
+          ? "border-[var(--rb-accent)]/20 bg-[var(--rb-accent)]/8 text-[var(--rb-text)]"
+          : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
       }`}>
         {metricoolTestMode
           ? "Metricool test mode is on. Now and Schedule create smoke-test handoffs only."
@@ -1153,10 +1162,10 @@ function PublishScreen({
 
       <a
         href="/metricool"
-        className="mt-3 flex h-12 items-center justify-between rounded-[18px] border border-white/[0.08] bg-white/[0.06] px-4 text-sm font-black text-white active:scale-[0.99]"
+        className="mt-3 flex h-12 items-center justify-between rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-4 text-sm font-bold text-[var(--rb-text)] active:scale-[0.99]"
       >
         Metricool export
-        <ChevronRight className="h-5 w-5 text-[#ff4d00]" />
+        <ChevronRight className="h-5 w-5 text-[var(--rb-accent)]" />
       </a>
 
       <div className="mt-5 flex flex-col gap-4">
@@ -1233,51 +1242,51 @@ function PublishCard({
       layout
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      className="overflow-hidden rounded-[22px] border border-white/[0.08] bg-[#0a0a0a] shadow-[0_24px_70px_rgba(0,0,0,0.42)]"
+      className="overflow-hidden rounded-[22px] border border-[var(--rb-line)] bg-[var(--rb-surface)] shadow-sm"
     >
-      <div className="grid grid-cols-[112px_1fr] gap-4 p-3">
-        <div className="relative h-[156px] overflow-hidden rounded-[18px] bg-[#111111]">
+      <div className="grid grid-cols-[104px_1fr] gap-4 p-3">
+        <div className="relative h-[148px] overflow-hidden rounded-[16px] bg-[#111]">
           {item.thumbnailUrl && <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${item.thumbnailUrl})` }} />}
           <div className="absolute inset-0 bg-gradient-to-t from-black/72 to-transparent" />
-          <span className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-xs font-black text-white">{formatDuration(item.durationSeconds)}</span>
+          <span className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-xs font-bold text-white">{formatDuration(item.durationSeconds)}</span>
         </div>
         <div className="min-w-0 py-1 pr-1">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#ff4d00]">{item.sourceName}</p>
-          <h2 className="mt-1 line-clamp-3 text-xl font-black leading-[1.02] tracking-tight">{item.title}</h2>
-          <p className="mt-2 truncate text-xs font-black text-white/36">{formatApprovedAt(item.approvedAt)}</p>
-          <p className="mt-2 w-fit rounded-full border border-white/[0.08] bg-white/[0.06] px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-white/58">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-accent)]">{item.sourceName}</p>
+          <h2 className="mt-1 line-clamp-3 text-lg font-black leading-[1.08] tracking-tight text-[var(--rb-text)]">{item.title}</h2>
+          <p className="mt-2 truncate text-xs font-semibold text-[var(--rb-muted)]">{formatApprovedAt(item.approvedAt)}</p>
+          <p className="mt-2 w-fit rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--rb-muted)]">
             {metricoolStatusLabel(item.publishStatus)}
           </p>
         </div>
       </div>
 
-      <div className="border-t border-white/[0.07] px-3 py-3">
-        <label className="block text-[11px] font-black uppercase tracking-[0.16em] text-white/38">Hook</label>
+      <div className="border-t border-[var(--rb-line)] px-3 py-3">
+        <label className="block text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Hook</label>
         <input
           value={hook}
           onChange={(event) => setHook(event.target.value)}
-          className="mt-2 h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.06] px-3 text-sm font-bold text-white outline-none focus:border-[#ff4d00]/70"
+          className="mt-2 h-11 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 text-sm font-semibold text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)]"
         />
-        <label className="mt-3 block text-[11px] font-black uppercase tracking-[0.16em] text-white/38">Caption</label>
+        <label className="mt-3 block text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Caption</label>
         <textarea
           value={caption}
           onChange={(event) => setCaption(event.target.value)}
           rows={4}
-          className="mt-2 w-full resize-none rounded-[14px] border border-white/[0.08] bg-white/[0.06] p-3 text-sm font-semibold leading-5 text-white outline-none focus:border-[#ff4d00]/70"
+          className="mt-2 w-full resize-none rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] p-3 text-sm font-medium leading-5 text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)]"
         />
-        <label className="mt-3 block text-[11px] font-black uppercase tracking-[0.16em] text-white/38">Hashtags</label>
+        <label className="mt-3 block text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Hashtags</label>
         <input
           value={hashtags}
           onChange={(event) => setHashtags(event.target.value)}
-          className="mt-2 h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.06] px-3 text-sm font-bold text-white outline-none focus:border-[#ff4d00]/70"
+          className="mt-2 h-11 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 text-sm font-semibold text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)]"
         />
-        <label className="mt-3 block text-[11px] font-black uppercase tracking-[0.16em] text-white/38">Schedule time</label>
+        <label className="mt-3 block text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Schedule time</label>
         <input
           type="datetime-local"
           value={scheduledAt}
           onChange={(event) => setScheduledAt(event.target.value)}
           disabled={!canSendToMetricool}
-          className="mt-2 h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.06] px-3 text-sm font-bold text-white outline-none focus:border-[#ff4d00]/70 disabled:opacity-45"
+          className="mt-2 h-11 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 text-sm font-semibold text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)] disabled:opacity-45"
         />
         <div className="mt-3 grid grid-cols-[1fr_1fr_1fr_1.2fr_1.2fr] gap-2">
           <SmallButton label="Copy caption" onClick={() => void copyText(caption).then(() => onCopy("Caption copied"))}>
@@ -1293,7 +1302,7 @@ function PublishCard({
             type="button"
             onClick={() => onPublishNow(item.id)}
             disabled={!canSendToMetricool}
-            className="h-12 rounded-[14px] bg-white text-xs font-black text-black active:scale-[0.98] disabled:opacity-45"
+            className="h-12 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-xs font-black text-[var(--rb-text)] active:scale-[0.98] disabled:opacity-45"
           >
             Now
           </button>
@@ -1301,7 +1310,7 @@ function PublishCard({
             type="button"
             onClick={() => scheduledAt ? onSchedule(item.id, scheduledAt) : onCopy("Schedule time required")}
             disabled={!canSendToMetricool}
-            className="grid h-12 place-items-center rounded-[14px] bg-[#ff4d00] text-black active:scale-[0.98] disabled:opacity-45"
+            className="grid h-12 place-items-center rounded-[14px] bg-[var(--rb-accent)] text-white active:scale-[0.98] disabled:opacity-45"
             aria-label="Schedule in Metricool"
             title="Schedule in Metricool"
           >
@@ -1312,7 +1321,7 @@ function PublishCard({
           type="button"
           onClick={() => void saveEditorial()}
           disabled={saving}
-          className="mt-2 h-10 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.06] text-xs font-black text-white/72 active:scale-[0.99] disabled:opacity-45"
+          className="mt-2 h-10 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-xs font-bold text-[var(--rb-muted)] active:scale-[0.99] disabled:opacity-45"
         >
           {saving ? "Saving…" : savedLabel || "Save caption & hashtags"}
         </button>
@@ -1399,18 +1408,18 @@ function SourcesScreen({
       </div>
 
       <form onSubmit={(e) => void handleAddSource(e)} className="mt-5 flex flex-col gap-2">
-        <label className="text-[11px] font-black uppercase tracking-[0.16em] text-white/38">Add source</label>
+        <label className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Add source</label>
         <input
           value={newUrl}
           onChange={(e) => setNewUrl(e.target.value)}
           placeholder="https://youtube.com/channel/… or UC…"
-          className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.06] px-3 text-sm font-bold text-white outline-none focus:border-[#ff4d00]/70"
+          className="h-11 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 text-sm font-medium text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)]"
         />
-        {addError && <p className="text-xs font-semibold text-red-400">{addError}</p>}
+        {addError && <p className="text-xs font-semibold text-red-600">{addError}</p>}
         <button
           type="submit"
           disabled={addingSource || !newUrl.trim()}
-          className="h-10 rounded-[14px] bg-[#ff4d00] text-xs font-black text-black active:scale-[0.99] disabled:opacity-45"
+          className="h-10 rounded-[14px] bg-[var(--rb-accent)] text-xs font-black text-white active:scale-[0.99] disabled:opacity-45"
         >
           {addingSource ? "Adding…" : "Add source"}
         </button>
@@ -1418,13 +1427,13 @@ function SourcesScreen({
 
       {managedSources.length > 0 && (
         <div className="mt-4 flex flex-col gap-2">
-          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white/38">Configured</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Configured</p>
           {managedSources.map((s) => (
-            <div key={s.id} className="flex min-h-12 items-center gap-3 rounded-[18px] border border-white/[0.08] bg-[#0a0a0a] px-4">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-white/[0.07] text-[10px] font-black">
+            <div key={s.id} className="flex min-h-12 items-center gap-3 rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-4 shadow-sm">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-[10px] font-black text-[var(--rb-muted)]">
                 {SOURCE_CODES[s.platform?.toLowerCase()] ?? "RB"}
               </span>
-              <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white/72">{s.channel_name ?? s.url}</p>
+              <p className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--rb-text)]">{s.channel_name ?? s.url}</p>
             </div>
           ))}
         </div>
@@ -1434,35 +1443,35 @@ function SourcesScreen({
         <button
           type="button"
           onClick={() => onSelectSource("")}
-          className={`flex min-h-16 items-center justify-between rounded-[24px] border px-4 text-left active:scale-[0.99] ${
-            selectedSource === "" ? "border-[#ff4d00]/70 bg-[#ff4d00]/14" : "border-white/[0.08] bg-[#0a0a0a]"
+          className={`flex min-h-16 items-center justify-between rounded-[24px] border px-4 text-left shadow-sm active:scale-[0.99] ${
+            selectedSource === "" ? "border-[var(--rb-accent)]/40 bg-[var(--rb-accent)]/8" : "border-[var(--rb-line)] bg-[var(--rb-surface)]"
           }`}
         >
           <div>
-            <p className="text-base font-black">All sources</p>
-            <p className="mt-1 text-sm font-semibold text-white/44">Unified operator queue</p>
+            <p className="text-base font-black text-[var(--rb-text)]">All sources</p>
+            <p className="mt-1 text-sm font-medium text-[var(--rb-muted)]">Unified operator queue</p>
           </div>
-          <ChevronRight className="h-5 w-5 text-white/38" />
+          <ChevronRight className="h-5 w-5 text-[var(--rb-muted)]" />
         </button>
         {sources.map((item) => (
           <button
             key={`${item.source_name}-${item.source_type}`}
             type="button"
             onClick={() => onSelectSource(item.source_name)}
-            className={`flex min-h-18 items-center gap-4 rounded-[24px] border p-4 text-left active:scale-[0.99] ${
-              selectedSource === item.source_name ? "border-[#ff4d00]/70 bg-[#ff4d00]/14" : "border-white/[0.08] bg-[#0a0a0a]"
+            className={`flex min-h-[4.5rem] items-center gap-4 rounded-[24px] border p-4 text-left shadow-sm active:scale-[0.99] ${
+              selectedSource === item.source_name ? "border-[var(--rb-accent)]/40 bg-[var(--rb-accent)]/8" : "border-[var(--rb-line)] bg-[var(--rb-surface)]"
             }`}
           >
-            <span className="grid h-12 w-12 place-items-center rounded-[18px] bg-white/[0.07] text-xs font-black">
+            <span className="grid h-12 w-12 place-items-center rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-xs font-black text-[var(--rb-muted)]">
               {SOURCE_CODES[item.source_type?.toLowerCase()] ?? "RB"}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-black">{item.source_name}</p>
-              <p className="mt-1 text-sm font-semibold text-white/44">
+              <p className="truncate text-base font-black text-[var(--rb-text)]">{item.source_name}</p>
+              <p className="mt-1 text-sm font-medium text-[var(--rb-muted)]">
                 {item.source_type} · {item.status} · {item.last_ingested_at ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(item.last_ingested_at)) : "never ingested"}
               </p>
             </div>
-            <span className="rounded-full bg-white px-3 py-1 text-sm font-black text-black">{item.pending_count}</span>
+            <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 py-1 text-sm font-black text-[var(--rb-text)]">{item.pending_count}</span>
           </button>
         ))}
       </div>
@@ -1487,15 +1496,15 @@ function PageShell({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -18 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
-      className="hide-scrollbar min-h-dvh overflow-y-auto bg-black px-4 pb-[calc(env(safe-area-inset-bottom,0px)+104px)] pt-[calc(env(safe-area-inset-top,0px)+18px)]"
+      className="hide-scrollbar min-h-dvh overflow-y-auto bg-[var(--rb-bg)] px-4 pb-[calc(env(safe-area-inset-bottom,0px)+104px)] pt-[calc(env(safe-area-inset-top,0px)+18px)]"
     >
-      <header className="sticky top-0 z-20 -mx-4 mb-5 border-b border-white/[0.06] bg-black/84 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+6px)] backdrop-blur-2xl">
+      <header className="sticky top-0 z-20 -mx-4 mb-5 border-b border-[var(--rb-line)] bg-[var(--rb-bg)]/95 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+6px)] backdrop-blur-xl">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#ff4d00]">{eyebrow}</p>
-            <h1 className="mt-1 text-4xl font-black leading-none tracking-tight">{title}</h1>
+            <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--rb-accent)]">{eyebrow}</p>
+            <h1 className="mt-1 text-4xl font-black leading-none tracking-tight text-[var(--rb-text)]">{title}</h1>
           </div>
-          <div className="grid h-12 w-12 place-items-center rounded-full border border-white/[0.08] bg-white/[0.055]">
+          <div className="grid h-12 w-12 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)]">
             {trailing}
           </div>
         </div>
@@ -1507,9 +1516,9 @@ function PageShell({
 
 function MetricCard({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-[26px] border border-white/[0.08] bg-[#0a0a0a] p-4">
-      <p className="text-3xl font-black leading-none tracking-tight">{value}</p>
-      <p className="mt-2 text-sm font-bold text-white/44">{label}</p>
+    <div className="rounded-[26px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-4 shadow-sm">
+      <p className="text-3xl font-black leading-none tracking-tight text-[var(--rb-text)]">{value}</p>
+      <p className="mt-2 text-sm font-semibold text-[var(--rb-muted)]">{label}</p>
     </div>
   );
 }
@@ -1521,7 +1530,7 @@ function SmallButton({ children, label, onClick }: { children: React.ReactNode; 
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="grid h-12 min-w-12 place-items-center rounded-[18px] border border-white/[0.08] bg-white/[0.07] text-white active:scale-95"
+      className="grid h-12 min-w-12 place-items-center rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-text)] shadow-sm active:scale-95"
     >
       {children}
     </button>
@@ -1530,14 +1539,14 @@ function SmallButton({ children, label, onClick }: { children: React.ReactNode; 
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="relative grid min-h-[430px] place-items-center overflow-hidden rounded-[34px] border border-white/[0.08] bg-[#050505] px-8 text-center shadow-[0_30px_90px_rgba(0,0,0,0.48)]">
-      <div className="absolute inset-x-10 top-16 h-32 rounded-full bg-[#ff4d00]/10 blur-3xl" />
+    <div className="relative grid min-h-[380px] place-items-center overflow-hidden rounded-[28px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-8 text-center shadow-sm">
+      <div className="absolute inset-x-10 top-12 h-24 rounded-full bg-[var(--rb-accent)]/8 blur-3xl" />
       <div className="relative">
-        <div className="mx-auto grid h-20 w-20 place-items-center rounded-[28px] border border-white/[0.08] bg-white/[0.06] shadow-[0_20px_60px_rgba(255,77,0,0.12)]">
-          <Check className="h-9 w-9 text-[#ff4d00]" />
+        <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] border border-[var(--rb-line)] bg-[var(--rb-graphite)]">
+          <Check className="h-7 w-7 text-[var(--rb-accent)]" />
         </div>
-        <p className="mt-6 text-4xl font-black leading-none tracking-tight">{title}</p>
-        <p className="mx-auto mt-3 max-w-[260px] text-sm font-semibold leading-6 text-white/52">{body}</p>
+        <p className="mt-5 text-3xl font-black leading-none tracking-tight text-[var(--rb-text)]">{title}</p>
+        <p className="mx-auto mt-3 max-w-[260px] text-sm font-medium leading-6 text-[var(--rb-muted)]">{body}</p>
       </div>
     </div>
   );
@@ -1545,12 +1554,12 @@ function EmptyState({ title, body }: { title: string; body: string }) {
 
 function LiveEmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="grid h-full min-h-dvh place-items-center bg-black px-8 text-center">
+    <div className="grid min-h-[400px] place-items-center px-8 text-center">
       <div>
-        <p className="text-[24px] font-normal lowercase tracking-[-0.02em] text-[var(--rb-text)]">{title}</p>
-        <span className="mx-auto mt-5 block h-px w-14 bg-[var(--rb-accent)]" />
-        <p className="mx-auto mt-6 max-w-[220px] text-[13px] font-normal lowercase leading-5 text-[var(--rb-muted)]">{body}</p>
-        <div className="mx-auto mt-8 flex w-fit items-center gap-2 text-[11px] lowercase text-[var(--rb-faint)]">
+        <p className="text-[22px] font-semibold lowercase tracking-[-0.02em] text-[var(--rb-text)]">{title}</p>
+        <span className="mx-auto mt-4 block h-px w-12 bg-[var(--rb-accent)]" />
+        <p className="mx-auto mt-5 max-w-[220px] text-[13px] font-normal lowercase leading-5 text-[var(--rb-muted)]">{body}</p>
+        <div className="mx-auto mt-7 flex w-fit items-center gap-2 text-[11px] lowercase text-[var(--rb-faint)]">
           <span className="h-1.5 w-1.5 rounded-full bg-[var(--rb-accent)] motion-safe:animate-[rbhq-live-breathe_1.8s_ease-in-out_infinite]" />
           live sources armed
         </div>
@@ -1568,7 +1577,7 @@ function BottomNav({ active, onChange }: { active: AppTab; onChange: (tab: AppTa
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-[520px] px-3 pb-[calc(env(safe-area-inset-bottom,0px)+8px)]">
-      <div className="grid grid-cols-3 gap-1 rounded-[24px] border border-white/[0.08] bg-[#080808]/94 p-2 shadow-[0_-18px_60px_rgba(0,0,0,0.62)] backdrop-blur-2xl">
+      <div className="grid grid-cols-3 gap-1 rounded-[24px] border border-[var(--rb-line)] bg-[var(--rb-surface)]/95 p-2 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-xl">
         {items.map((item) => {
           const selected = active === item.id;
           return (
@@ -1576,18 +1585,18 @@ function BottomNav({ active, onChange }: { active: AppTab; onChange: (tab: AppTa
               key={item.id}
               type="button"
               onClick={() => onChange(item.id)}
-              className={`relative flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-[22px] text-[10px] font-black transition active:scale-95 ${
-                selected ? "text-white" : "text-white/42"
+              className={`relative flex h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-[20px] text-[10px] font-bold uppercase tracking-[0.06em] transition active:scale-95 ${
+                selected ? "text-[var(--rb-text)]" : "text-[var(--rb-faint)]"
               }`}
             >
               {selected && (
                 <motion.span
                   layoutId="bottom-nav-pill"
-                  className="absolute inset-0 rounded-[22px] bg-white/[0.10]"
+                  className="absolute inset-0 rounded-[20px] bg-[var(--rb-graphite)]"
                   transition={{ type: "spring", stiffness: 420, damping: 34 }}
                 />
               )}
-              <span className={`relative ${selected ? "text-[#ff4d00]" : ""}`}>{item.icon}</span>
+              <span className={`relative ${selected ? "text-[var(--rb-accent)]" : ""}`}>{item.icon}</span>
               <span className="relative truncate">{item.label}</span>
             </button>
           );
