@@ -1126,6 +1126,44 @@ export function holdClip(clipId: string, input: { channelIds?: string[] } = {}):
   return updateClipDecision(clipId, 'skipped', input)
 }
 
+const EDITORIAL_CAPTION_PREFIX = 'editorial_caption:'
+const EDITORIAL_HASHTAGS_PREFIX = 'editorial_hashtags:'
+
+export async function updateClipEditorial(
+  clipId: string,
+  input: { caption?: string; hashtags?: string[]; channelIds?: string[] },
+): Promise<ModerationClip | null> {
+  assertSupabaseQueue()
+  const current = await getClipById(clipId, { channelIds: input.channelIds, includeMetricoolHandoffStatus: false })
+  if (!current) return null
+
+  const filteredNotes = current.moderation_notes.filter(
+    (n) => !n.startsWith(EDITORIAL_CAPTION_PREFIX) && !n.startsWith(EDITORIAL_HASHTAGS_PREFIX),
+  )
+
+  const newNotes = [...filteredNotes]
+  if (input.caption !== undefined) {
+    newNotes.push(`${EDITORIAL_CAPTION_PREFIX}${JSON.stringify(input.caption)}`)
+  }
+  if (input.hashtags !== undefined) {
+    newNotes.push(`${EDITORIAL_HASHTAGS_PREFIX}${JSON.stringify(input.hashtags)}`)
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('clips')
+    .update({ moderation_notes: newNotes, updated_at: new Date().toISOString() })
+    .eq('id', clipId)
+    .select(CLIP_SELECT)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!data) return null
+
+  const updated = normalizeClip(data as ClipRow)
+  updated.channel_id = current.channel_id
+  return updated
+}
+
 export async function getReadyPublishClips(input: { limit?: number; channelIds?: string[] } = {}): Promise<ModerationClip[]> {
   assertSupabaseQueue()
   const channelIds = normalizeChannelIds(input.channelIds)

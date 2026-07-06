@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 
 import type { SessionUser } from './auth'
-import { getChannelMeta, listChannelMeta } from './channel-meta'
+import { getChannelMeta } from './channel-meta'
 import { isProductionRuntime } from './security'
 import { supabaseAdminClient } from './supabase-admin'
 
@@ -350,7 +350,7 @@ function resolveSessionChannelIds(user: Pick<NormalizedAppUser, 'username' | 'ro
   }
 
   if (user.role === 'admin' && user.channelIds.length === 0) {
-    return listChannelMeta().map((channel) => channel.id)
+    return MALY_ASSIGNED_CHANNEL_IDS
   }
 
   return user.channelIds

@@ -78,21 +78,33 @@ export function assertExportableClip(clip: ExportableClip) {
   }
 }
 
+const EDITORIAL_CAPTION_PREFIX = 'editorial_caption:'
+const EDITORIAL_HASHTAGS_PREFIX = 'editorial_hashtags:'
+
 export function buildPublishExportPackage(clip: ExportableClip): PublishExportPackage {
   assertExportableClip(clip)
 
-  const hashtags = buildHashtags(clip)
   const videoUrl = clip.video_url
   if (!videoUrl) {
     throw new Error('CLIP_NOT_READY_FOR_EXPORT')
   }
+
+  const captionNote = clip.moderation_notes.find((n) => n.startsWith(EDITORIAL_CAPTION_PREFIX))
+  const hashtagsNote = clip.moderation_notes.find((n) => n.startsWith(EDITORIAL_HASHTAGS_PREFIX))
+
+  const hashtags = hashtagsNote
+    ? (JSON.parse(hashtagsNote.slice(EDITORIAL_HASHTAGS_PREFIX.length)) as string[])
+    : buildHashtags(clip)
+  const caption = captionNote
+    ? (JSON.parse(captionNote.slice(EDITORIAL_CAPTION_PREFIX.length)) as string)
+    : buildCaption(clip, hashtags)
 
   return {
     clip_id: clip.id,
     title: clip.title,
     hook: clip.hook,
     recommended_hook: clip.recommended_hook,
-    caption: buildCaption(clip, hashtags),
+    caption,
     hashtags,
     source_name: clip.source_name,
     sport: clip.sport,

@@ -655,6 +655,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
               key="sources"
               sources={sources}
               selectedSource={source}
+              selectedChannelId={selectedChannelId}
               onSelectSource={(value) => {
                 setSource(value);
                 setTab("queue");
@@ -1190,7 +1191,36 @@ function PublishCard({
   const [caption, setCaption] = useState(item.exportPackage.caption);
   const [hashtags, setHashtags] = useState(item.exportPackage.hashtags.join(" "));
   const [scheduledAt, setScheduledAt] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [savedLabel, setSavedLabel] = useState("");
   const canSendToMetricool = READY_PUBLISH_STATUSES.has(item.publishStatus);
+
+  async function saveEditorial() {
+    setSaving(true);
+    try {
+      const csrfHeaders = await getCsrfHeaders();
+      const res = await fetch(`/api/metricool-export/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...csrfHeaders },
+        body: JSON.stringify({
+          caption,
+          hashtags: hashtags.split(/\s+/).map((t) => t.trim()).filter(Boolean),
+        }),
+      });
+      if (res.ok) {
+        setSavedLabel("Saved");
+        setTimeout(() => setSavedLabel(""), 2000);
+      } else {
+        setSavedLabel("Error");
+        setTimeout(() => setSavedLabel(""), 2000);
+      }
+    } catch {
+      setSavedLabel("Error");
+      setTimeout(() => setSavedLabel(""), 2000);
+    } finally {
+      setSaving(false);
+    }
+  }
   const exportPackage: PublishExportPackage = {
     ...item.exportPackage,
     recommended_hook: hook,
@@ -1278,6 +1308,14 @@ function PublishCard({
             <CalendarClock className="h-4 w-4" />
           </button>
         </div>
+        <button
+          type="button"
+          onClick={() => void saveEditorial()}
+          disabled={saving}
+          className="mt-2 h-10 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.06] text-xs font-black text-white/72 active:scale-[0.99] disabled:opacity-45"
+        >
+          {saving ? "Saving…" : savedLabel || "Save caption & hashtags"}
+        </button>
       </div>
     </motion.article>
   );
@@ -1291,22 +1329,107 @@ function metricoolStatusLabel(status: PublishStatus) {
   return "Not ready";
 }
 
+type ManagedSource = { id: string; url: string; platform: string; channel_name: string | null };
+
+function normalizeSourceUrl(input: string): string {
+  const trimmed = input.trim();
+  if (/^UC[A-Za-z0-9_-]{22}$/.test(trimmed)) {
+    return `https://www.youtube.com/channel/${trimmed}`;
+  }
+  return trimmed;
+}
+
 function SourcesScreen({
   sources,
   selectedSource,
+  selectedChannelId,
   onSelectSource,
 }: {
   sources: SourceFilterOption[];
   selectedSource: string;
+  selectedChannelId: string;
   onSelectSource: (value: string) => void;
 }) {
   const total = sources.reduce((sum, item) => sum + item.pending_count, 0);
+  const [newUrl, setNewUrl] = useState("");
+  const [addingSource, setAddingSource] = useState(false);
+  const [addError, setAddError] = useState("");
+  const [managedSources, setManagedSources] = useState<ManagedSource[]>([]);
+
+  useEffect(() => {
+    if (!selectedChannelId) return;
+    fetch(`/api/sources/${selectedChannelId}`)
+      .then((r) => r.json())
+      .then((d: { sources?: ManagedSource[] }) => { setManagedSources(d.sources ?? []); })
+      .catch(() => {});
+  }, [selectedChannelId]);
+
+  async function handleAddSource(e: React.FormEvent) {
+    e.preventDefault();
+    const url = normalizeSourceUrl(newUrl);
+    if (!url || !selectedChannelId) return;
+    setAddingSource(true);
+    setAddError("");
+    try {
+      const csrfHeaders = await getCsrfHeaders();
+      const res = await fetch(`/api/sources/${selectedChannelId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...csrfHeaders },
+        body: JSON.stringify({ url, platform: "youtube" }),
+      });
+      const data = (await res.json()) as { source?: ManagedSource; error?: string };
+      if (res.ok && data.source) {
+        setManagedSources((prev) => [data.source as ManagedSource, ...prev]);
+        setNewUrl("");
+      } else {
+        setAddError(data.error ?? "Failed to add source.");
+      }
+    } catch {
+      setAddError("Network error.");
+    } finally {
+      setAddingSource(false);
+    }
+  }
+
   return (
     <PageShell eyebrow="Signals" title="Sources" trailing={<Radio className="h-5 w-5 text-[#ff4d00]" />}>
       <div className="grid grid-cols-2 gap-3">
         <MetricCard value={String(sources.length)} label="Live sources" />
         <MetricCard value={String(total)} label="Pending clips" />
       </div>
+
+      <form onSubmit={(e) => void handleAddSource(e)} className="mt-5 flex flex-col gap-2">
+        <label className="text-[11px] font-black uppercase tracking-[0.16em] text-white/38">Add source</label>
+        <input
+          value={newUrl}
+          onChange={(e) => setNewUrl(e.target.value)}
+          placeholder="https://youtube.com/channel/… or UC…"
+          className="h-11 w-full rounded-[14px] border border-white/[0.08] bg-white/[0.06] px-3 text-sm font-bold text-white outline-none focus:border-[#ff4d00]/70"
+        />
+        {addError && <p className="text-xs font-semibold text-red-400">{addError}</p>}
+        <button
+          type="submit"
+          disabled={addingSource || !newUrl.trim()}
+          className="h-10 rounded-[14px] bg-[#ff4d00] text-xs font-black text-black active:scale-[0.99] disabled:opacity-45"
+        >
+          {addingSource ? "Adding…" : "Add source"}
+        </button>
+      </form>
+
+      {managedSources.length > 0 && (
+        <div className="mt-4 flex flex-col gap-2">
+          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-white/38">Configured</p>
+          {managedSources.map((s) => (
+            <div key={s.id} className="flex min-h-12 items-center gap-3 rounded-[18px] border border-white/[0.08] bg-[#0a0a0a] px-4">
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] bg-white/[0.07] text-[10px] font-black">
+                {SOURCE_CODES[s.platform?.toLowerCase()] ?? "RB"}
+              </span>
+              <p className="min-w-0 flex-1 truncate text-sm font-semibold text-white/72">{s.channel_name ?? s.url}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="mt-5 flex flex-col gap-3">
         <button
           type="button"

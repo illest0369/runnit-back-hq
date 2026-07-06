@@ -51,6 +51,14 @@ export const CHANNEL_META: Record<string, ChannelMetaRecord> = {
     niche: 'college_football',
     handle: 'runnitbackcfb',
   },
+  'a1000000-0000-0000-0000-000000000005': {
+    id: 'a1000000-0000-0000-0000-000000000005',
+    slug: 'futbol',
+    label: 'RB Futbol',
+    name: 'RB Futbol',
+    niche: 'futbol',
+    handle: 'runnitbackfutbol1',
+  },
 }
 
 export function getChannelMeta(channelId: string): ChannelMetaRecord | null {

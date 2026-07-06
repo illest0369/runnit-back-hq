@@ -1,4 +1,4 @@
-export type DashboardChannel = 'sports' | 'arena' | 'women' | 'combat' | 'runnitbackcfb'
+export type DashboardChannel = 'sports' | 'arena' | 'women' | 'combat' | 'runnitbackcfb' | 'futbol'
 
 type ChannelRecord = {
   category?: string | null
@@ -13,6 +13,7 @@ const LABELS: Record<DashboardChannel, string> = {
   women: 'RB Women',
   combat: 'RB Combat',
   runnitbackcfb: 'RB CFB',
+  futbol: 'RB Futbol',
 }
 
 export function normalizeDashboardChannel(value: string | null | undefined): DashboardChannel | null {
@@ -43,6 +44,10 @@ export function normalizeDashboardChannel(value: string | null | undefined): Das
     case 'college_football':
     case 'college-football':
       return 'runnitbackcfb'
+    case 'futbol':
+    case 'futbol1':
+    case 'rb_futbol':
+      return 'futbol'
     default:
       return null
   }
