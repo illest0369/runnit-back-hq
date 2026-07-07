@@ -179,6 +179,10 @@ button {
   --rb-accent: #d33a2f;
 }
 
+.rbhq-theme-futbol {
+  --rb-accent: #e2162b;
+}
+
 .rbhq-theme-runnitbackcfb {
   --rb-accent: #d6b35a;
 }
