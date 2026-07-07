@@ -1,7 +1,8 @@
 import { hasSupabaseAdminEnv, supabaseAdminClient as supabaseAdmin } from './supabase-admin'
-import { enqueueClipGenerationJob, enqueueRbhqPostJob } from './queue'
+import { enqueueClipGenerationJob, enqueueRbhqPostJob, type RbhqPostJobData } from './queue'
 import { loadSourceSystemConfig } from './source-system'
 import { isDownloadableMp4Url } from './media-url'
+import { getChannelMeta } from './channel-meta'
 import {
   analyzeClipForTikTok,
   getStoredTikTokAnalysis,
@@ -120,6 +121,56 @@ const N8N_SCHEMA_BACKED_PUBLISH_STATUSES = [
   'automation_queued',
   'automation_failed',
 ] as const satisfies readonly ClipPublishStatus[]
+const EDITORIAL_CAPTION_PREFIX = 'editorial_caption:'
+const EDITORIAL_HASHTAGS_PREFIX = 'editorial_hashtags:'
+
+function channelKeyForSlug(slug: string | null | undefined): string | null {
+  if (!slug) return null
+  if (slug === 'runnitbackcfb') return 'rb_cfb'
+  return `rb_${slug}`
+}
+
+function readJsonNote<T>(notes: string[], prefix: string): T | null {
+  const note = notes.find((item) => item.startsWith(prefix))
+  if (!note) return null
+
+  try {
+    return JSON.parse(note.slice(prefix.length)) as T
+  } catch {
+    return null
+  }
+}
+
+function buildRbhqPostJobData(clip: ModerationClip): RbhqPostJobData {
+  const channel = clip.channel_id ? getChannelMeta(clip.channel_id) : null
+  const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
+  const editorialCaption = readJsonNote<string>(clip.moderation_notes, EDITORIAL_CAPTION_PREFIX)
+  const editorialHashtags = readJsonNote<string[]>(clip.moderation_notes, EDITORIAL_HASHTAGS_PREFIX)
+  const handle = channel?.handle ?? null
+
+  return {
+    postId: clip.id,
+    clipId: clip.id,
+    channelId: clip.channel_id,
+    lane: channel
+      ? {
+          id: channel.id,
+          slug: channel.slug,
+          label: channel.label,
+          name: channel.name,
+        }
+      : null,
+    tiktok: {
+      channelKey: channelKeyForSlug(channel?.slug),
+      handle,
+      profileUrl: handle ? `https://www.tiktok.com/@${handle}` : null,
+    },
+    caption: editorialCaption ?? analysis?.captionDraft ?? '',
+    hashtags: editorialHashtags ?? analysis?.hashtagPack ?? [],
+    dryRun: true,
+    enqueuedAt: new Date().toISOString(),
+  }
+}
 
 function withMetricoolStatusNote(notes: string[], publishStatus: ClipPublishStatus): string[] {
   return [
@@ -1163,21 +1214,7 @@ async function updateClipDecision(
   updated.channel_id = current.channel_id
 
   if (status === 'approved') {
-    const tiktokAnalysis = getStoredTikTokAnalysis(updated.moderation_notes)
-    if (
-      !shouldQueueRender &&
-      hasTikTokPostingReadiness(updated) &&
-      tiktokAnalysis?.captionDraft &&
-      tiktokAnalysis.hashtagPack.length > 0
-    ) {
-      try {
-        await enqueueRbhqPostJob({ postId: updated.id })
-      } catch (error) {
-        console.warn(
-          '[rbhq-post] enqueue failed:',
-          error instanceof Error ? error.message : error,
-        )
-      }
+    if (!shouldQueueRender) {
       return updated
     }
 
@@ -1201,9 +1238,6 @@ export function rejectClip(clipId: string, input: { channelIds?: string[] } = {}
 export function holdClip(clipId: string, input: { channelIds?: string[] } = {}): Promise<ModerationClip | null> {
   return updateClipDecision(clipId, 'skipped', input)
 }
-
-const EDITORIAL_CAPTION_PREFIX = 'editorial_caption:'
-const EDITORIAL_HASHTAGS_PREFIX = 'editorial_hashtags:'
 
 export async function updateClipEditorial(
   clipId: string,
@@ -1291,7 +1325,7 @@ export async function enqueueClipForTikTokPosting(
     return null
   }
 
-  await enqueueRbhqPostJob({ postId: clip.id })
+  await enqueueRbhqPostJob(buildRbhqPostJobData(clip))
   return clip
 }
 

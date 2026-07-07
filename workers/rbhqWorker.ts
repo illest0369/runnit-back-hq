@@ -35,6 +35,27 @@ const MAC_MINI_READY_PUBLISH_STATUSES = new Set([
   'ready_for_manual_publish',
 ])
 
+function buildDryRunPostPayload(jobData: RbhqPostJobData, clip: Awaited<ReturnType<typeof getClipById>>) {
+  if (!clip) {
+    return jobData
+  }
+
+  const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
+
+  return {
+    postId: jobData.postId,
+    clipId: jobData.clipId ?? clip.id,
+    channelId: jobData.channelId ?? clip.channel_id,
+    lane: jobData.lane ?? null,
+    tiktok: jobData.tiktok ?? null,
+    caption: jobData.caption ?? analysis?.captionDraft ?? '',
+    hashtags: jobData.hashtags ?? analysis?.hashtagPack ?? [],
+    dryRun: jobData.dryRun ?? true,
+    enqueuedAt: jobData.enqueuedAt ?? null,
+    publishStatus: clip.publish_status,
+  }
+}
+
 async function upsertSourceItems(items: NormalizedSourceItem[]) {
   if (items.length === 0) {
     return 0
@@ -253,11 +274,8 @@ export function createRbhqWorkers() {
         throw new Error('CLIP_NOT_VERTICAL_READY_FOR_TIKTOK')
       }
 
-      console.log('[rbhq-post] dry-run received approved clip', {
-        postId: clip.id,
-        channelId: clip.channel_id,
-        publishStatus: clip.publish_status,
-      })
+      const payload = buildDryRunPostPayload(job.data, clip)
+      console.log('[rbhq-post] dry-run received approved clip', payload)
 
       return `dry-run:post:${clip.id}`
     },

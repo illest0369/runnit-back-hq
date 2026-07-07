@@ -1,4 +1,5 @@
 import { Worker } from 'bullmq'
+import { config } from 'dotenv'
 
 import {
   createWorkerConnection,
@@ -8,10 +9,34 @@ import {
 import { getClipById } from '../lib/moderation-queue'
 import { getStoredTikTokAnalysis, hasTikTokPostingReadiness } from '../lib/tiktok-analyzer'
 
+config({ path: '.env.local', quiet: true })
+config({ quiet: true })
+
 const READY_STATUSES = new Set([
   'metricool_ready_manual_export',
   'ready_for_manual_publish',
 ])
+
+function buildDryRunPayload(jobData: RbhqPostJobData, clip: Awaited<ReturnType<typeof getClipById>>) {
+  if (!clip) {
+    return jobData
+  }
+
+  const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
+
+  return {
+    postId: jobData.postId,
+    clipId: jobData.clipId ?? clip.id,
+    channelId: jobData.channelId ?? clip.channel_id,
+    lane: jobData.lane ?? null,
+    tiktok: jobData.tiktok ?? null,
+    caption: jobData.caption ?? analysis?.captionDraft ?? '',
+    hashtags: jobData.hashtags ?? analysis?.hashtagPack ?? [],
+    dryRun: jobData.dryRun ?? true,
+    enqueuedAt: jobData.enqueuedAt ?? null,
+    publishStatus: clip.publish_status,
+  }
+}
 
 function assertRequiredEnv() {
   const missing = ['REDIS_URL', 'SUPABASE_SERVICE_ROLE_KEY']
@@ -59,11 +84,8 @@ async function startPostDryRunWorker() {
         throw new Error('CLIP_NOT_VERTICAL_READY_FOR_TIKTOK')
       }
 
-      console.log('[rbhq-post] dry-run received approved clip', {
-        postId: clip.id,
-        channelId: clip.channel_id,
-        publishStatus: clip.publish_status,
-      })
+      const payload = buildDryRunPayload(job.data, clip)
+      console.log('[rbhq-post] dry-run received approved clip', payload)
 
       return `dry-run:post:${clip.id}`
     },

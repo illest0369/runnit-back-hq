@@ -56,6 +56,23 @@ export type RbhqScoreJobData = {
 
 export type RbhqPostJobData = {
   postId: string
+  clipId?: string
+  channelId?: string | null
+  lane?: {
+    id: string
+    slug: string
+    label: string
+    name: string
+  } | null
+  tiktok?: {
+    channelKey: string | null
+    handle: string | null
+    profileUrl: string | null
+  } | null
+  caption?: string
+  hashtags?: string[]
+  dryRun?: true
+  enqueuedAt?: string
 }
 
 export type RbhqAnalyticsJobData = {
