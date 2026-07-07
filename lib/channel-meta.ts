@@ -22,10 +22,10 @@ export const CHANNEL_META: Record<string, ChannelMetaRecord> = {
   'a1000000-0000-0000-0000-000000000002': {
     id: 'a1000000-0000-0000-0000-000000000002',
     slug: 'arena',
-    label: 'RB Arena',
-    name: 'RB Arena',
+    label: 'Gaming / Esports',
+    name: 'Gaming / Esports',
     niche: 'arena',
-    handle: 'runnitbackarena',
+    handle: 'runnitbackgaming',
   },
   'a1000000-0000-0000-0000-000000000003': {
     id: 'a1000000-0000-0000-0000-000000000003',

@@ -43,16 +43,20 @@ const RBHQ_OPERATOR_USERNAMES = new Set([
   'rb_cfb',
 ])
 
-const RB_WOMEN_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000004'
-const RB_COMBAT_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000003'
+const RB_SPORTS_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000001'
+const RB_ARENA_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000002'
 const RB_FUTBOL_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000005'
-const MALY_ASSIGNED_CHANNEL_IDS = [
-  RB_WOMEN_CHANNEL_ID,
-  RB_COMBAT_CHANNEL_ID,
+const RB_CFB_CHANNEL_ID = '93484eef-06d8-46fd-bce2-ce252422c58e'
+
+const ADMIN_ASSIGNED_CHANNEL_IDS = [
+  RB_SPORTS_CHANNEL_ID,
   RB_FUTBOL_CHANNEL_ID,
+  RB_CFB_CHANNEL_ID,
 ]
+const MATT_ASSIGNED_CHANNEL_IDS = [RB_ARENA_CHANNEL_ID]
 const EXTRA_APP_CHANNEL_IDS = new Set([RB_FUTBOL_CHANNEL_ID])
 const MALY_USERNAMES = new Set(['maly', 'malyhernandez'])
+const MATT_USERNAMES = new Set(['matt'])
 
 function normalizeRole(value: string | undefined): Role {
   if (value === 'admin' || value === 'operator' || value === 'user') {
@@ -221,6 +225,10 @@ function canConfiguredUserAuthenticate(user: NormalizedAppUser): boolean {
     return true
   }
 
+  if (isMattUser(user.username)) {
+    return true
+  }
+
   return user.channelIds.length > 0
 }
 
@@ -346,11 +354,15 @@ async function authenticateDatabaseAppUserByEmailPassword(
 
 function resolveSessionChannelIds(user: Pick<NormalizedAppUser, 'username' | 'role' | 'channelIds'>): string[] {
   if (isMalyUser(user.username)) {
-    return MALY_ASSIGNED_CHANNEL_IDS
+    return ADMIN_ASSIGNED_CHANNEL_IDS
+  }
+
+  if (isMattUser(user.username)) {
+    return MATT_ASSIGNED_CHANNEL_IDS
   }
 
   if (user.role === 'admin' && user.channelIds.length === 0) {
-    return MALY_ASSIGNED_CHANNEL_IDS
+    return ADMIN_ASSIGNED_CHANNEL_IDS
   }
 
   return user.channelIds
@@ -358,6 +370,10 @@ function resolveSessionChannelIds(user: Pick<NormalizedAppUser, 'username' | 'ro
 
 function isMalyUser(username: string): boolean {
   return MALY_USERNAMES.has(username.trim().toLowerCase())
+}
+
+function isMattUser(username: string): boolean {
+  return MATT_USERNAMES.has(username.trim().toLowerCase())
 }
 
 function isKnownAppChannelId(channelId: string): boolean {
@@ -404,6 +420,10 @@ function canDatabaseUserAuthenticate(input: {
   }
 
   if (RBHQ_OPERATOR_USERNAMES.has(input.username)) {
+    return true
+  }
+
+  if (isMattUser(input.username)) {
     return true
   }
 

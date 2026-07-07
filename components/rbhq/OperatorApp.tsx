@@ -47,6 +47,7 @@ type QueueAction = "approve" | "reject" | "hold";
 type User = {
   id: string;
   name: string;
+  role?: string;
   channel?: string;
   channelLabel: string;
   channelDbId: string;
@@ -147,7 +148,7 @@ const SOURCE_CODES: Record<string, string> = {
 
 function themeForChannel(label: string | null | undefined) {
   const value = label?.toLowerCase() ?? "";
-  if (value.includes("arena")) return "arena";
+  if (value.includes("arena") || value.includes("gaming") || value.includes("esports")) return "arena";
   if (value.includes("women")) return "women";
   if (value.includes("combat")) return "combat";
   if (value.includes("cfb")) return "runnitbackcfb";
@@ -158,6 +159,7 @@ function displayChannelLabel(label: string | null | undefined) {
   const value = label?.trim().toLowerCase() || "rbhq";
   if (value === "sports") return "rb sports";
   if (value === "arena") return "rb arena";
+  if (value === "gaming / esports") return "gaming / esports";
   if (value === "women") return "rb women";
   if (value === "combat") return "rb combat";
   if (value === "cfb" || value === "runnitbackcfb") return "rb cfb";
@@ -654,6 +656,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
               sources={sources}
               selectedSource={source}
               selectedChannelId={selectedChannelId}
+              userChannelIds={(user?.channels ?? []).map((ch) => ch.id)}
               onSelectSource={(value) => {
                 setSource(value);
                 setTab("queue");
@@ -1282,14 +1285,23 @@ function SourcesScreen({
   sources,
   selectedSource,
   selectedChannelId,
+  userChannelIds,
   onSelectSource,
 }: {
   sources: SourceFilterOption[];
   selectedSource: string;
   selectedChannelId: string;
+  userChannelIds: string[];
   onSelectSource: (value: string) => void;
 }) {
   const total = sources.reduce((sum, item) => sum + item.pending_count, 0);
+  const visibleRbhqSources = useMemo(
+    () =>
+      userChannelIds.length > 0
+        ? RBHQ_SOURCES.filter((src) => userChannelIds.includes(src.channelDbId))
+        : RBHQ_SOURCES,
+    [userChannelIds],
+  );
   const [newUrl, setNewUrl] = useState("");
   const [addingSource, setAddingSource] = useState(false);
   const [addError, setAddError] = useState("");
@@ -1354,11 +1366,11 @@ function SourcesScreen({
         <div className="mb-2.5 flex items-center justify-between">
           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--rb-muted)]">Source Buckets</p>
           <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[10px] font-black text-[var(--rb-muted)]">
-            {RBHQ_SOURCES.length}
+            {visibleRbhqSources.length}
           </span>
         </div>
         <div className="flex flex-col gap-2">
-          {RBHQ_SOURCES.map((src) => (
+          {visibleRbhqSources.map((src) => (
             <OperatorSourceCard key={src.id} source={src} />
           ))}
         </div>
@@ -1839,6 +1851,7 @@ function DashboardScreen({
 }
 
 function ProfileScreen({ user, onLogout }: { user: User; onLogout: () => void }) {
+  const channels = user.channels ?? [];
   return (
     <motion.section
       initial={{ opacity: 0, x: 18 }}
@@ -1860,9 +1873,35 @@ function ProfileScreen({ user, onLogout }: { user: User; onLogout: () => void })
           </div>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-black text-[var(--rb-text)]">{user.name}</p>
-            <p className="text-[12px] text-[var(--rb-muted)]">{displayChannelLabel(user.channelLabel)}</p>
+            <p className="mt-0.5 text-[11px] font-bold uppercase tracking-[0.1em] text-[var(--rb-accent)]">
+              {user.role ?? "operator"}
+            </p>
           </div>
         </div>
+
+        {channels.length > 0 && (
+          <div className="border-b border-[var(--rb-line)] px-4 py-3">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--rb-muted)]">
+              Assigned Lanes
+            </p>
+            <div className="flex flex-col gap-2">
+              {channels.map((ch) => (
+                <div key={ch.id} className="flex items-center gap-3">
+                  <span className="text-[16px] leading-none">{laneMetaForChannel(ch.label).emoji}</span>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-bold text-[var(--rb-text)]">
+                      {displayChannelLabel(ch.label)}
+                    </p>
+                    {ch.handle && (
+                      <p className="text-[11px] text-[var(--rb-muted)]">{ch.handle}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <button
           type="button"
           onClick={onLogout}

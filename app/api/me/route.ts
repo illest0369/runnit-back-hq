@@ -31,6 +31,7 @@ export async function GET() {
       user: {
         id: session.userId,
         name,
+        role: session.role,
         channel,
         channelLabel: getDashboardChannelLabel(channel),
         channelDbId: primaryChannel.id,

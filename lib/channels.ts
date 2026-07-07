@@ -9,7 +9,7 @@ type ChannelRecord = {
 
 const LABELS: Record<DashboardChannel, string> = {
   sports: 'RB Sports',
-  arena: 'RB Arena',
+  arena: 'Gaming / Esports',
   women: 'RB Women',
   combat: 'RB Combat',
   runnitbackcfb: 'RB CFB',
