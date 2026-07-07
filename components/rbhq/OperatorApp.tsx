@@ -1332,26 +1332,32 @@ function SourcesScreen({
 
   return (
     <PageShell eyebrow="Signals" title="Sources" trailing={<Radio className="h-5 w-5 text-[#ff4d00]" />}>
-      <div className="grid grid-cols-2 gap-3">
-        <MetricCard value={String(sources.length)} label="Live sources" />
-        <MetricCard value={String(total)} label="Pending clips" />
+      <div className="flex items-center gap-5 rounded-[16px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-[22px] font-black leading-none tracking-tight text-[var(--rb-text)]">{sources.length}</p>
+          <p className="mt-1 text-[11px] font-semibold text-[var(--rb-muted)]">live sources</p>
+        </div>
+        <span className="h-8 w-px shrink-0 bg-[var(--rb-line)]" />
+        <div className="min-w-0">
+          <p className="text-[22px] font-black leading-none tracking-tight text-[var(--rb-text)]">{total}</p>
+          <p className="mt-1 text-[11px] font-semibold text-[var(--rb-muted)]">pending clips</p>
+        </div>
       </div>
 
-      <div className="mt-5 flex items-center gap-2 rounded-[16px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3.5 py-3">
-        <span className="rounded-md bg-[#0A0A0A] px-2 py-1 text-[10px] font-black text-white">1080×1920</span>
-        <span className="mx-1 h-3 w-px bg-[var(--rb-line)]" />
-        <span className="rounded-md border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-1 text-[10px] font-bold text-[var(--rb-muted)]">9:16</span>
-        <p className="ml-1 text-[11.5px] font-medium text-[var(--rb-muted)]">vertical required · TikTok only</p>
+      <div className="mt-4 flex items-center gap-2 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3 py-2.5">
+        <span className="shrink-0 rounded-md bg-[#0A0A0A] px-2 py-0.5 text-[10px] font-black text-white">1080×1920</span>
+        <span className="shrink-0 rounded-md border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[10px] font-bold text-[var(--rb-muted)]">9:16</span>
+        <p className="min-w-0 truncate text-[11px] font-medium text-[var(--rb-muted)]">vertical required · TikTok only</p>
       </div>
 
-      <div className="mt-5">
-        <div className="mb-3 flex items-center justify-between">
-          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Source Buckets</p>
-          <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2.5 py-0.5 text-[10px] font-black text-[var(--rb-muted)]">
+      <div className="mt-6">
+        <div className="mb-2.5 flex items-center justify-between">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--rb-muted)]">Source Buckets</p>
+          <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[10px] font-black text-[var(--rb-muted)]">
             {RBHQ_SOURCES.length}
           </span>
         </div>
-        <div className="flex flex-col gap-2.5">
+        <div className="flex flex-col gap-2">
           {RBHQ_SOURCES.map((src) => (
             <OperatorSourceCard key={src.id} source={src} />
           ))}
@@ -1473,55 +1479,69 @@ function OperatorSourceCard({ source }: { source: RbhqSource }) {
     (source.status === "blocked" || source.status === "needs_review");
 
   return (
-    <article className="overflow-hidden rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] shadow-sm">
-      <div className="px-4 pb-3 pt-3.5">
-        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+    <article className="min-w-0 overflow-hidden rounded-[16px] border border-[var(--rb-line)] bg-[var(--rb-surface)] shadow-sm">
+      <div className="px-3.5 pb-3 pt-3">
+        {/* Header: chips left, status badge right — no ml-auto in flex-wrap */}
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1">
+            <span
+              className="shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-black"
+              style={{ background: channelColor.bg, color: channelColor.text }}
+            >
+              {source.channelLabel}
+            </span>
+            {source.handle && (
+              <span className="max-w-[96px] truncate text-[9.5px] font-medium text-[var(--rb-faint)]">
+                {source.handle}
+              </span>
+            )}
+            <span className="shrink-0 rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[9.5px] font-bold text-[var(--rb-muted)]">
+              {source.platform}
+            </span>
+          </div>
           <span
-            className="rounded-full px-2 py-0.5 text-[10px] font-black"
-            style={{ background: channelColor.bg, color: channelColor.text }}
-          >
-            {source.channelLabel}
-          </span>
-          {source.handle && (
-            <span className="text-[10px] font-medium text-[var(--rb-faint)]">{source.handle}</span>
-          )}
-          <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[10px] font-bold text-[var(--rb-muted)]">
-            {source.platform}
-          </span>
-          <span
-            className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-black"
+            className="shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-black"
             style={{ background: statusColor.bg, color: statusColor.color }}
           >
             {statusColor.label}
           </span>
         </div>
 
-        <p className="text-[14px] font-black leading-snug text-[var(--rb-text)]">{source.name}</p>
-        <p className="mt-0.5 text-[11px] font-medium text-[var(--rb-muted)]">
+        {/* Source name */}
+        <p className="mt-2 min-w-0 text-[13px] font-black leading-snug text-[var(--rb-text)]">
+          {source.name}
+        </p>
+
+        {/* Type + last checked */}
+        <p className="mt-0.5 text-[10.5px] font-medium text-[var(--rb-muted)]">
           {sourceTypeLabel(source.sourceType)} · checked {source.lastCheckedLabel}
         </p>
 
-        <div className="mt-2 flex flex-wrap items-center gap-1.5">
-          <span className="rounded-md bg-[#0A0A0A] px-2 py-0.5 text-[9.5px] font-black text-white">
-            1080×1920
-          </span>
-          <span className="rounded-md border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[9.5px] font-bold text-[var(--rb-muted)]">
-            9:16 ↕
-          </span>
-          {showWrongAspect && (
-            <span className="rounded-md border border-[#DC2626]/30 bg-[#FFF1F2] px-2 py-0.5 text-[9.5px] font-bold text-[#DC2626]">
-              wrong aspect ratio
-            </span>
-          )}
-          {showNeedsResize && !showWrongAspect && (
-            <span className="rounded-md border border-[#D97706]/30 bg-[#FFFBEB] px-2 py-0.5 text-[9.5px] font-bold text-[#D97706]">
-              needs resize
-            </span>
-          )}
-        </div>
+        {/* Requirements — one quiet line per card, no repeated badges */}
+        <p className="mt-1 text-[10px] font-medium text-[var(--rb-faint)]">
+          Required: 1080×1920 · 9:16 vertical
+        </p>
 
+        {/* Warning — only when relevant, and visually distinct */}
+        {(showWrongAspect || showNeedsResize) && (
+          <div className="mt-2">
+            {showWrongAspect ? (
+              <span className="inline-block rounded-md border border-[#DC2626]/30 bg-[#FFF1F2] px-2 py-0.5 text-[9.5px] font-bold text-[#DC2626]">
+                wrong aspect ratio
+              </span>
+            ) : (
+              <span className="inline-block rounded-md border border-[#D97706]/30 bg-[#FFFBEB] px-2 py-0.5 text-[9.5px] font-bold text-[#D97706]">
+                needs resize
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Notes */}
         {source.notes && (
-          <p className="mt-2 text-[11px] font-medium leading-relaxed text-[var(--rb-muted)]">{source.notes}</p>
+          <p className="mt-1.5 text-[10.5px] font-medium leading-relaxed text-[var(--rb-muted)]">
+            {source.notes}
+          </p>
         )}
       </div>
     </article>
