@@ -9,10 +9,8 @@ import {
   Download,
   Flame,
   Hash,
-  ListVideo,
   LogOut,
   Radio,
-  Share,
   Sparkles,
   Pause,
   X,
@@ -22,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getCsrfHeaders } from "@/lib/client-csrf";
 import type { PublishExportPackage } from "@/lib/export/types";
 
-type AppTab = "queue" | "publish" | "sources";
+type AppTab = "dashboard" | "queue" | "publish" | "sources" | "profile";
 type ClipStatus = "pending" | "held" | "approving" | "approved" | "rejecting" | "rejected";
 type PublishStatus =
   | "draft"
@@ -151,7 +149,6 @@ function themeForChannel(label: string | null | undefined) {
   if (value.includes("arena")) return "arena";
   if (value.includes("women")) return "women";
   if (value.includes("combat")) return "combat";
-  if (value.includes("futbol")) return "futbol";
   if (value.includes("cfb")) return "runnitbackcfb";
   return "sports";
 }
@@ -162,7 +159,6 @@ function displayChannelLabel(label: string | null | undefined) {
   if (value === "arena") return "rb arena";
   if (value === "women") return "rb women";
   if (value === "combat") return "rb combat";
-  if (value === "futbol" || value === "rb_futbol") return "rb futbol";
   if (value === "cfb" || value === "runnitbackcfb") return "rb cfb";
   if (value.startsWith("rb ")) return value;
   return `rb ${value}`;
@@ -611,32 +607,30 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
 
   return (
     <main className={`rbhq-system rbhq-theme-${channelTheme} min-h-dvh bg-[var(--rb-bg)] text-[var(--rb-text)]`}>
-      <div className="operator-phone-shell relative mx-auto min-h-[100svh] w-full max-w-[520px] overflow-x-hidden">
-        <button
-          type="button"
-          aria-label="Log out"
-          title="Log out"
-          onClick={handleLogout}
-          style={{ top: "calc(var(--safe-top) + 40px)" }}
-          className="absolute right-4 z-[60] grid h-9 w-9 place-items-center rounded-full text-[var(--rb-muted)] transition active:scale-90 active:text-[var(--rb-text)]"
-        >
-          <LogOut className="h-[18px] w-[18px]" strokeWidth={1.5} />
-        </button>
+      <div className="operator-phone-shell relative mx-auto min-h-dvh w-full max-w-[520px]">
         <AnimatePresence mode="wait">
+          {tab === "dashboard" && (
+            <DashboardScreen
+              key="dashboard"
+              user={user}
+              clips={clips}
+              publishItems={publishItems}
+              sources={sources}
+              channels={user.channels ?? []}
+              selectedChannelId={selectedChannelId}
+              onSelectChannel={handleChannelChange}
+              onNavigate={setTab}
+            />
+          )}
           {tab === "queue" && (
             <QueueScreen
               key="queue"
               clips={clips}
-              sources={visibleSources}
-              channelLabel={selectedChannel?.label ?? user.channelLabel}
               channels={user.channels ?? []}
               selectedChannelId={selectedChannelId}
-              selectedSource={source}
-              activeId={activeId}
               error={error}
-              onSelectChannel={handleChannelChange}
-              onSelectSource={setSource}
               queueMode={queueMode}
+              onSelectChannel={handleChannelChange}
               onQueueMode={setQueueMode}
               onActive={setActiveId}
               onModerate={moderateClip}
@@ -665,6 +659,13 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
               }}
             />
           )}
+          {tab === "profile" && (
+            <ProfileScreen
+              key="profile"
+              user={user}
+              onLogout={handleLogout}
+            />
+          )}
         </AnimatePresence>
 
         <BottomNav active={tab} onChange={setTab} />
@@ -676,8 +677,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
               exit={{ opacity: 0 }}
               transition={{ duration: 0.18 }}
               onAnimationComplete={() => window.setTimeout(() => setToast(""), 720)}
-              style={{ top: "calc(var(--safe-top) + 104px)" }}
-              className="pointer-events-none fixed left-1/2 z-[70] -translate-x-1/2 rounded-full border border-black/[0.10] bg-white px-4 py-2 text-[var(--rb-text)] shadow-[0_8px_32px_rgba(0,0,0,0.14)] backdrop-blur-xl"
+              className="pointer-events-none fixed left-1/2 top-[calc(env(safe-area-inset-top,0px)+104px)] z-[70] -translate-x-1/2 rounded-full border border-black/[0.10] bg-white px-4 py-2 text-[var(--rb-text)] shadow-[0_8px_32px_rgba(0,0,0,0.14)] backdrop-blur-xl"
             >
               <div className="flex items-center gap-2">
                 {toast === "approved" && <Check className="h-4 w-4 text-[var(--rb-accent)]" strokeWidth={1.8} />}
@@ -708,70 +708,98 @@ function LoadingDeck() {
 
 function QueueScreen({
   clips,
-  sources,
-  channelLabel,
   channels,
   selectedChannelId,
-  selectedSource,
-  activeId,
   error,
   queueMode,
   onSelectChannel,
-  onSelectSource,
   onQueueMode,
   onActive,
   onModerate,
   exitDirections,
 }: {
   clips: Clip[];
-  sources: SourceFilterOption[];
-  channelLabel: string;
   channels: UserChannel[];
   selectedChannelId: string;
-  selectedSource: string;
-  activeId: string | null;
   error: string;
   queueMode: QueueMode;
   onSelectChannel: (channelId: string) => void;
-  onSelectSource: (value: string) => void;
   onQueueMode: (value: QueueMode) => void;
   onActive: (id: string) => void;
   onModerate: (id: string, action: DecisionAction) => void;
   exitDirections: Record<string, DecisionAction>;
 }) {
-  const activeIndex = Math.max(0, clips.findIndex((clip) => clip.id === activeId));
-  const activeClip = clips[activeIndex] ?? clips[0] ?? null;
-  const nextClip = clips[activeIndex + 1] ?? clips[activeIndex === 0 ? 1 : 0] ?? null;
-  const preloadClips = useMemo(() => clips.slice(Math.max(0, activeIndex), activeIndex + 4), [activeIndex, clips]);
-  const label = displayChannelLabel(channelLabel);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const reviewClip = reviewId != null ? (clips.find((c) => c.id === reviewId) ?? null) : null;
+
+  const nextClip = useMemo(() => {
+    if (!reviewClip) return null;
+    const idx = clips.findIndex((c) => c.id === reviewClip.id);
+    return clips[idx + 1] ?? clips[idx === 0 ? 1 : 0] ?? null;
+  }, [reviewClip, clips]);
 
   useEffect(() => {
-    preloadClips.forEach(preloadClipMedia);
-  }, [preloadClips]);
+    if (reviewClip) preloadClipMedia(nextClip);
+  }, [nextClip, reviewClip]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
-      if (event.repeat) return;
+      if (event.repeat || !reviewClip) return;
       const target = event.target as HTMLElement | null;
       if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
-      if (!activeClip) return;
-
       const key = event.key.toLowerCase();
-      if (key === "a") {
-        event.preventDefault();
-        onModerate(activeClip.id, "approve");
-      } else if (key === "r") {
-        event.preventDefault();
-        onModerate(activeClip.id, "reject");
-      } else if (key === "h" || key === "s") {
-        event.preventDefault();
-        onModerate(activeClip.id, "hold");
-      }
+      if (key === "a") { event.preventDefault(); onModerate(reviewClip.id, "approve"); setReviewId(null); }
+      else if (key === "r") { event.preventDefault(); onModerate(reviewClip.id, "reject"); setReviewId(null); }
+      else if (key === "h" || key === "s") { event.preventDefault(); onModerate(reviewClip.id, "hold"); setReviewId(null); }
     }
-
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [activeClip, onModerate]);
+  }, [reviewClip, onModerate]);
+
+  function handleModerate(id: string, action: DecisionAction) {
+    onModerate(id, action);
+    setReviewId(null);
+  }
+
+  if (reviewClip) {
+    return (
+      <motion.section
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.15 }}
+        className="flex bg-[var(--rb-bg)]"
+        style={{ height: "100dvh", flexDirection: "column" }}
+      >
+        <header className="flex shrink-0 items-center gap-3 border-b border-[var(--rb-line)] bg-[var(--rb-bg)] px-5 pb-3 pt-[calc(env(safe-area-inset-top,0px)+14px)]">
+          <button
+            type="button"
+            onClick={() => setReviewId(null)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)] text-base text-[var(--rb-text)]"
+            aria-label="Back to queue list"
+          >
+            ←
+          </button>
+          <h1 className="text-[17px] font-black text-[var(--rb-text)]">Review</h1>
+          <p className="ml-auto text-[12px] text-[var(--rb-muted)]">{clips.length} in queue</p>
+        </header>
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom,0px)+104px)] pt-3">
+          <AnimatePresence initial={false} mode="popLayout">
+            <QueueClipCard
+              key={reviewClip.id}
+              clip={reviewClip}
+              active
+              exitDirection={exitDirections[reviewClip.id]}
+              nextVideoUrl={nextClip?.videoUrl ?? null}
+              remainingCount={clips.length}
+              onActive={onActive}
+              onModerate={handleModerate}
+            />
+          </AnimatePresence>
+        </div>
+      </motion.section>
+    );
+  }
 
   return (
     <motion.section
@@ -779,254 +807,85 @@ function QueueScreen({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.99 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="flex min-h-[100svh] flex-col bg-[var(--rb-bg)]"
+      className="flex bg-[var(--rb-bg)]"
+      style={{ height: "100dvh", flexDirection: "column" }}
     >
-      {/* Sticky header */}
-      <header
-        style={{ paddingTop: "calc(var(--safe-top) + 44px)" }}
-        className="sticky top-0 z-30 border-b border-[var(--rb-line)] bg-[var(--rb-bg)]/95 px-4 pb-3 backdrop-blur-md"
-      >
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-[13px] font-medium lowercase leading-none tracking-[-0.01em] text-[var(--rb-text)]">{label}</p>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--rb-accent)] motion-safe:animate-[rbhq-live-breathe_1.8s_ease-in-out_infinite]" />
-              <p className="text-[10px] font-medium uppercase leading-none text-[var(--rb-accent)]">live</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {channels.length > 1 && (
-              <ChannelSelect
-                channels={channels}
-                selectedChannelId={selectedChannelId}
-                onSelectChannel={onSelectChannel}
-              />
-            )}
-            <motion.span key={clips.length} initial={{ opacity: 0.45 }} animate={{ opacity: 1 }} transition={{ duration: 0.16 }} className="text-[13px] font-semibold tabular-nums text-[var(--rb-muted)]">
-              {formatCompactCount(clips.length)}
-            </motion.span>
-          </div>
-        </div>
+      <header className="shrink-0 border-b border-[var(--rb-line)] px-5 pb-3 pt-[calc(env(safe-area-inset-top,0px)+58px)]">
+        <h1 className="text-[24px] font-black text-[var(--rb-text)]">Queue</h1>
       </header>
 
-      {/* Source filter rail – in document flow */}
-      <SourceRail
-        sources={sources}
-        selectedSource={selectedSource}
-        queueMode={queueMode}
-        hasChannelSwitcher={false}
-        onSelectSource={onSelectSource}
-        onQueueMode={onQueueMode}
-      />
-
-      <QueueContextBar
-        channelLabel={label}
-        queueMode={queueMode}
-        selectedSource={selectedSource}
-        sources={sources}
-        clipCount={clips.length}
-      />
-
-      {error && clips.length > 0 && (
-        <p className="px-5 py-1 text-center text-[11px] lowercase text-[var(--rb-muted)]">reconnecting</p>
+      {channels.length > 1 && (
+        <div className="hide-scrollbar flex shrink-0 gap-2 overflow-x-auto border-b border-[var(--rb-line)] px-5 py-3">
+          {channels.map((ch) => (
+            <button
+              key={ch.id}
+              type="button"
+              onClick={() => onSelectChannel(ch.id)}
+              className={`h-9 shrink-0 rounded-full border px-4 text-[12px] font-bold transition active:scale-95 ${
+                selectedChannelId === ch.id
+                  ? "border-[var(--rb-text)] bg-[var(--rb-text)] text-white"
+                  : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-text)]"
+              }`}
+            >
+              {laneMetaForChannel(ch.label).emoji} {displayChannelLabel(ch.label)}
+            </button>
+          ))}
+        </div>
       )}
 
-      {/* Clip review area */}
-      <div className="flex-1 px-4 pt-3" style={{ paddingBottom: "calc(var(--safe-bottom) + 92px)" }}>
+      <div className="hide-scrollbar flex shrink-0 gap-2 overflow-x-auto border-b border-[var(--rb-line)] px-5 py-3">
+        <button
+          type="button"
+          onClick={() => onQueueMode("pending")}
+          className={`h-8 shrink-0 rounded-full border px-4 text-[11.5px] font-bold transition active:scale-95 ${
+            queueMode === "pending"
+              ? "border-[var(--rb-text)] bg-[var(--rb-text)] text-white"
+              : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
+          }`}
+        >
+          Needs Review{queueMode === "pending" && clips.length > 0 ? ` (${clips.length})` : ""}
+        </button>
+        <button
+          type="button"
+          onClick={() => onQueueMode("held")}
+          className={`h-8 shrink-0 rounded-full border px-4 text-[11.5px] font-bold transition active:scale-95 ${
+            queueMode === "held"
+              ? "border-[var(--rb-text)] bg-[var(--rb-text)] text-white"
+              : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
+          }`}
+        >
+          Held{queueMode === "held" && clips.length > 0 ? ` (${clips.length})` : ""}
+        </button>
+      </div>
+
+      {error && clips.length > 0 && (
+        <p className="shrink-0 px-5 py-1 text-center text-[11px] lowercase text-[var(--rb-muted)]">reconnecting</p>
+      )}
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-[calc(env(safe-area-inset-bottom,0px)+104px)] pt-3">
         {error && clips.length === 0 ? (
-          <QueueEmptyState
-            channelLabel={label}
-            queueMode={queueMode}
-            selectedSource={selectedSource}
-            sources={sources}
-            error={error}
-          />
+          <QueueEmptyState title="syncing clips" body="reconnecting live sources" />
         ) : clips.length === 0 ? (
           <QueueEmptyState
-            channelLabel={label}
-            queueMode={queueMode}
-            selectedSource={selectedSource}
-            sources={sources}
+            title="queue empty"
+            body={
+              queueMode === "held"
+                ? "held clips stay here until you approve or reject them"
+                : "new clips will appear here as sources sync"
+            }
           />
         ) : (
-          <AnimatePresence initial={false} mode="popLayout">
-            {activeClip && (
-              <QueueClipCard
-                key={activeClip.id}
-                clip={activeClip}
-                active
-                exitDirection={exitDirections[activeClip.id]}
-                nextVideoUrl={nextClip?.videoUrl ?? null}
-                remainingCount={clips.length}
-                onActive={onActive}
-                onModerate={onModerate}
-              />
-            )}
-          </AnimatePresence>
+          <div className="flex flex-col gap-3">
+            {clips.map((clip) => (
+              <QueueListCard key={clip.id} clip={clip} onReview={setReviewId} />
+            ))}
+          </div>
         )}
       </div>
     </motion.section>
   );
 }
 
-function ChannelSelect({
-  channels,
-  selectedChannelId,
-  onSelectChannel,
-}: {
-  channels: UserChannel[];
-  selectedChannelId: string;
-  onSelectChannel: (channelId: string) => void;
-}) {
-  return (
-    <label className="pointer-events-auto mt-3 block">
-      <span className="sr-only">Channel</span>
-      <select
-        value={selectedChannelId}
-        onChange={(event) => onSelectChannel(event.target.value)}
-        className="h-8 max-w-[168px] rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3 pr-8 text-[11px] font-medium lowercase text-[var(--rb-text)] outline-none transition focus:border-[var(--rb-accent)]"
-        aria-label="Channel"
-      >
-        {channels.map((channel) => (
-          <option key={channel.id} value={channel.id}>
-            {displayChannelLabel(channel.label)}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function SourceRail({
-  sources,
-  selectedSource,
-  queueMode,
-  hasChannelSwitcher,
-  onSelectSource,
-  onQueueMode,
-}: {
-  sources: SourceFilterOption[];
-  selectedSource: string;
-  queueMode: QueueMode;
-  hasChannelSwitcher: boolean;
-  onSelectSource: (value: string) => void;
-  onQueueMode: (value: QueueMode) => void;
-}) {
-  const sourceItems = sources.slice(0, 18);
-
-  return (
-    <div className="border-b border-[var(--rb-line)]">
-      <div className="hide-scrollbar flex gap-2 overflow-x-auto px-4 py-2.5">
-        <button
-          type="button"
-          onClick={() => {
-            onQueueMode("pending");
-            onSelectSource("");
-          }}
-          className={`grid h-8 shrink-0 place-items-center rounded-full border px-3.5 text-[10px] font-semibold uppercase tracking-[0.06em] transition active:scale-95 ${
-            selectedSource === "" && queueMode === "pending"
-              ? "border-[var(--rb-accent)] bg-[var(--rb-accent)] text-white"
-              : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
-          }`}
-          aria-label="All sources"
-          title="All sources"
-        >
-          all
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            onQueueMode("held");
-            onSelectSource("");
-          }}
-          className={`grid h-8 shrink-0 place-items-center rounded-full border px-3.5 text-[10px] font-semibold uppercase tracking-[0.06em] transition active:scale-95 ${
-            queueMode === "held"
-              ? "border-[var(--rb-accent)] bg-[var(--rb-accent)] text-white"
-              : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
-          }`}
-          aria-label="Held clips"
-          title="Held clips"
-        >
-          held
-        </button>
-        {sourceItems.map((item) => {
-          const selected = selectedSource === item.source_name && queueMode === "pending";
-          return (
-            <button
-              key={`${item.channel_id ?? "channel"}-${item.source_name}-${item.source_type}`}
-              type="button"
-              onClick={() => {
-                onQueueMode("pending");
-                onSelectSource(item.source_name);
-              }}
-              className={`relative grid h-8 shrink-0 place-items-center rounded-full border px-3.5 text-[10px] font-semibold uppercase tracking-[0.06em] transition active:scale-95 ${
-                selected
-                  ? "border-[var(--rb-accent)] bg-[var(--rb-accent)] text-white"
-                  : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
-              }`}
-              aria-label={item.source_name}
-              title={item.source_name}
-            >
-              {sourceAvatar(item.source_name)}
-              {item.pending_count > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-[var(--rb-accent)] px-1 text-[9px] leading-none text-white ring-1 ring-[var(--rb-bg)]">
-                  {Math.min(99, item.pending_count)}
-                </span>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function QueueContextBar({
-  channelLabel,
-  queueMode,
-  selectedSource,
-  sources,
-  clipCount,
-}: {
-  channelLabel: string;
-  queueMode: QueueMode;
-  selectedSource: string;
-  sources: SourceFilterOption[];
-  clipCount: number;
-}) {
-  const activeSources = sources.filter((item) => item.status === "active").length;
-  const pendingTotal = sources.reduce((sum, item) => sum + item.pending_count, 0);
-  const sourceLabel = selectedSource || "all sources";
-  const modeLabel = queueMode === "held" ? "held" : "needs review";
-
-  return (
-    <div className="border-b border-[var(--rb-line-soft)] bg-[var(--rb-bg)] px-4 py-3">
-      <div className="rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3.5 py-3 shadow-sm">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">current lane</p>
-            <p className="mt-1 truncate text-[13px] font-black lowercase text-[var(--rb-text)]">{channelLabel}</p>
-          </div>
-          <div className="shrink-0 text-right">
-            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">filter</p>
-            <p className="mt-1 text-[13px] font-black lowercase text-[var(--rb-text)]">{modeLabel}</p>
-          </div>
-        </div>
-        <div className="mt-2 flex min-w-0 items-center justify-between gap-3 border-t border-[var(--rb-line-soft)] pt-2">
-          <p className="min-w-0 truncate text-[11px] font-medium lowercase text-[var(--rb-muted)]">
-            {formatCompactCount(clipCount)} in view · {sourceLabel}
-          </p>
-          <p className="shrink-0 text-[11px] font-black lowercase text-[var(--rb-text)]">
-            {activeSources}/{sources.length || 0} live
-          </p>
-        </div>
-        <p className="mt-1 truncate text-[10px] font-medium lowercase text-[var(--rb-faint)]">
-          {formatCompactCount(pendingTotal)} pending indexed across synced sources
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function QueueClipCard({
   clip,
@@ -1083,7 +942,7 @@ function QueueClipCard({
       {/* Clip card — draggable, bounded to card dimensions */}
       <motion.div
         ref={ref}
-        style={{ x, rotate, scale, aspectRatio: "9/16", maxHeight: "56svh" }}
+        style={{ x, rotate, scale, aspectRatio: "9/16", maxHeight: "62dvh" }}
         drag={canModerate ? "x" : false}
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.13}
@@ -1158,7 +1017,7 @@ function QueueClipCard({
       </motion.div>
 
       {/* Action buttons — always visible below the card */}
-      <div className="mt-3 flex items-center justify-center gap-4">
+      <div className="mt-4 flex items-center justify-center gap-4">
         <motion.button
           type="button"
           whileTap={{ scale: 0.9 }}
@@ -1166,7 +1025,7 @@ function QueueClipCard({
           disabled={!canModerate}
           aria-label="Reject clip"
           title="Reject"
-          className="grid h-12 w-12 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)] text-[#e2162b] shadow-sm transition active:scale-90 disabled:opacity-35"
+          className="grid h-14 w-14 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)] text-[#e2162b] shadow-sm transition active:scale-90 disabled:opacity-35"
         >
           <X className="h-6 w-6" strokeWidth={2} />
         </motion.button>
@@ -1177,7 +1036,7 @@ function QueueClipCard({
           disabled={!canModerate || clip.status === "held"}
           aria-label="Hold clip for later review"
           title="Hold"
-          className="grid h-10 w-10 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)] shadow-sm transition active:scale-90 disabled:opacity-35"
+          className="grid h-11 w-11 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)] shadow-sm transition active:scale-90 disabled:opacity-35"
         >
           <Pause className="h-5 w-5" strokeWidth={1.8} />
         </motion.button>
@@ -1188,13 +1047,13 @@ function QueueClipCard({
           disabled={!canModerate}
           aria-label="Approve clip for publishing"
           title="Approve"
-          className="grid h-12 w-12 place-items-center rounded-full bg-[var(--rb-accent)] text-white shadow-[0_6px_24px_rgba(226,22,43,0.28)] transition active:scale-90 disabled:opacity-35"
+          className="grid h-14 w-14 place-items-center rounded-full bg-[var(--rb-accent)] text-white shadow-[0_6px_24px_rgba(226,22,43,0.28)] transition active:scale-90 disabled:opacity-35"
         >
           <Flame className="h-6 w-6" strokeWidth={1.8} />
         </motion.button>
       </div>
       {canModerate && (
-        <p className="mt-2 text-center text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--rb-faint)]">swipe or tap to decide</p>
+        <p className="mt-3 text-center text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--rb-faint)]">swipe or tap to decide</p>
       )}
     </div>
   );
@@ -1215,12 +1074,12 @@ function PublishScreen({
 }) {
   return (
     <PageShell eyebrow="Handoff" title="Publish" trailing={<Sparkles className="h-5 w-5 text-[#ff4d00]" />}>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-3">
         <MetricCard value={String(items.length)} label="Ready clips" />
         <MetricCard value={metricoolTestMode ? "Test" : "Live"} label="Metricool mode" />
       </div>
 
-      <div className={`mt-3 rounded-[16px] border px-3.5 py-2.5 text-[11px] font-semibold leading-4 ${
+      <div className={`mt-3 rounded-[18px] border px-4 py-3 text-sm font-semibold leading-5 ${
         metricoolTestMode
           ? "border-[var(--rb-accent)]/20 bg-[var(--rb-accent)]/8 text-[var(--rb-text)]"
           : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
@@ -1232,7 +1091,7 @@ function PublishScreen({
 
       <a
         href="/metricool"
-        className="mt-3 flex h-11 items-center justify-between rounded-[16px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3.5 text-[13px] font-bold text-[var(--rb-text)] active:scale-[0.99]"
+        className="mt-3 flex h-12 items-center justify-between rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-4 text-sm font-bold text-[var(--rb-text)] active:scale-[0.99]"
       >
         Metricool export
         <ChevronRight className="h-5 w-5 text-[var(--rb-accent)]" />
@@ -1240,7 +1099,7 @@ function PublishScreen({
 
       <div className="mt-5 flex flex-col gap-4">
         {items.length === 0 ? (
-          <PublishEmptyState metricoolTestMode={metricoolTestMode} />
+          <EmptyState title="No ready clips" body="Approved clips with export-ready video will appear here." />
         ) : items.map((item) => (
           <PublishCard
             key={item.id}
@@ -1314,15 +1173,15 @@ function PublishCard({
       animate={{ opacity: 1, y: 0 }}
       className="overflow-hidden rounded-[22px] border border-[var(--rb-line)] bg-[var(--rb-surface)] shadow-sm"
     >
-      <div className="grid grid-cols-[88px_1fr] gap-3 p-3 sm:grid-cols-[104px_1fr] sm:gap-4">
-        <div className="relative h-[126px] overflow-hidden rounded-[16px] bg-[#111] sm:h-[148px]">
+      <div className="grid grid-cols-[104px_1fr] gap-4 p-3">
+        <div className="relative h-[148px] overflow-hidden rounded-[16px] bg-[#111]">
           {item.thumbnailUrl && <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${item.thumbnailUrl})` }} />}
           <div className="absolute inset-0 bg-gradient-to-t from-black/72 to-transparent" />
           <span className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-1 text-xs font-bold text-white">{formatDuration(item.durationSeconds)}</span>
         </div>
         <div className="min-w-0 py-1 pr-1">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-accent)]">{item.sourceName}</p>
-          <h2 className="mt-1 line-clamp-3 text-[16px] font-black leading-[1.08] tracking-tight text-[var(--rb-text)] sm:text-lg">{item.title}</h2>
+          <h2 className="mt-1 line-clamp-3 text-lg font-black leading-[1.08] tracking-tight text-[var(--rb-text)]">{item.title}</h2>
           <p className="mt-2 truncate text-xs font-semibold text-[var(--rb-muted)]">{formatApprovedAt(item.approvedAt)}</p>
           <p className="mt-2 w-fit rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--rb-muted)]">
             {metricoolStatusLabel(item.publishStatus)}
@@ -1358,7 +1217,7 @@ function PublishCard({
           disabled={!canSendToMetricool}
           className="mt-2 h-11 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 text-sm font-semibold text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)] disabled:opacity-45"
         />
-        <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="mt-3 grid grid-cols-[1fr_1fr_1fr_1.2fr_1.2fr] gap-2">
           <SmallButton label="Copy caption" onClick={() => void copyText(caption).then(() => onCopy("Caption copied"))}>
             <Copy className="h-4 w-4" />
           </SmallButton>
@@ -1368,8 +1227,6 @@ function PublishCard({
           <SmallButton label="Export JSON" onClick={() => saveJson(`rbhq-export-${item.id}.json`, exportPackage)}>
             <Download className="h-4 w-4" />
           </SmallButton>
-        </div>
-        <div className="mt-2 grid grid-cols-2 gap-2">
           <button
             type="button"
             onClick={() => onPublishNow(item.id)}
@@ -1474,18 +1331,18 @@ function SourcesScreen({
 
   return (
     <PageShell eyebrow="Signals" title="Sources" trailing={<Radio className="h-5 w-5 text-[#ff4d00]" />}>
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-3">
         <MetricCard value={String(sources.length)} label="Live sources" />
         <MetricCard value={String(total)} label="Pending clips" />
       </div>
 
-      <form onSubmit={(e) => void handleAddSource(e)} className="mt-4 flex flex-col gap-2">
+      <form onSubmit={(e) => void handleAddSource(e)} className="mt-5 flex flex-col gap-2">
         <label className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Add source</label>
         <input
           value={newUrl}
           onChange={(e) => setNewUrl(e.target.value)}
           placeholder="https://youtube.com/channel/… or UC…"
-          className="h-11 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 text-[13px] font-medium text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)]"
+          className="h-11 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 text-sm font-medium text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)]"
         />
         {addError && <p className="text-xs font-semibold text-red-600">{addError}</p>}
         <button
@@ -1501,7 +1358,7 @@ function SourcesScreen({
         <div className="mt-4 flex flex-col gap-2">
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Configured</p>
           {managedSources.map((s) => (
-            <div key={s.id} className="flex min-h-12 items-center gap-3 rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3 shadow-sm">
+            <div key={s.id} className="flex min-h-12 items-center gap-3 rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-4 shadow-sm">
               <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-[10px] font-black text-[var(--rb-muted)]">
                 {SOURCE_CODES[s.platform?.toLowerCase()] ?? "RB"}
               </span>
@@ -1515,13 +1372,13 @@ function SourcesScreen({
         <button
           type="button"
           onClick={() => onSelectSource("")}
-          className={`flex min-h-14 items-center justify-between rounded-[20px] border px-3.5 pr-5 text-left shadow-sm active:scale-[0.99] ${
+          className={`flex min-h-16 items-center justify-between rounded-[24px] border px-4 text-left shadow-sm active:scale-[0.99] ${
             selectedSource === "" ? "border-[var(--rb-accent)]/40 bg-[var(--rb-accent)]/8" : "border-[var(--rb-line)] bg-[var(--rb-surface)]"
           }`}
         >
           <div>
-            <p className="text-[15px] font-black text-[var(--rb-text)]">All sources</p>
-            <p className="mt-1 text-[12px] font-medium text-[var(--rb-muted)]">Unified operator queue</p>
+            <p className="text-base font-black text-[var(--rb-text)]">All sources</p>
+            <p className="mt-1 text-sm font-medium text-[var(--rb-muted)]">Unified operator queue</p>
           </div>
           <ChevronRight className="h-5 w-5 text-[var(--rb-muted)]" />
         </button>
@@ -1530,20 +1387,20 @@ function SourcesScreen({
             key={`${item.source_name}-${item.source_type}`}
             type="button"
             onClick={() => onSelectSource(item.source_name)}
-            className={`flex min-h-16 items-center gap-3 rounded-[20px] border p-3 pr-5 text-left shadow-sm active:scale-[0.99] ${
+            className={`flex min-h-[4.5rem] items-center gap-4 rounded-[24px] border p-4 text-left shadow-sm active:scale-[0.99] ${
               selectedSource === item.source_name ? "border-[var(--rb-accent)]/40 bg-[var(--rb-accent)]/8" : "border-[var(--rb-line)] bg-[var(--rb-surface)]"
             }`}
           >
-            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-[11px] font-black text-[var(--rb-muted)]">
+            <span className="grid h-12 w-12 place-items-center rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-xs font-black text-[var(--rb-muted)]">
               {SOURCE_CODES[item.source_type?.toLowerCase()] ?? "RB"}
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-black text-[var(--rb-text)]">{item.source_name}</p>
-              <p className="mt-1 truncate text-[12px] font-medium text-[var(--rb-muted)]">
+              <p className="truncate text-base font-black text-[var(--rb-text)]">{item.source_name}</p>
+              <p className="mt-1 text-sm font-medium text-[var(--rb-muted)]">
                 {item.source_type} · {item.status} · {item.last_ingested_at ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(item.last_ingested_at)) : "never ingested"}
               </p>
             </div>
-            <span className="shrink-0 rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2.5 py-1 text-[12px] font-black text-[var(--rb-text)]">{item.pending_count}</span>
+            <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 py-1 text-sm font-black text-[var(--rb-text)]">{item.pending_count}</span>
           </button>
         ))}
       </div>
@@ -1568,19 +1425,15 @@ function PageShell({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -18 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
-      style={{ paddingBottom: "calc(var(--safe-bottom) + 88px)" }}
-      className="hide-scrollbar min-h-[100svh] overflow-y-auto overflow-x-hidden bg-[var(--rb-bg)] px-4"
+      className="hide-scrollbar min-h-dvh overflow-y-auto bg-[var(--rb-bg)] px-4 pb-[calc(env(safe-area-inset-bottom,0px)+104px)] pt-[calc(env(safe-area-inset-top,0px)+18px)]"
     >
-      <header
-        style={{ paddingTop: "calc(var(--safe-top) + 44px)" }}
-        className="sticky top-0 z-20 -mx-4 mb-4 border-b border-[var(--rb-line)] bg-[var(--rb-bg)]/95 px-4 pb-3 backdrop-blur-xl"
-      >
+      <header className="sticky top-0 z-20 -mx-4 mb-5 border-b border-[var(--rb-line)] bg-[var(--rb-bg)]/95 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+6px)] backdrop-blur-xl">
         <div className="flex items-center justify-between">
-          <div className="min-w-0">
+          <div>
             <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--rb-accent)]">{eyebrow}</p>
-            <h1 className="mt-1 truncate text-[26px] font-black leading-none tracking-tight text-[var(--rb-text)] sm:text-4xl">{title}</h1>
+            <h1 className="mt-1 text-4xl font-black leading-none tracking-tight text-[var(--rb-text)]">{title}</h1>
           </div>
-          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)] sm:h-12 sm:w-12">
+          <div className="grid h-12 w-12 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-surface)]">
             {trailing}
           </div>
         </div>
@@ -1592,9 +1445,9 @@ function PageShell({
 
 function MetricCard({ value, label }: { value: string; label: string }) {
   return (
-    <div className="min-w-0 rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-2.5 shadow-sm sm:rounded-[26px] sm:p-4">
-      <p className="truncate text-[clamp(21px,6vw,28px)] font-black leading-none tracking-tight text-[var(--rb-text)]">{value}</p>
-      <p className="mt-1.5 text-[11px] font-semibold leading-4 text-[var(--rb-muted)] sm:text-sm">{label}</p>
+    <div className="rounded-[26px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-4 shadow-sm">
+      <p className="text-3xl font-black leading-none tracking-tight text-[var(--rb-text)]">{value}</p>
+      <p className="mt-2 text-sm font-semibold text-[var(--rb-muted)]">{label}</p>
     </div>
   );
 }
@@ -1615,135 +1468,48 @@ function SmallButton({ children, label, onClick }: { children: React.ReactNode; 
 
 function EmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="relative grid min-h-[230px] place-items-center overflow-hidden rounded-[22px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-6 py-8 text-center shadow-sm">
-      <div className="absolute inset-x-10 top-8 h-20 rounded-full bg-[var(--rb-accent)]/8 blur-3xl" />
+    <div className="relative grid min-h-[380px] place-items-center overflow-hidden rounded-[28px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-8 text-center shadow-sm">
+      <div className="absolute inset-x-10 top-12 h-24 rounded-full bg-[var(--rb-accent)]/8 blur-3xl" />
       <div className="relative">
-        <div className="mx-auto grid h-12 w-12 place-items-center rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-graphite)]">
-          <Check className="h-5 w-5 text-[var(--rb-accent)]" />
+        <div className="mx-auto grid h-16 w-16 place-items-center rounded-[22px] border border-[var(--rb-line)] bg-[var(--rb-graphite)]">
+          <Check className="h-7 w-7 text-[var(--rb-accent)]" />
         </div>
-        <p className="mt-4 text-[20px] font-black leading-none tracking-tight text-[var(--rb-text)]">{title}</p>
-        <p className="mx-auto mt-2 max-w-[260px] text-[13px] font-medium leading-5 text-[var(--rb-muted)]">{body}</p>
+        <p className="mt-5 text-3xl font-black leading-none tracking-tight text-[var(--rb-text)]">{title}</p>
+        <p className="mx-auto mt-3 max-w-[260px] text-sm font-medium leading-6 text-[var(--rb-muted)]">{body}</p>
       </div>
     </div>
   );
 }
 
-function QueueEmptyState({
-  channelLabel,
-  queueMode,
-  selectedSource,
-  sources,
-  error,
-}: {
-  channelLabel: string;
-  queueMode: QueueMode;
-  selectedSource: string;
-  sources: SourceFilterOption[];
-  error?: string;
-}) {
-  const activeSources = sources.filter((item) => item.status === "active").length;
-  const pendingTotal = sources.reduce((sum, item) => sum + item.pending_count, 0);
-  const source = selectedSource
-    ? sources.find((item) => item.source_name === selectedSource)
-    : null;
-  const sourceCue = error
-    ? "source refresh is retrying"
-    : source
-      ? `${source.status} source · ${formatCompactCount(source.pending_count)} pending indexed`
-      : `${activeSources}/${sources.length || 0} sources live · ${formatCompactCount(pendingTotal)} pending indexed`;
-  const filterLabel = queueMode === "held" ? "held clips" : "needs review";
-  const nextAction = queueMode === "held"
-    ? "switch back to all, or wait for held clips to return for review"
-    : "leave this screen open while source sync adds the next clip";
-
+function QueueEmptyState({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-[24px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-5 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[16px] border border-[var(--rb-line)] bg-[var(--rb-graphite)]">
-          <ListVideo className="h-5 w-5 text-[var(--rb-accent)]" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-[20px] font-black lowercase leading-none tracking-tight text-[var(--rb-text)]">
-            {error ? "syncing queue" : "queue clear"}
-          </p>
-          <p className="mt-2 text-[13px] font-medium lowercase leading-5 text-[var(--rb-muted)]">
-            {error ? "RBHQ is reconnecting to source data." : "No clips match the current lane and filter."}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-5 grid gap-2">
-        <EmptyDetail label="selected lane" value={channelLabel} />
-        <EmptyDetail label="status filter" value={filterLabel} />
-        <EmptyDetail label="source sync" value={sourceCue} />
-      </div>
-
-      <div className="mt-5 rounded-[18px] border border-[var(--rb-line-soft)] bg-[var(--rb-graphite)] px-4 py-3">
-        <p className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">next action</p>
-        <p className="mt-1 text-[13px] font-semibold lowercase leading-5 text-[var(--rb-text)]">{nextAction}</p>
-      </div>
-    </div>
-  );
-}
-
-function PublishEmptyState({ metricoolTestMode }: { metricoolTestMode: boolean }) {
-  return (
-    <div className="rounded-[24px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-5 shadow-sm">
-      <div className="flex items-start gap-3">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[16px] border border-[var(--rb-line)] bg-[var(--rb-graphite)]">
-          <Check className="h-5 w-5 text-[var(--rb-accent)]" />
-        </div>
-        <div>
-          <p className="text-[20px] font-black lowercase leading-none tracking-tight text-[var(--rb-text)]">no ready clips</p>
-          <p className="mt-2 text-[13px] font-medium lowercase leading-5 text-[var(--rb-muted)]">
-            Approved clips with export-ready video will appear here as Metricool handoff packages.
-          </p>
-        </div>
-      </div>
-      <div className="mt-5 grid gap-2">
-        <EmptyDetail label="metricool mode" value={metricoolTestMode ? "test handoffs only" : "live handoffs enabled"} />
-        <EmptyDetail label="ready clips" value="0 waiting" />
-        <EmptyDetail label="what happens next" value="approve a queue clip with video, then return here" />
-      </div>
-    </div>
-  );
-}
-
-function EmptyDetail({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 rounded-[14px] border border-[var(--rb-line-soft)] bg-[var(--rb-graphite)] px-3 py-2.5">
-      <span className="block text-[10px] font-black uppercase tracking-[0.12em] text-[var(--rb-faint)]">{label}</span>
-      <span className="mt-1 block text-[12px] font-black lowercase leading-4 text-[var(--rb-text)]">{value}</span>
-    </div>
-  );
-}
-
-function LiveEmptyState({ title, body }: { title: string; body: string }) {
-  return (
-    <div className="grid min-h-[260px] place-items-center px-8 text-center">
-      <div>
-        <p className="text-[22px] font-semibold lowercase tracking-[-0.02em] text-[var(--rb-text)]">{title}</p>
-        <span className="mx-auto mt-4 block h-px w-12 bg-[var(--rb-accent)]" />
-        <p className="mx-auto mt-5 max-w-[220px] text-[13px] font-normal lowercase leading-5 text-[var(--rb-muted)]">{body}</p>
-        <div className="mx-auto mt-7 flex w-fit items-center gap-2 text-[11px] lowercase text-[var(--rb-faint)]">
-          <span className="h-1.5 w-1.5 rounded-full bg-[var(--rb-accent)] motion-safe:animate-[rbhq-live-breathe_1.8s_ease-in-out_infinite]" />
-          live sources armed
-        </div>
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <p className="text-[18px] font-semibold lowercase text-[var(--rb-text)]">{title}</p>
+      <span className="mx-auto mt-3 block h-px w-8 bg-[var(--rb-accent)]" />
+      <p className="mx-auto mt-4 max-w-[200px] text-[13px] lowercase leading-5 text-[var(--rb-muted)]">{body}</p>
+      <div className="mt-5 flex items-center gap-1.5 text-[11px] lowercase text-[var(--rb-faint)]">
+        <span className="h-1.5 w-1.5 rounded-full bg-[var(--rb-accent)] motion-safe:animate-[rbhq-live-breathe_1.8s_ease-in-out_infinite]" />
+        live sources armed
       </div>
     </div>
   );
 }
 
 function BottomNav({ active, onChange }: { active: AppTab; onChange: (tab: AppTab) => void }) {
-  const items: Array<{ id: AppTab; label: string; icon: React.ReactNode }> = [
-    { id: "queue", label: "Queue", icon: <ListVideo className="h-[18px] w-[18px]" /> },
-    { id: "publish", label: "Publish", icon: <Share className="h-[18px] w-[18px]" /> },
-    { id: "sources", label: "Sources", icon: <Radio className="h-[18px] w-[18px]" /> },
+  const items: Array<{ id: AppTab; label: string; emoji: string }> = [
+    { id: "dashboard", label: "Dashboard", emoji: "🏠" },
+    { id: "queue", label: "Queue", emoji: "📥" },
+    { id: "sources", label: "Sources", emoji: "🔗" },
+    { id: "publish", label: "Publish", emoji: "📤" },
+    { id: "profile", label: "Profile", emoji: "👤" },
   ];
 
   return (
-    <nav style={{ paddingBottom: "calc(var(--safe-bottom) + 6px)" }} className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-[520px] px-3">
-      <div className="grid grid-cols-3 gap-1 rounded-[20px] border border-[var(--rb-line)] bg-[var(--rb-surface)]/95 p-1.5 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] backdrop-blur-xl">
+    <nav
+      className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-[520px] border-t border-[#E7E5E1] bg-white"
+      style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)" }}
+    >
+      <div className="grid grid-cols-5 px-1 pt-2">
         {items.map((item) => {
           const selected = active === item.id;
           return (
@@ -1751,23 +1517,221 @@ function BottomNav({ active, onChange }: { active: AppTab; onChange: (tab: AppTa
               key={item.id}
               type="button"
               onClick={() => onChange(item.id)}
-              className={`relative flex h-11 min-w-0 flex-col items-center justify-center gap-0.5 rounded-[16px] text-[9px] font-bold uppercase tracking-[0.06em] transition active:scale-95 ${
-                selected ? "text-[var(--rb-text)]" : "text-[var(--rb-faint)]"
-              }`}
+              className="flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 transition active:scale-95"
+              style={{ opacity: selected ? 1 : 0.45, color: "#0A0A0A" }}
+              aria-label={item.label}
+              aria-current={selected ? "page" : undefined}
             >
-              {selected && (
-                <motion.span
-                  layoutId="bottom-nav-pill"
-                  className="absolute inset-0 rounded-[16px] bg-[var(--rb-graphite)]"
-                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
-                />
-              )}
-              <span className={`relative ${selected ? "text-[var(--rb-accent)]" : ""}`}>{item.icon}</span>
-              <span className="relative truncate">{item.label}</span>
+              <span className="text-[20px] leading-tight">{item.emoji}</span>
+              <span className="text-[9px] font-bold tracking-tight">{item.label}</span>
             </button>
           );
         })}
       </div>
     </nav>
+  );
+}
+
+function laneMetaForChannel(label: string | null | undefined) {
+  const v = (label ?? "").toLowerCase();
+  if (v.includes("women")) return { emoji: "🏐", color: "#9333EA", bg: "#F5EAFF" };
+  if (v.includes("combat")) return { emoji: "🥊", color: "#DC2626", bg: "#FFEAEA" };
+  if (v.includes("futbol") || v.includes("soccer")) return { emoji: "⚽", color: "#2563EB", bg: "#E9F0FF" };
+  if (v.includes("cfb")) return { emoji: "🏈", color: "#16A34A", bg: "#ECFDF5" };
+  return { emoji: "🔥", color: "#FF5C1A", bg: "#FFF1EC" };
+}
+
+function QueueListCard({ clip, onReview }: { clip: Clip; onReview: (id: string) => void }) {
+  return (
+    <div className="flex items-start gap-3 rounded-[16px] border border-[var(--rb-line)] bg-white p-3">
+      <div
+        className="relative shrink-0 overflow-hidden rounded-[12px] bg-[#111]"
+        style={{ width: 64, height: 88 }}
+      >
+        {clip.thumbnailUrl ? (
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${clip.thumbnailUrl})` }}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-[11px] font-bold text-white/40">
+            {sourceAvatar(clip.sourceName)}
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[11.5px] text-[var(--rb-muted)]">{clip.sourceName}</p>
+        <h3 className="mt-0.5 line-clamp-2 text-[14px] font-black leading-snug text-[var(--rb-text)]">{clip.title}</h3>
+        <div className="mt-1.5 flex items-center gap-2">
+          <ClipStatusBadge status={clip.status} />
+          {clip.durationSeconds ? (
+            <span className="text-[11px] text-[var(--rb-faint)]">{formatDuration(clip.durationSeconds)}</span>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={() => onReview(clip.id)}
+          className="mt-2 h-8 rounded-full bg-[var(--rb-text)] px-4 text-[12px] font-bold text-white active:scale-[0.97]"
+        >
+          Review
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ClipStatusBadge({ status }: { status: ClipStatus }) {
+  if (status === "pending") {
+    return <span className="rounded-full bg-[#FFF1EC] px-2 py-0.5 text-[10.5px] font-bold text-[#FF5C1A]">Needs Review</span>;
+  }
+  if (status === "held") {
+    return <span className="rounded-full bg-[#F5F5F5] px-2 py-0.5 text-[10.5px] font-bold text-[#8B877D]">Held</span>;
+  }
+  if (status === "approved" || status === "approving") {
+    return <span className="rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[10.5px] font-bold text-[#16A34A]">Approved</span>;
+  }
+  if (status === "rejected" || status === "rejecting") {
+    return <span className="rounded-full bg-[#FFF1F2] px-2 py-0.5 text-[10.5px] font-bold text-[#DC2626]">Rejected</span>;
+  }
+  return null;
+}
+
+function DashboardScreen({
+  user,
+  clips,
+  publishItems,
+  sources,
+  channels,
+  selectedChannelId,
+  onSelectChannel,
+  onNavigate,
+}: {
+  user: User;
+  clips: Clip[];
+  publishItems: PublishQueueItem[];
+  sources: SourceFilterOption[];
+  channels: UserChannel[];
+  selectedChannelId: string;
+  onSelectChannel: (id: string) => void;
+  onNavigate: (tab: AppTab) => void;
+}) {
+  const pendingCount = clips.filter((c) => c.status === "pending").length;
+  const issueCount = sources.filter((s) => s.status !== "active").length;
+
+  return (
+    <motion.section
+      initial={{ opacity: 0, scale: 0.99 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.99 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="hide-scrollbar overflow-y-auto bg-[var(--rb-bg)]"
+      style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 100px)" }}
+    >
+      <div className="px-5 pb-4 pt-[calc(env(safe-area-inset-top,0px)+58px)]">
+        <h1 className="text-[24px] font-black text-[var(--rb-text)]">RBHQ 🔥</h1>
+        <p className="mt-1 text-[13px] text-[var(--rb-muted)]">Admin Command Center</p>
+      </div>
+
+      <div className="mx-5 mb-4 rounded-[20px] bg-[#0A0A0A] p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#666]">Needs Action Now</p>
+          <button
+            type="button"
+            onClick={() => onNavigate("queue")}
+            className="text-[12px] font-bold text-[#FF5C1A]"
+          >
+            Review All →
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <p className="text-[26px] font-black leading-none text-[#FF5C1A]">{pendingCount}</p>
+            <p className="mt-1 text-[11px] text-[#8B877D]">Needs Review</p>
+          </div>
+          <div>
+            <p className="text-[26px] font-black leading-none text-[#6FE0A5]">{publishItems.length}</p>
+            <p className="mt-1 text-[11px] text-[#8B877D]">Ready to Publish</p>
+          </div>
+          <div>
+            <p className="text-[26px] font-black leading-none text-[#FF7A7A]">{issueCount}</p>
+            <p className="mt-1 text-[11px] text-[#8B877D]">Source Issues</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-5">
+        <p className="mb-3 text-[13px] font-bold uppercase tracking-[0.14em] text-[var(--rb-muted)]">Lanes Overview</p>
+        <div className="flex flex-col gap-3">
+          {channels.map((ch) => {
+            const meta = laneMetaForChannel(ch.label);
+            const laneCount = sources
+              .filter((s) => s.channel_id === ch.id)
+              .reduce((sum, s) => sum + s.pending_count, 0);
+            return (
+              <button
+                key={ch.id}
+                type="button"
+                onClick={() => { onSelectChannel(ch.id); onNavigate("queue"); }}
+                className={`flex items-center gap-4 rounded-[18px] border p-4 text-left shadow-sm active:scale-[0.99] ${
+                  selectedChannelId === ch.id
+                    ? "border-[var(--rb-accent)]/40 bg-[var(--rb-accent)]/8"
+                    : "border-[var(--rb-line)] bg-white"
+                }`}
+              >
+                <span
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px] text-[24px]"
+                  style={{ background: meta.bg }}
+                >
+                  {meta.emoji}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-black text-[var(--rb-text)]">{displayChannelLabel(ch.label)}</p>
+                  <p className="text-[12px] text-[var(--rb-muted)]">{laneCount} pending</p>
+                </div>
+                <ChevronRight className="h-4 w-4 shrink-0 text-[var(--rb-faint)]" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </motion.section>
+  );
+}
+
+function ProfileScreen({ user, onLogout }: { user: User; onLogout: () => void }) {
+  return (
+    <motion.section
+      initial={{ opacity: 0, x: 18 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -18 }}
+      transition={{ duration: 0.22, ease: "easeOut" }}
+      className="hide-scrollbar overflow-y-auto bg-[var(--rb-bg)]"
+      style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 100px)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 58px)" }}
+    >
+      <div className="px-5 pb-5">
+        <h1 className="text-[24px] font-black text-[var(--rb-text)]">Profile</h1>
+        <p className="mt-1 text-[13px] text-[var(--rb-muted)]">Operator account</p>
+      </div>
+
+      <div className="mx-5 overflow-hidden rounded-[18px] border border-[var(--rb-line)] bg-white shadow-sm">
+        <div className="flex items-center gap-4 border-b border-[var(--rb-line)] px-4 py-4">
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--rb-text)] text-[16px] font-black text-white">
+            {(user.name?.[0] ?? "R").toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-black text-[var(--rb-text)]">{user.name}</p>
+            <p className="text-[12px] text-[var(--rb-muted)]">{displayChannelLabel(user.channelLabel)}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex w-full items-center gap-3 px-4 py-4 text-left transition active:bg-[#FFF1F2]"
+        >
+          <LogOut className="h-5 w-5 text-[#DC2626]" strokeWidth={1.5} />
+          <span className="text-[14px] font-semibold text-[#DC2626]">Sign out</span>
+        </button>
+      </div>
+    </motion.section>
   );
 }
