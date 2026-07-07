@@ -56,7 +56,21 @@ const ADMIN_ASSIGNED_CHANNEL_IDS = [
 const MATT_ASSIGNED_CHANNEL_IDS = [RB_ARENA_CHANNEL_ID]
 const EXTRA_APP_CHANNEL_IDS = new Set([RB_FUTBOL_CHANNEL_ID])
 const MALY_USERNAMES = new Set(['maly', 'malyhernandez'])
-const MATT_USERNAMES = new Set(['matt'])
+
+// Matt — Gaming / Esports operator (@runnitbackgaming). Recognizes both the
+// email login (production) and the bare username alias (local / legacy).
+const MATT_USERNAMES = new Set(['matt', 'matt@runnitbackhq.com'])
+
+// ---------------------------------------------------------------------------
+// Future operators — NOT active. Do not add credentials until each person
+// has been onboarded and their APP_USERS_JSON entry has been created.
+//
+// Manny  — rb_sports / @runnitbacksports   — manny@runnitbackhq.com
+//   channelId: a1000000-0000-0000-0000-000000000001
+//
+// Thomas — rb_cfb   / @runnitbackcfb       — thomas@runnitbackhq.com
+//   channelId: 93484eef-06d8-46fd-bce2-ce252422c58e
+// ---------------------------------------------------------------------------
 
 function normalizeRole(value: string | undefined): Role {
   if (value === 'admin' || value === 'operator' || value === 'user') {
