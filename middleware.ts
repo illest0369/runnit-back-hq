@@ -28,6 +28,14 @@ export async function middleware(req: NextRequest) {
     if (!session) {
       return NextResponse.redirect(new URL('/login', req.url))
     }
+
+    if (pathname === '/dashboard') {
+      return NextResponse.redirect(new URL('/', req.url))
+    }
+
+    if (pathname === '/review') {
+      return NextResponse.redirect(new URL('/queue', req.url))
+    }
   }
 
   // Protect /admin/* - admin role only
