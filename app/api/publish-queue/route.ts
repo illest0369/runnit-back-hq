@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { buildPublishExportPackage } from '@/lib/export/build-export'
 import { getSession } from '@/lib/auth'
 import { getMetricoolWorkflowClips } from '@/lib/moderation-queue'
+import { getStoredTikTokAnalysis, getTikTokVerticalReadiness } from '@/lib/tiktok-analyzer'
 
 // Metricool-only alias kept for older clients. Prefer /api/metricool-export.
 export async function GET() {
@@ -23,6 +24,8 @@ export async function GET() {
 
     return [{
       ...clip,
+      tiktok_analysis: getStoredTikTokAnalysis(clip.moderation_notes),
+      vertical_readiness: getTikTokVerticalReadiness(clip),
       export_package: buildPublishExportPackage(clip),
     }]
   })

@@ -2,6 +2,12 @@ import { hasSupabaseAdminEnv, supabaseAdminClient as supabaseAdmin } from './sup
 import { enqueueClipGenerationJob, enqueueRbhqPostJob } from './queue'
 import { loadSourceSystemConfig } from './source-system'
 import { isDownloadableMp4Url } from './media-url'
+import {
+  analyzeClipForTikTok,
+  getStoredTikTokAnalysis,
+  hasTikTokPostingReadiness,
+  withStoredTikTokAnalysis,
+} from './tiktok-analyzer'
 
 export type ClipModerationStatus = 'pending' | 'approved' | 'rejected' | 'skipped'
 export type ClipPublishStatus =
@@ -434,6 +440,70 @@ function normalizeStringArray(value: unknown): string[] {
   }
 
   return []
+}
+
+function clipPriorityScore(clip: ModerationClip): number {
+  return getStoredTikTokAnalysis(clip.moderation_notes)?.priorityScore ?? clip.ai_score
+}
+
+function clipRankOrder(clip: ModerationClip): number {
+  const label = getStoredTikTokAnalysis(clip.moderation_notes)?.rankLabel
+  if (label === 'Hot') return 0
+  if (label === 'Solid') return 1
+  if (label === 'Hold') return 2
+  if (label === 'Reject') return 3
+  return 4
+}
+
+function sortClipsForOperator(left: ModerationClip, right: ModerationClip): number {
+  const priorityDelta = clipPriorityScore(right) - clipPriorityScore(left)
+  if (priorityDelta !== 0) return priorityDelta
+
+  const rankDelta = clipRankOrder(left) - clipRankOrder(right)
+  if (rankDelta !== 0) return rankDelta
+
+  return new Date(right.created_at).getTime() - new Date(left.created_at).getTime()
+}
+
+function toAnalyzerInput(clip: Pick<
+  ModerationClip,
+  | 'id'
+  | 'channel_id'
+  | 'title'
+  | 'hook'
+  | 'source_name'
+  | 'source_type'
+  | 'sport'
+  | 'league'
+  | 'duration_seconds'
+  | 'aspect_ratio'
+  | 'ai_score'
+  | 'virality_score'
+  | 'hook_strength'
+  | 'emotion'
+  | 'recommended_hook'
+  | 'risk_flags'
+  | 'moderation_notes'
+>) {
+  return {
+    id: clip.id,
+    channel_id: clip.channel_id,
+    title: clip.title,
+    hook: clip.hook,
+    source_name: clip.source_name,
+    source_type: clip.source_type,
+    sport: clip.sport,
+    league: clip.league,
+    duration_seconds: clip.duration_seconds,
+    aspect_ratio: clip.aspect_ratio,
+    ai_score: clip.ai_score,
+    virality_score: clip.virality_score,
+    hook_strength: clip.hook_strength,
+    emotion: clip.emotion,
+    recommended_hook: clip.recommended_hook,
+    risk_flags: clip.risk_flags,
+    moderation_notes: clip.moderation_notes,
+  }
 }
 
 function normalizeDedupeText(value: string | null | undefined): string {
@@ -913,7 +983,7 @@ export async function getClips(input: GetClipsInput = {}): Promise<ModerationCli
     clips.push(clip)
   }
 
-  return clips
+  return clips.sort(sortClipsForOperator)
 }
 
 export async function getSources(input: { channelIds?: string[] } = {}): Promise<ModerationSource[]> {
@@ -1093,7 +1163,13 @@ async function updateClipDecision(
   updated.channel_id = current.channel_id
 
   if (status === 'approved') {
-    if (!shouldQueueRender) {
+    const tiktokAnalysis = getStoredTikTokAnalysis(updated.moderation_notes)
+    if (
+      !shouldQueueRender &&
+      hasTikTokPostingReadiness(updated) &&
+      tiktokAnalysis?.captionDraft &&
+      tiktokAnalysis.hashtagPack.length > 0
+    ) {
       try {
         await enqueueRbhqPostJob({ postId: updated.id })
       } catch (error) {
@@ -1164,6 +1240,61 @@ export async function updateClipEditorial(
   return updated
 }
 
+export async function refreshClipTikTokAnalysis(
+  clipId: string,
+  input: { channelIds?: string[] } = {},
+): Promise<ModerationClip | null> {
+  assertSupabaseQueue()
+  const current = await getClipById(clipId, { channelIds: input.channelIds, includeMetricoolHandoffStatus: false })
+  if (!current) return null
+
+  const analysis = await analyzeClipForTikTok(toAnalyzerInput(current))
+  const moderationNotes = withStoredTikTokAnalysis(current.moderation_notes, analysis)
+  const { data, error } = await supabaseAdmin
+    .from('clips')
+    .update({
+      ai_score: analysis.priorityScore,
+      recommended_hook: analysis.hookLine,
+      moderation_notes: moderationNotes,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', clipId)
+    .select(CLIP_SELECT)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  if (!data) return null
+  const updated = normalizeClip(data as ClipRow)
+  updated.channel_id = current.channel_id
+  return updated
+}
+
+export async function enqueueClipForTikTokPosting(
+  clipId: string,
+  input: { channelIds?: string[] } = {},
+): Promise<ModerationClip | null> {
+  assertSupabaseQueue()
+  const clip = await getClipById(clipId, { channelIds: input.channelIds, includeMetricoolHandoffStatus: false })
+  if (!clip || clip.status !== 'approved' || !isMetricoolExportReadyStatus(clip.publish_status)) {
+    return null
+  }
+
+  const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
+  if (!analysis?.captionDraft || analysis.hashtagPack.length === 0) {
+    const refreshed = await refreshClipTikTokAnalysis(clip.id, input)
+    if (!refreshed || !getStoredTikTokAnalysis(refreshed.moderation_notes)?.captionDraft) {
+      return null
+    }
+  }
+
+  if (!hasTikTokPostingReadiness(clip)) {
+    return null
+  }
+
+  await enqueueRbhqPostJob({ postId: clip.id })
+  return clip
+}
+
 export async function getReadyPublishClips(input: { limit?: number; channelIds?: string[] } = {}): Promise<ModerationClip[]> {
   assertSupabaseQueue()
   const channelIds = normalizeChannelIds(input.channelIds)
@@ -1189,6 +1320,8 @@ export async function getReadyPublishClips(input: { limit?: number; channelIds?:
   return ((data ?? []) as ClipRow[])
     .map(normalizeClip)
     .filter((clip) => isDownloadableMp4Url(clip.video_url))
+    .filter((clip) => hasTikTokPostingReadiness(clip))
+    .sort(sortClipsForOperator)
 }
 
 export async function getMetricoolWorkflowClips(input: { limit?: number; channelIds?: string[] } = {}): Promise<ModerationClip[]> {
@@ -1216,6 +1349,8 @@ export async function getMetricoolWorkflowClips(input: { limit?: number; channel
   const clips = ((data ?? []) as ClipRow[])
     .map(normalizeClip)
     .filter((clip) => isDownloadableMp4Url(clip.video_url))
+    .filter((clip) => hasTikTokPostingReadiness(clip))
+    .sort(sortClipsForOperator)
 
   return hydrateMetricoolHandoffStatuses(clips)
 }
@@ -1577,9 +1712,38 @@ export async function importClips(input: {
       publish_status: 'not_ready' as const,
     }))
 
-  if (rowsToInsert.length > 0) {
+  const analyzedRows = await Promise.all(rowsToInsert.map(async (row) => {
+    const analysis = await analyzeClipForTikTok({
+      id: null,
+      channel_id: row.channel_id,
+      title: row.title,
+      hook: row.hook,
+      source_name: row.source_name,
+      source_type: row.source_type,
+      sport: row.sport,
+      league: row.league,
+      duration_seconds: row.duration_seconds,
+      aspect_ratio: row.aspect_ratio,
+      ai_score: row.ai_score,
+      virality_score: row.virality_score,
+      hook_strength: row.hook_strength,
+      emotion: row.emotion,
+      recommended_hook: row.recommended_hook,
+      risk_flags: row.risk_flags,
+      moderation_notes: row.moderation_notes,
+    })
+
+    return {
+      ...row,
+      ai_score: analysis.priorityScore,
+      recommended_hook: row.recommended_hook || analysis.hookLine,
+      moderation_notes: withStoredTikTokAnalysis(row.moderation_notes, analysis),
+    }
+  }))
+
+  if (analyzedRows.length > 0) {
     const sourceKeys = new Map<string, { channel_id: string | null; source_name: string; source_type: string; source_url: string | null; original_platform: string | null }>()
-    for (const row of rowsToInsert) {
+    for (const row of analyzedRows) {
       const key = `${row.channel_id ?? ''}\u0000${row.source_name}\u0000${row.source_type}`
       sourceKeys.set(key, {
         channel_id: row.channel_id,
@@ -1607,12 +1771,12 @@ export async function importClips(input: {
         ]),
       )
 
-      for (const row of rowsToInsert) {
+      for (const row of analyzedRows) {
         row.source_id = sourceIds.get(`${row.channel_id ?? ''}\u0000${row.source_name}\u0000${row.source_type}`) ?? null
       }
     }
 
-    const insertPayloadWithoutChannel = rowsToInsert.map((row) => {
+    const insertPayloadWithoutChannel = analyzedRows.map((row) => {
       const { channel_id, ...withoutChannel } = row
       void channel_id
       return withoutChannel
@@ -1620,7 +1784,7 @@ export async function importClips(input: {
 
     let { data, error } = await supabaseAdmin
       .from('clips')
-      .insert(rowsToInsert)
+      .insert(analyzedRows)
       .select(CLIP_SELECT)
 
     if (isMissingColumnError(error)) {

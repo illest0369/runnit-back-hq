@@ -2,7 +2,6 @@
 
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import {
-  CalendarClock,
   Check,
   ChevronRight,
   Copy,
@@ -11,6 +10,8 @@ import {
   Hash,
   LogOut,
   Radio,
+  RefreshCw,
+  Send,
   Sparkles,
   Pause,
   X,
@@ -43,6 +44,47 @@ type PublishStatus =
   | "metricool_failed"
   | "manually_published";
 type QueueAction = "approve" | "reject" | "hold";
+
+type RankLabel = "Hot" | "Solid" | "Hold" | "Reject";
+type ReasonTag =
+  | "breaking"
+  | "rivalry"
+  | "star_player"
+  | "controversy"
+  | "fan_reaction"
+  | "highlight"
+  | "debut"
+  | "injury"
+  | "championship"
+  | "viral_audio_fit"
+  | "low_quality"
+  | "wrong_format";
+type VerticalStatus = "vertical_ready" | "needs_resize" | "blocked_wrong_format" | "unknown";
+
+type TikTokAnalysis = {
+  priorityScore: number;
+  rankLabel: RankLabel;
+  reasonTags: ReasonTag[];
+  whyNow: string;
+  operatorSummary: string;
+  confidence: "low" | "medium" | "high";
+  captionDraft: string;
+  hashtagPack: string[];
+  hookLine: string;
+  alternateCaptions?: string[];
+  provider?: string;
+  analyzedAt?: string;
+};
+
+type VerticalReadiness = {
+  requiredWidth: 1080;
+  requiredHeight: 1920;
+  requiredRatio: "9:16";
+  width: number | null;
+  height: number | null;
+  verticalStatus: VerticalStatus;
+  manualException: boolean;
+};
 
 type User = {
   id: string;
@@ -87,6 +129,8 @@ type ReviewClipApi = {
   recommended_hook?: string | null;
   moderation_notes?: string[] | null;
   risk_flags?: string[] | null;
+  tiktok_analysis?: TikTokAnalysis | null;
+  vertical_readiness?: VerticalReadiness | null;
   publish_status?: PublishStatus | null;
   review_status?: "pending" | "approved" | "rejected" | "skipped" | null;
   approved_at?: string | null;
@@ -121,6 +165,8 @@ type Clip = {
   recommendedHook: string | null;
   moderationNotes: string[];
   riskFlags: string[];
+  analysis: TikTokAnalysis | null;
+  verticalReadiness: VerticalReadiness;
   approvedAt: string | null;
 };
 
@@ -132,6 +178,15 @@ type QueueMode = "pending" | "held";
 type DecisionAction = QueueAction;
 
 const READY_PUBLISH_STATUSES = new Set<PublishStatus>(["metricool_ready_manual_export", "ready_for_manual_publish"]);
+const DEFAULT_VERTICAL_READINESS: VerticalReadiness = {
+  requiredWidth: 1080,
+  requiredHeight: 1920,
+  requiredRatio: "9:16",
+  width: null,
+  height: null,
+  verticalStatus: "unknown",
+  manualException: false,
+};
 
 const SOURCE_CODES: Record<string, string> = {
   all: "ALL",
@@ -215,6 +270,17 @@ function readMetricoolStatus(notes: string[] | null | undefined, fallback: Publi
   return fallback ?? "not_ready";
 }
 
+function readTikTokAnalysis(notes: string[] | null | undefined, fallback: TikTokAnalysis | null | undefined): TikTokAnalysis | null {
+  if (fallback) return fallback;
+  const marker = notes?.find((note) => note.startsWith("tiktok_analyzer_v1:"))?.slice("tiktok_analyzer_v1:".length);
+  if (!marker) return null;
+  try {
+    return JSON.parse(marker) as TikTokAnalysis;
+  } catch {
+    return null;
+  }
+}
+
 async function readApiJson(response: Response, fallbackMessage: string) {
   try {
     return await response.json();
@@ -231,6 +297,7 @@ function mapApiClip(item: ReviewClipApi): Clip | null {
   const thumbnailUrl = item.thumbnail_url ?? null;
   const moderationNotes = Array.isArray(item.moderation_notes) ? item.moderation_notes : [];
   const publishStatus = readMetricoolStatus(moderationNotes, item.publish_status);
+  const analysis = readTikTokAnalysis(moderationNotes, item.tiktok_analysis);
 
   if (!id || !videoUrl) return null;
 
@@ -238,7 +305,7 @@ function mapApiClip(item: ReviewClipApi): Clip | null {
     id,
     title: shortText(hook || title || "Untitled clip"),
     hook: hook || title || "Untitled clip",
-    score: parseNumber(item.performance_score ?? item.score) ?? 0,
+    score: analysis?.priorityScore ?? parseNumber(item.performance_score ?? item.score) ?? 0,
     performanceLabel: item.performance_label ?? "decent",
     status: item.review_status === "skipped" ? "held" : READY_PUBLISH_STATUSES.has(publishStatus) ? "approved" : "pending",
     publishStatus,
@@ -253,6 +320,8 @@ function mapApiClip(item: ReviewClipApi): Clip | null {
     recommendedHook: item.recommended_hook ?? null,
     moderationNotes,
     riskFlags: Array.isArray(item.risk_flags) ? item.risk_flags : [],
+    analysis,
+    verticalReadiness: item.vertical_readiness ?? DEFAULT_VERTICAL_READINESS,
     approvedAt: item.approved_at ?? null,
   };
 }
@@ -280,6 +349,8 @@ function mapPublishItem(item: ReviewClipApi & { export_package: PublishExportPac
       recommendedHook: item.recommended_hook ?? null,
       moderationNotes: Array.isArray(item.moderation_notes) ? item.moderation_notes : [],
       riskFlags: Array.isArray(item.risk_flags) ? item.risk_flags : [],
+      analysis: readTikTokAnalysis(item.moderation_notes, item.tiktok_analysis),
+      verticalReadiness: item.vertical_readiness ?? DEFAULT_VERTICAL_READINESS,
       approvedAt: item.approved_at ?? null,
     }),
     status: "approved",
@@ -554,34 +625,34 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
     }
   }
 
-  async function publishNow(id: string) {
+  async function refreshClipAnalysis(id: string) {
     try {
       const csrfHeaders = await getCsrfHeaders();
-      const response = await fetch(`/api/metricool-export/${id}/publish-now`, {
+      const response = await fetch(`/api/clips/${id}/analysis`, {
         method: "POST",
         headers: csrfHeaders,
       });
-      if (!response.ok) throw new Error("publish failed");
+      if (!response.ok) throw new Error("refresh failed");
+      if (selectedChannelId) await fetchQueue(selectedChannelId, source, queueMode);
       await fetchPublishQueue();
-      setToast(user?.metricoolTestMode ? "test handoff sent" : "sent to metricool");
+      setToast("ranking refreshed");
     } catch {
-      setToast("publish failed");
+      setToast("refresh failed");
     }
   }
 
-  async function schedulePost(id: string, scheduledAt: string) {
+  async function sendToTikTokPosting(id: string) {
     try {
       const csrfHeaders = await getCsrfHeaders();
-      const response = await fetch(`/api/metricool-export/${id}/schedule`, {
+      const response = await fetch(`/api/tiktok-post-jobs/${id}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...csrfHeaders },
-        body: JSON.stringify({ scheduledAt }),
+        headers: csrfHeaders,
       });
-      if (!response.ok) throw new Error("schedule failed");
+      if (!response.ok) throw new Error("handoff failed");
       await fetchPublishQueue();
-      setToast(user?.metricoolTestMode ? "test schedule saved" : "scheduled");
+      setToast("sent to TikTok queue");
     } catch {
-      setToast("schedule failed");
+      setToast("TikTok queue failed");
     }
   }
 
@@ -637,6 +708,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
               onQueueMode={setQueueMode}
               onActive={setActiveId}
               onModerate={moderateClip}
+              onRefreshAnalysis={refreshClipAnalysis}
               exitDirections={exitDirections}
             />
           )}
@@ -644,10 +716,8 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
             <PublishScreen
               key="publish"
               items={publishItems}
-              metricoolTestMode={Boolean(user.metricoolTestMode)}
               onCopy={(message) => setToast(message)}
-              onPublishNow={publishNow}
-              onSchedule={schedulePost}
+              onSendToTikTok={sendToTikTokPosting}
             />
           )}
           {tab === "sources" && (
@@ -720,6 +790,7 @@ function QueueScreen({
   onQueueMode,
   onActive,
   onModerate,
+  onRefreshAnalysis,
   exitDirections,
 }: {
   clips: Clip[];
@@ -731,6 +802,7 @@ function QueueScreen({
   onQueueMode: (value: QueueMode) => void;
   onActive: (id: string) => void;
   onModerate: (id: string, action: DecisionAction) => void;
+  onRefreshAnalysis: (id: string) => void;
   exitDirections: Record<string, DecisionAction>;
 }) {
   const [reviewId, setReviewId] = useState<string | null>(null);
@@ -798,6 +870,7 @@ function QueueScreen({
               remainingCount={clips.length}
               onActive={onActive}
               onModerate={handleModerate}
+              onRefreshAnalysis={onRefreshAnalysis}
             />
           </AnimatePresence>
         </div>
@@ -896,6 +969,7 @@ function QueueClipCard({
   active,
   onActive,
   onModerate,
+  onRefreshAnalysis,
   exitDirection,
   nextVideoUrl,
   remainingCount,
@@ -904,6 +978,7 @@ function QueueClipCard({
   active: boolean;
   onActive: (id: string) => void;
   onModerate: (id: string, action: DecisionAction) => void;
+  onRefreshAnalysis: (id: string) => void;
   exitDirection?: DecisionAction;
   nextVideoUrl: string | null;
   remainingCount: number;
@@ -1059,58 +1134,126 @@ function QueueClipCard({
       {canModerate && (
         <p className="mt-3 text-center text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--rb-faint)]">swipe or tap to decide</p>
       )}
+      <ClipIntelligencePanel clip={clip} onRefreshAnalysis={onRefreshAnalysis} />
     </div>
+  );
+}
+
+function rankTone(label: RankLabel | undefined) {
+  if (label === "Hot") return "bg-[#FFF1EC] text-[#E2162B] border-[#E2162B]/20";
+  if (label === "Solid") return "bg-[#ECFDF5] text-[#128A49] border-[#128A49]/20";
+  if (label === "Hold") return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
+  return "bg-[#FFF1F2] text-[#DC2626] border-[#DC2626]/20";
+}
+
+function formatReasonTag(tag: ReasonTag) {
+  return tag.replace(/_/g, " ");
+}
+
+function verticalStatusLabel(readiness: VerticalReadiness) {
+  if (readiness.verticalStatus === "vertical_ready") return "vertical ready";
+  if (readiness.verticalStatus === "needs_resize") return "needs resize";
+  if (readiness.verticalStatus === "blocked_wrong_format") return "wrong format";
+  return "unknown format";
+}
+
+function verticalStatusTone(status: VerticalStatus) {
+  if (status === "vertical_ready") return "bg-[#ECFDF5] text-[#128A49] border-[#128A49]/20";
+  if (status === "needs_resize") return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
+  if (status === "blocked_wrong_format") return "bg-[#FFF1F2] text-[#DC2626] border-[#DC2626]/20";
+  return "bg-[#F5F5F5] text-[#6F6A60] border-[var(--rb-line)]";
+}
+
+function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefreshAnalysis: (id: string) => void }) {
+  const analysis = clip.analysis;
+  const tags = analysis?.reasonTags ?? [];
+  const score = analysis?.priorityScore ?? clip.score;
+  const vertical = clip.verticalReadiness;
+
+  return (
+    <section className="mt-4 rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-[var(--rb-text)] px-2.5 py-1 text-[11px] font-black text-white">
+              {Math.round(score)}
+            </span>
+            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${rankTone(analysis?.rankLabel)}`}>
+              {analysis?.rankLabel ?? "Hold"}
+            </span>
+            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${verticalStatusTone(vertical.verticalStatus)}`}>
+              {verticalStatusLabel(vertical)}
+            </span>
+          </div>
+          <p className="mt-2 text-[10.5px] font-medium text-[var(--rb-faint)]">
+            Required 1080x1920 · 9:16{vertical.width && vertical.height ? ` · found ${vertical.width}x${vertical.height}` : ""}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => onRefreshAnalysis(clip.id)}
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-[var(--rb-muted)] active:scale-95"
+          aria-label="Refresh ranking and caption"
+          title="Refresh ranking and caption"
+        >
+          <RefreshCw className="h-4 w-4" strokeWidth={1.8} />
+        </button>
+      </div>
+
+      {tags.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {tags.map((tag) => (
+            <span key={tag} className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[10px] font-bold text-[var(--rb-muted)]">
+              {formatReasonTag(tag)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 space-y-2">
+        <p className="text-[12px] font-semibold leading-5 text-[var(--rb-text)]">{analysis?.whyNow ?? "Review timing is based on local scoring signals."}</p>
+        <p className="text-[12px] leading-5 text-[var(--rb-muted)]">{analysis?.operatorSummary ?? "No analyzer summary stored yet."}</p>
+        <p className="rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] p-3 text-[12px] font-semibold leading-5 text-[var(--rb-text)]">
+          {analysis?.hookLine ?? clip.recommendedHook ?? clip.hook}
+        </p>
+        <p className="text-[12px] leading-5 text-[var(--rb-muted)]">{analysis?.captionDraft ?? "Caption draft will generate on refresh."}</p>
+        {analysis?.hashtagPack?.length ? (
+          <p className="text-[11px] font-bold leading-5 text-[var(--rb-muted)]">{analysis.hashtagPack.join(" ")}</p>
+        ) : null}
+      </div>
+    </section>
   );
 }
 
 function PublishScreen({
   items,
-  metricoolTestMode,
   onCopy,
-  onPublishNow,
-  onSchedule,
+  onSendToTikTok,
 }: {
   items: PublishQueueItem[];
-  metricoolTestMode: boolean;
   onCopy: (message: string) => void;
-  onPublishNow: (id: string) => void;
-  onSchedule: (id: string, scheduledAt: string) => void;
+  onSendToTikTok: (id: string) => void;
 }) {
   return (
-    <PageShell eyebrow="Handoff" title="Publish" trailing={<Sparkles className="h-5 w-5 text-[#ff4d00]" />}>
+    <PageShell eyebrow="TikTok" title="Publish" trailing={<Sparkles className="h-5 w-5 text-[#ff4d00]" />}>
       <div className="grid grid-cols-2 gap-3">
         <MetricCard value={String(items.length)} label="Ready clips" />
-        <MetricCard value={metricoolTestMode ? "Test" : "Live"} label="Metricool mode" />
+        <MetricCard value="Local" label="Mac mini route" />
       </div>
 
-      <div className={`mt-3 rounded-[18px] border px-4 py-3 text-sm font-semibold leading-5 ${
-        metricoolTestMode
-          ? "border-[var(--rb-accent)]/20 bg-[var(--rb-accent)]/8 text-[var(--rb-text)]"
-          : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
-      }`}>
-        {metricoolTestMode
-          ? "Metricool test mode is on. Now and Schedule create smoke-test handoffs only."
-          : "Metricool live mode is on. Now and Schedule can create live Metricool handoffs."}
+      <div className="mt-3 rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-4 py-3 text-sm font-semibold leading-5 text-[var(--rb-muted)]">
+        Approved, captioned, vertical-ready clips can be queued for the Mac mini TikTok posting worker.
       </div>
-
-      <a
-        href="/metricool"
-        className="mt-3 flex h-12 items-center justify-between rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-4 text-sm font-bold text-[var(--rb-text)] active:scale-[0.99]"
-      >
-        Metricool export
-        <ChevronRight className="h-5 w-5 text-[var(--rb-accent)]" />
-      </a>
 
       <div className="mt-5 flex flex-col gap-4">
         {items.length === 0 ? (
-          <EmptyState title="No ready clips" body="Approved clips with export-ready video will appear here." />
+          <EmptyState title="No ready clips" body="Approved clips with captions and vertical-ready video will appear here." />
         ) : items.map((item) => (
           <PublishCard
             key={item.id}
             item={item}
             onCopy={onCopy}
-            onPublishNow={onPublishNow}
-            onSchedule={onSchedule}
+            onSendToTikTok={onSendToTikTok}
           />
         ))}
       </div>
@@ -1121,21 +1264,19 @@ function PublishScreen({
 function PublishCard({
   item,
   onCopy,
-  onPublishNow,
-  onSchedule,
+  onSendToTikTok,
 }: {
   item: PublishQueueItem;
   onCopy: (message: string) => void;
-  onPublishNow: (id: string) => void;
-  onSchedule: (id: string, scheduledAt: string) => void;
+  onSendToTikTok: (id: string) => void;
 }) {
   const [hook, setHook] = useState(item.exportPackage.recommended_hook || item.exportPackage.hook);
   const [caption, setCaption] = useState(item.exportPackage.caption);
   const [hashtags, setHashtags] = useState(item.exportPackage.hashtags.join(" "));
-  const [scheduledAt, setScheduledAt] = useState("");
   const [saving, setSaving] = useState(false);
   const [savedLabel, setSavedLabel] = useState("");
-  const canSendToMetricool = READY_PUBLISH_STATUSES.has(item.publishStatus);
+  const canSendToTikTok = READY_PUBLISH_STATUSES.has(item.publishStatus);
+  const vertical = item.verticalReadiness;
 
   async function saveEditorial() {
     setSaving(true);
@@ -1188,7 +1329,10 @@ function PublishCard({
           <h2 className="mt-1 line-clamp-3 text-lg font-black leading-[1.08] tracking-tight text-[var(--rb-text)]">{item.title}</h2>
           <p className="mt-2 truncate text-xs font-semibold text-[var(--rb-muted)]">{formatApprovedAt(item.approvedAt)}</p>
           <p className="mt-2 w-fit rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] text-[var(--rb-muted)]">
-            {metricoolStatusLabel(item.publishStatus)}
+            {publishStatusLabel(item.publishStatus)}
+          </p>
+          <p className={`mt-2 w-fit rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-[0.08em] ${verticalStatusTone(vertical.verticalStatus)}`}>
+            {verticalStatusLabel(vertical)}
           </p>
         </div>
       </div>
@@ -1213,15 +1357,7 @@ function PublishCard({
           onChange={(event) => setHashtags(event.target.value)}
           className="mt-2 h-11 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 text-sm font-semibold text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)]"
         />
-        <label className="mt-3 block text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Schedule time</label>
-        <input
-          type="datetime-local"
-          value={scheduledAt}
-          onChange={(event) => setScheduledAt(event.target.value)}
-          disabled={!canSendToMetricool}
-          className="mt-2 h-11 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 text-sm font-semibold text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)] disabled:opacity-45"
-        />
-        <div className="mt-3 grid grid-cols-[1fr_1fr_1fr_1.2fr_1.2fr] gap-2">
+        <div className="mt-3 grid grid-cols-[1fr_1fr_1fr_1.4fr] gap-2">
           <SmallButton label="Copy caption" onClick={() => void copyText(caption).then(() => onCopy("Caption copied"))}>
             <Copy className="h-4 w-4" />
           </SmallButton>
@@ -1233,21 +1369,14 @@ function PublishCard({
           </SmallButton>
           <button
             type="button"
-            onClick={() => onPublishNow(item.id)}
-            disabled={!canSendToMetricool}
-            className="h-12 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-xs font-black text-[var(--rb-text)] active:scale-[0.98] disabled:opacity-45"
+            onClick={() => onSendToTikTok(item.id)}
+            disabled={!canSendToTikTok}
+            className="flex h-12 items-center justify-center gap-2 rounded-[14px] bg-[var(--rb-accent)] px-3 text-xs font-black text-white active:scale-[0.98] disabled:opacity-45"
+            aria-label="Send to TikTok posting queue"
+            title="Send to TikTok posting queue"
           >
-            Now
-          </button>
-          <button
-            type="button"
-            onClick={() => scheduledAt ? onSchedule(item.id, scheduledAt) : onCopy("Schedule time required")}
-            disabled={!canSendToMetricool}
-            className="grid h-12 place-items-center rounded-[14px] bg-[var(--rb-accent)] text-white active:scale-[0.98] disabled:opacity-45"
-            aria-label="Schedule in Metricool"
-            title="Schedule in Metricool"
-          >
-            <CalendarClock className="h-4 w-4" />
+            <Send className="h-4 w-4" />
+            Send
           </button>
         </div>
         <button
@@ -1263,11 +1392,11 @@ function PublishCard({
   );
 }
 
-function metricoolStatusLabel(status: PublishStatus) {
-  if (status === "metricool_published" || status === "manually_published") return "Metricool publish sent";
-  if (status === "metricool_scheduled") return "Metricool scheduled";
-  if (status === "metricool_failed") return "Metricool failed";
-  if (READY_PUBLISH_STATUSES.has(status)) return "Approved";
+function publishStatusLabel(status: PublishStatus) {
+  if (status === "metricool_published" || status === "manually_published") return "Posted";
+  if (status === "metricool_scheduled") return "Queued";
+  if (status === "metricool_failed") return "Failed";
+  if (READY_PUBLISH_STATUSES.has(status)) return "Ready";
   return "Not ready";
 }
 
@@ -1714,12 +1843,19 @@ function QueueListCard({ clip, onReview }: { clip: Clip; onReview: (id: string) 
       <div className="min-w-0 flex-1">
         <p className="truncate text-[11.5px] text-[var(--rb-muted)]">{clip.sourceName}</p>
         <h3 className="mt-0.5 line-clamp-2 text-[14px] font-black leading-snug text-[var(--rb-text)]">{clip.title}</h3>
-        <div className="mt-1.5 flex items-center gap-2">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+          <span className="rounded-full bg-[var(--rb-text)] px-2 py-0.5 text-[10.5px] font-black text-white">{Math.round(clip.analysis?.priorityScore ?? clip.score)}</span>
+          <span className={`rounded-full border px-2 py-0.5 text-[10.5px] font-bold ${rankTone(clip.analysis?.rankLabel)}`}>
+            {clip.analysis?.rankLabel ?? "Hold"}
+          </span>
           <ClipStatusBadge status={clip.status} />
           {clip.durationSeconds ? (
             <span className="text-[11px] text-[var(--rb-faint)]">{formatDuration(clip.durationSeconds)}</span>
           ) : null}
         </div>
+        {clip.analysis?.whyNow ? (
+          <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-4 text-[var(--rb-muted)]">{clip.analysis.whyNow}</p>
+        ) : null}
         <button
           type="button"
           onClick={() => onReview(clip.id)}

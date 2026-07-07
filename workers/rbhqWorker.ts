@@ -23,6 +23,7 @@ import {
 import { recordTikTokAnalyticsSnapshot } from '../lib/analytics/tiktok'
 import { scoreClipsWithGemini, scoreClipWithGemini } from '../lib/gemini/scoring'
 import { getClipById, importClips } from '../lib/moderation-queue'
+import { getStoredTikTokAnalysis, hasTikTokPostingReadiness } from '../lib/tiktok-analyzer'
 import { markSourcesIngestStarted, updateSourcesIngestHealth } from '../lib/rbhq-source-ingest'
 import { runNativeRbhqIngest } from '../lib/rbhq-native-ingest'
 import { supabaseAdminClient } from '../lib/supabase-admin'
@@ -241,6 +242,15 @@ export function createRbhqWorkers() {
 
       if (!MAC_MINI_READY_PUBLISH_STATUSES.has(clip.publish_status)) {
         throw new Error(`CLIP_NOT_READY_FOR_MAC_MINI_POST:${clip.publish_status}`)
+      }
+
+      const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
+      if (!analysis?.captionDraft || analysis.hashtagPack.length === 0) {
+        throw new Error('CLIP_MISSING_TIKTOK_CAPTION_DRAFT')
+      }
+
+      if (!hasTikTokPostingReadiness(clip)) {
+        throw new Error('CLIP_NOT_VERTICAL_READY_FOR_TIKTOK')
       }
 
       console.log('[rbhq-post] dry-run received approved clip', {

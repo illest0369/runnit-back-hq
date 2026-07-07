@@ -6,6 +6,7 @@ import {
   type RbhqPostJobData,
 } from '../lib/queue'
 import { getClipById } from '../lib/moderation-queue'
+import { getStoredTikTokAnalysis, hasTikTokPostingReadiness } from '../lib/tiktok-analyzer'
 
 const READY_STATUSES = new Set([
   'metricool_ready_manual_export',
@@ -47,6 +48,15 @@ async function startPostDryRunWorker() {
 
       if (!READY_STATUSES.has(clip.publish_status)) {
         throw new Error(`CLIP_NOT_READY_FOR_MAC_MINI_POST:${clip.publish_status}`)
+      }
+
+      const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
+      if (!analysis?.captionDraft || analysis.hashtagPack.length === 0) {
+        throw new Error('CLIP_MISSING_TIKTOK_CAPTION_DRAFT')
+      }
+
+      if (!hasTikTokPostingReadiness(clip)) {
+        throw new Error('CLIP_NOT_VERTICAL_READY_FOR_TIKTOK')
       }
 
       console.log('[rbhq-post] dry-run received approved clip', {

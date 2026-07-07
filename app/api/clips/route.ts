@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 
 import { getSession } from '@/lib/auth'
 import { getClips, getNextPendingClip } from '@/lib/moderation-queue'
+import { getStoredTikTokAnalysis, getTikTokVerticalReadiness } from '@/lib/tiktok-analyzer'
 
 export async function GET(request: Request) {
   const session = await getSession()
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ ok: false, error: 'channel_id required' }, { status: 400 })
   }
 
-  if (!session.channelIds.includes(channelId) && session.role !== 'admin') {
+  if (!session.channelIds.includes(channelId)) {
     return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 })
   }
 
@@ -49,6 +50,9 @@ export async function GET(request: Request) {
 }
 
 function toReviewClip(clip: Awaited<ReturnType<typeof getClips>>[number]) {
+  const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
+  const vertical = getTikTokVerticalReadiness(clip)
+
   return {
     id: clip.id,
     hook: clip.hook || clip.title,
@@ -76,6 +80,8 @@ function toReviewClip(clip: Awaited<ReturnType<typeof getClips>>[number]) {
     recommended_hook: clip.recommended_hook,
     risk_flags: clip.risk_flags,
     moderation_notes: clip.moderation_notes,
+    tiktok_analysis: analysis,
+    vertical_readiness: vertical,
     gemini_processed_at: clip.gemini_processed_at,
     duration_seconds: clip.duration_seconds,
     aspect_ratio: clip.aspect_ratio,

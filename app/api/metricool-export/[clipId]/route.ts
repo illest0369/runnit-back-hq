@@ -41,11 +41,10 @@ export async function PATCH(request: Request, context: RouteContext) {
   }
 
   try {
-    const channelIds = session.role === 'admin' ? undefined : session.channelIds
     const updated = await updateClipEditorial(clipId, {
       caption: body.caption,
       hashtags: body.hashtags,
-      channelIds,
+      channelIds: session.channelIds,
     })
 
     if (!updated) {

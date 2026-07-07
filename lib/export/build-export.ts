@@ -1,5 +1,6 @@
 import type { ExportableClip, PublishExportPackage } from './types'
 import { isDownloadableMp4Url } from '../media-url'
+import { getStoredTikTokAnalysis } from '../tiktok-analyzer'
 
 export const PUBLISH_EXPORT_VERSION = 'rbhq-publish-export-v1'
 
@@ -91,19 +92,20 @@ export function buildPublishExportPackage(clip: ExportableClip): PublishExportPa
 
   const captionNote = clip.moderation_notes.find((n) => n.startsWith(EDITORIAL_CAPTION_PREFIX))
   const hashtagsNote = clip.moderation_notes.find((n) => n.startsWith(EDITORIAL_HASHTAGS_PREFIX))
+  const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
 
   const hashtags = hashtagsNote
     ? (JSON.parse(hashtagsNote.slice(EDITORIAL_HASHTAGS_PREFIX.length)) as string[])
-    : buildHashtags(clip)
+    : analysis?.hashtagPack ?? buildHashtags(clip)
   const caption = captionNote
     ? (JSON.parse(captionNote.slice(EDITORIAL_CAPTION_PREFIX.length)) as string)
-    : buildCaption(clip, hashtags)
+    : analysis?.captionDraft ?? buildCaption(clip, hashtags)
 
   return {
     clip_id: clip.id,
     title: clip.title,
     hook: clip.hook,
-    recommended_hook: clip.recommended_hook,
+    recommended_hook: analysis?.hookLine ?? clip.recommended_hook,
     caption,
     hashtags,
     source_name: clip.source_name,
