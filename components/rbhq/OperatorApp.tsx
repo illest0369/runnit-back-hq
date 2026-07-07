@@ -19,6 +19,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { getCsrfHeaders } from "@/lib/client-csrf";
 import type { PublishExportPackage } from "@/lib/export/types";
+import { RBHQ_SOURCES, type RbhqSource, type RbhqSourceType } from "@/lib/rbhq-sources";
 
 type AppTab = "dashboard" | "queue" | "publish" | "sources" | "profile";
 type ClipStatus = "pending" | "held" | "approving" | "approved" | "rejecting" | "rejected";
@@ -1336,6 +1337,27 @@ function SourcesScreen({
         <MetricCard value={String(total)} label="Pending clips" />
       </div>
 
+      <div className="mt-5 flex items-center gap-2 rounded-[16px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3.5 py-3">
+        <span className="rounded-md bg-[#0A0A0A] px-2 py-1 text-[10px] font-black text-white">1080×1920</span>
+        <span className="mx-1 h-3 w-px bg-[var(--rb-line)]" />
+        <span className="rounded-md border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-1 text-[10px] font-bold text-[var(--rb-muted)]">9:16</span>
+        <p className="ml-1 text-[11.5px] font-medium text-[var(--rb-muted)]">vertical required · TikTok only</p>
+      </div>
+
+      <div className="mt-5">
+        <div className="mb-3 flex items-center justify-between">
+          <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Source Buckets</p>
+          <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2.5 py-0.5 text-[10px] font-black text-[var(--rb-muted)]">
+            {RBHQ_SOURCES.length}
+          </span>
+        </div>
+        <div className="flex flex-col gap-2.5">
+          {RBHQ_SOURCES.map((src) => (
+            <OperatorSourceCard key={src.id} source={src} />
+          ))}
+        </div>
+      </div>
+
       <form onSubmit={(e) => void handleAddSource(e)} className="mt-5 flex flex-col gap-2">
         <label className="text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Add source</label>
         <input
@@ -1368,43 +1390,141 @@ function SourcesScreen({
         </div>
       )}
 
-      <div className="mt-5 flex flex-col gap-3">
-        <button
-          type="button"
-          onClick={() => onSelectSource("")}
-          className={`flex min-h-16 items-center justify-between rounded-[24px] border px-4 text-left shadow-sm active:scale-[0.99] ${
-            selectedSource === "" ? "border-[var(--rb-accent)]/40 bg-[var(--rb-accent)]/8" : "border-[var(--rb-line)] bg-[var(--rb-surface)]"
-          }`}
-        >
-          <div>
-            <p className="text-base font-black text-[var(--rb-text)]">All sources</p>
-            <p className="mt-1 text-sm font-medium text-[var(--rb-muted)]">Unified operator queue</p>
-          </div>
-          <ChevronRight className="h-5 w-5 text-[var(--rb-muted)]" />
-        </button>
-        {sources.map((item) => (
+      <div className="mt-6">
+        <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--rb-muted)]">Filter Queue</p>
+        <div className="flex flex-col gap-3">
           <button
-            key={`${item.source_name}-${item.source_type}`}
             type="button"
-            onClick={() => onSelectSource(item.source_name)}
-            className={`flex min-h-[4.5rem] items-center gap-4 rounded-[24px] border p-4 text-left shadow-sm active:scale-[0.99] ${
-              selectedSource === item.source_name ? "border-[var(--rb-accent)]/40 bg-[var(--rb-accent)]/8" : "border-[var(--rb-line)] bg-[var(--rb-surface)]"
+            onClick={() => onSelectSource("")}
+            className={`flex min-h-16 items-center justify-between rounded-[24px] border px-4 text-left shadow-sm active:scale-[0.99] ${
+              selectedSource === "" ? "border-[var(--rb-accent)]/40 bg-[var(--rb-accent)]/8" : "border-[var(--rb-line)] bg-[var(--rb-surface)]"
             }`}
           >
-            <span className="grid h-12 w-12 place-items-center rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-xs font-black text-[var(--rb-muted)]">
-              {SOURCE_CODES[item.source_type?.toLowerCase()] ?? "RB"}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-base font-black text-[var(--rb-text)]">{item.source_name}</p>
-              <p className="mt-1 text-sm font-medium text-[var(--rb-muted)]">
-                {item.source_type} · {item.status} · {item.last_ingested_at ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(item.last_ingested_at)) : "never ingested"}
-              </p>
+            <div>
+              <p className="text-base font-black text-[var(--rb-text)]">All sources</p>
+              <p className="mt-1 text-sm font-medium text-[var(--rb-muted)]">Unified operator queue</p>
             </div>
-            <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 py-1 text-sm font-black text-[var(--rb-text)]">{item.pending_count}</span>
+            <ChevronRight className="h-5 w-5 text-[var(--rb-muted)]" />
           </button>
-        ))}
+          {sources.map((item) => (
+            <button
+              key={`${item.source_name}-${item.source_type}`}
+              type="button"
+              onClick={() => onSelectSource(item.source_name)}
+              className={`flex min-h-[4.5rem] items-center gap-4 rounded-[24px] border p-4 text-left shadow-sm active:scale-[0.99] ${
+                selectedSource === item.source_name ? "border-[var(--rb-accent)]/40 bg-[var(--rb-accent)]/8" : "border-[var(--rb-line)] bg-[var(--rb-surface)]"
+              }`}
+            >
+              <span className="grid h-12 w-12 place-items-center rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-xs font-black text-[var(--rb-muted)]">
+                {SOURCE_CODES[item.source_type?.toLowerCase()] ?? "RB"}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-base font-black text-[var(--rb-text)]">{item.source_name}</p>
+                <p className="mt-1 text-sm font-medium text-[var(--rb-muted)]">
+                  {item.source_type} · {item.status} · {item.last_ingested_at ? new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }).format(new Date(item.last_ingested_at)) : "never ingested"}
+                </p>
+              </div>
+              <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 py-1 text-sm font-black text-[var(--rb-text)]">{item.pending_count}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </PageShell>
+  );
+}
+
+function sourceTypeLabel(type: RbhqSourceType): string {
+  switch (type) {
+    case "watchlist": return "Watchlist";
+    case "upload_folder": return "Upload Folder";
+    case "manual_upload": return "Manual Upload";
+    case "trend_research": return "Trend Research";
+    case "topic_monitor": return "Topic Monitor";
+    case "clip_bucket": return "Clip Bucket";
+  }
+}
+
+function channelColorForId(channelId: string): { bg: string; text: string } {
+  if (channelId === "rb_sports") return { bg: "#E8EEFA", text: "#003087" };
+  if (channelId === "rb_arena") return { bg: "#FFF1EC", text: "#CC3A00" };
+  if (channelId === "rb_women") return { bg: "#F0F0F0", text: "#0A0A0A" };
+  if (channelId === "rb_combat") return { bg: "#F5EAFF", text: "#6D28D9" };
+  if (channelId === "rb_futbol") return { bg: "#FFF1EC", text: "#C0392B" };
+  if (channelId === "rb_cfb") return { bg: "#FFF8E0", text: "#7B0000" };
+  return { bg: "#F5F5F5", text: "#0A0A0A" };
+}
+
+function OperatorSourceCard({ source }: { source: RbhqSource }) {
+  const statusColor = source.status === "ready"
+    ? { label: "TikTok Ready", color: "#16A34A", bg: "#ECFDF5" }
+    : source.status === "needs_review"
+    ? { label: "Needs Review", color: "#D97706", bg: "#FFFBEB" }
+    : { label: "Blocked", color: "#DC2626", bg: "#FFF1F2" };
+
+  const channelColor = channelColorForId(source.channelId);
+  const notesLc = source.notes?.toLowerCase() ?? "";
+
+  const showWrongAspect =
+    source.status === "blocked" &&
+    (notesLc.includes("aspect") || notesLc.includes("16:9"));
+
+  const showNeedsResize =
+    notesLc.includes("resize") &&
+    (source.status === "blocked" || source.status === "needs_review");
+
+  return (
+    <article className="overflow-hidden rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] shadow-sm">
+      <div className="px-4 pb-3 pt-3.5">
+        <div className="mb-2 flex flex-wrap items-center gap-1.5">
+          <span
+            className="rounded-full px-2 py-0.5 text-[10px] font-black"
+            style={{ background: channelColor.bg, color: channelColor.text }}
+          >
+            {source.channelLabel}
+          </span>
+          {source.handle && (
+            <span className="text-[10px] font-medium text-[var(--rb-faint)]">{source.handle}</span>
+          )}
+          <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[10px] font-bold text-[var(--rb-muted)]">
+            {source.platform}
+          </span>
+          <span
+            className="ml-auto rounded-full px-2 py-0.5 text-[10px] font-black"
+            style={{ background: statusColor.bg, color: statusColor.color }}
+          >
+            {statusColor.label}
+          </span>
+        </div>
+
+        <p className="text-[14px] font-black leading-snug text-[var(--rb-text)]">{source.name}</p>
+        <p className="mt-0.5 text-[11px] font-medium text-[var(--rb-muted)]">
+          {sourceTypeLabel(source.sourceType)} · checked {source.lastCheckedLabel}
+        </p>
+
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <span className="rounded-md bg-[#0A0A0A] px-2 py-0.5 text-[9.5px] font-black text-white">
+            1080×1920
+          </span>
+          <span className="rounded-md border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[9.5px] font-bold text-[var(--rb-muted)]">
+            9:16 ↕
+          </span>
+          {showWrongAspect && (
+            <span className="rounded-md border border-[#DC2626]/30 bg-[#FFF1F2] px-2 py-0.5 text-[9.5px] font-bold text-[#DC2626]">
+              wrong aspect ratio
+            </span>
+          )}
+          {showNeedsResize && !showWrongAspect && (
+            <span className="rounded-md border border-[#D97706]/30 bg-[#FFFBEB] px-2 py-0.5 text-[9.5px] font-bold text-[#D97706]">
+              needs resize
+            </span>
+          )}
+        </div>
+
+        {source.notes && (
+          <p className="mt-2 text-[11px] font-medium leading-relaxed text-[var(--rb-muted)]">{source.notes}</p>
+        )}
+      </div>
+    </article>
   );
 }
 
