@@ -153,6 +153,7 @@ button {
 .operator-phone-shell {
   isolation: isolate;
   min-width: 320px;
+  overflow-x: hidden;
   font-family: var(--font-display);
   letter-spacing: 0;
 }

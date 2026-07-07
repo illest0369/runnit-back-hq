@@ -585,7 +585,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
 
   if (loading || !user) {
     return (
-      <main className="rbhq-system min-h-dvh bg-[var(--rb-bg)] text-[var(--rb-text)]">
+      <main className="rbhq-system min-h-dvh w-full overflow-x-hidden bg-[var(--rb-bg)] text-[var(--rb-text)]">
         <div className="mx-auto flex min-h-dvh w-full max-w-[520px] flex-col items-center justify-center px-8 text-center">
           {authRequired ? (
             <>
@@ -607,8 +607,8 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
   }
 
   return (
-    <main className={`rbhq-system rbhq-theme-${channelTheme} min-h-dvh bg-[var(--rb-bg)] text-[var(--rb-text)]`}>
-      <div className="operator-phone-shell relative mx-auto min-h-dvh w-full max-w-[520px]">
+    <main className={`rbhq-system rbhq-theme-${channelTheme} min-h-dvh w-full overflow-x-hidden bg-[var(--rb-bg)] text-[var(--rb-text)]`}>
+      <div className="operator-phone-shell relative mx-auto min-h-dvh w-full max-w-[520px] overflow-x-hidden">
         <AnimatePresence mode="wait">
           {tab === "dashboard" && (
             <DashboardScreen
@@ -769,7 +769,7 @@ function QueueScreen({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
-        className="flex bg-[var(--rb-bg)]"
+        className="flex w-full bg-[var(--rb-bg)]"
         style={{ height: "100dvh", flexDirection: "column" }}
       >
         <header className="flex shrink-0 items-center gap-3 border-b border-[var(--rb-line)] bg-[var(--rb-bg)] px-5 pb-3 pt-[calc(env(safe-area-inset-top,0px)+14px)]">
@@ -808,7 +808,7 @@ function QueueScreen({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.99 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="flex bg-[var(--rb-bg)]"
+      className="flex w-full bg-[var(--rb-bg)]"
       style={{ height: "100dvh", flexDirection: "column" }}
     >
       <header className="shrink-0 border-b border-[var(--rb-line)] px-5 pb-3 pt-[calc(env(safe-area-inset-top,0px)+58px)]">
@@ -1565,7 +1565,7 @@ function PageShell({
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -18 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
-      className="hide-scrollbar min-h-dvh overflow-y-auto bg-[var(--rb-bg)] px-4 pb-[calc(env(safe-area-inset-bottom,0px)+104px)] pt-[calc(env(safe-area-inset-top,0px)+18px)]"
+      className="hide-scrollbar min-h-dvh w-full overflow-y-auto overflow-x-hidden bg-[var(--rb-bg)] px-4 pb-[calc(env(safe-area-inset-bottom,0px)+104px)] pt-[calc(env(safe-area-inset-top,0px)+18px)]"
     >
       <header className="sticky top-0 z-20 -mx-4 mb-5 border-b border-[var(--rb-line)] bg-[var(--rb-bg)]/95 px-4 pb-4 pt-[calc(env(safe-area-inset-top,0px)+6px)] backdrop-blur-xl">
         <div className="flex items-center justify-between">
@@ -1764,7 +1764,7 @@ function DashboardScreen({
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.99 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="hide-scrollbar overflow-y-auto bg-[var(--rb-bg)]"
+      className="hide-scrollbar w-full overflow-y-auto overflow-x-hidden bg-[var(--rb-bg)]"
       style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 100px)" }}
     >
       <div className="px-5 pb-4 pt-[calc(env(safe-area-inset-top,0px)+58px)]">
@@ -1845,7 +1845,7 @@ function ProfileScreen({ user, onLogout }: { user: User; onLogout: () => void })
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -18 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
-      className="hide-scrollbar overflow-y-auto bg-[var(--rb-bg)]"
+      className="hide-scrollbar w-full overflow-y-auto overflow-x-hidden bg-[var(--rb-bg)]"
       style={{ minHeight: "100dvh", paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 100px)", paddingTop: "calc(env(safe-area-inset-top, 0px) + 58px)" }}
     >
       <div className="px-5 pb-5">
