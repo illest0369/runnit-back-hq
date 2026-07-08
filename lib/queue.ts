@@ -9,7 +9,7 @@ export const CLIP_GENERATION_QUEUE_NAME = 'clip-generation'
 export const RBHQ_INGEST_QUEUE_NAME = 'rbhq-ingest'
 export const RBHQ_APIFY_POLL_QUEUE_NAME = 'rbhq-apify-poll'
 export const RBHQ_SCORE_QUEUE_NAME = 'rbhq-score'
-export const RBHQ_POST_QUEUE_NAME = 'rbhq-post'
+export const RBHQ_POST_QUEUE_NAME = process.env.RBHQ_POST_QUEUE_NAME?.trim() || 'rbhq-post'
 export const RBHQ_ANALYTICS_QUEUE_NAME = 'rbhq-analytics'
 
 export type ClipGenerationJobData = {

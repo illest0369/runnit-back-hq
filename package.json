@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:local-dry-run": "RBHQ_POST_QUEUE_NAME=rbhq-post-local-dry-run next dev",
     "lint": "next typegen && tsc --noEmit",
     "build": "next build && npm run build:worker",
     "build:worker": "tsc -p tsconfig.worker.json",
@@ -35,7 +36,8 @@
     "import:apify": "tsx scripts/run-apify-import.ts",
     "source-system:summary": "tsx scripts/source-system-summary.ts",
     "worker:clips": "node dist/workers/startWorker.js",
-    "worker:post:dry-run": "node dist/workers/startPostDryRunWorker.js"
+    "worker:post:dry-run": "node dist/workers/startPostDryRunWorker.js",
+    "worker:post:dry-run:local": "RBHQ_POST_QUEUE_NAME=rbhq-post-local-dry-run node dist/workers/startPostDryRunWorker.js"
   },
   "engines": {
     "node": "22.x"
