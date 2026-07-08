@@ -1,0 +1,72 @@
+[
+  {
+    "channel_key": "espn_main",
+    "display_name": "ESPN",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiWLfSweyRNmLpgEHekhoAg",
+    "lane_key": "sports",
+    "notes": "ESPN main channel — press conferences, highlights, analysis"
+  },
+  {
+    "channel_key": "nba_official",
+    "display_name": "NBA",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCWJ2lWNubArHWmf3FIHbfcQ",
+    "lane_key": "sports",
+    "notes": "Official NBA — micd up, player moments, press tension"
+  },
+  {
+    "channel_key": "nfl_official",
+    "display_name": "NFL",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCDVYQ4Zhbm3S2dlz7P1GBDg",
+    "lane_key": "sports",
+    "notes": "Official NFL — locker room, micd up, rivalry"
+  },
+  {
+    "channel_key": "bleacher_report",
+    "display_name": "Bleacher Report",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCNAf1k0yIjyGu3k9BwAg3lg",
+    "lane_key": "sports",
+    "notes": "Bleacher Report — fan-angle clips, reaction, viral sports"
+  },
+  {
+    "channel_key": "ufc_official",
+    "display_name": "UFC",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCvgfXK4nTYKudb0rFR6noLA",
+    "lane_key": "combat",
+    "notes": "Official UFC — faceoffs, weigh-ins, knockouts, press"
+  },
+  {
+    "channel_key": "one_championship",
+    "display_name": "ONE Championship",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC-UM_pS0bD4Z0HuVOqZpgXQ",
+    "lane_key": "combat",
+    "notes": "ONE Championship — MMA and Muay Thai, high-emotion moments"
+  },
+  {
+    "channel_key": "vct_official",
+    "display_name": "VALORANT Champions Tour",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCXViCkQZqjCc_BoL2QFG0zw",
+    "lane_key": "arena",
+    "notes": "VCT — clutch plays, comms, stage moments, trash talk"
+  },
+  {
+    "channel_key": "wnba_official",
+    "display_name": "WNBA",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCNf_8Ss-MCSwV75YO5LKA",
+    "lane_key": "women",
+    "notes": "Official WNBA — game emotion, locker room, press, swagger"
+  },
+  {
+    "channel_key": "nwsl_official",
+    "display_name": "NWSL",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCQyHFhx0Q4QnfOFxbT_ZWOQ",
+    "lane_key": "women",
+    "notes": "Official NWSL — goals, reactions, player moments"
+  },
+  {
+    "channel_key": "espn_w",
+    "display_name": "espnW",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC6-BLFLFTbrVHCdxRz6G9KA",
+    "lane_key": "women",
+    "notes": "espnW — women's sports coverage, profiles, interviews"
+  }
+]

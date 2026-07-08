@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 
 import { getSession } from '@/lib/auth'
 import { buildDailyContentPlan } from '@/lib/intelligence-v1'
-import { getClips, getMetricoolWorkflowClips } from '@/lib/moderation-queue'
+import { getClips, getMetricoolWorkflowClips, getSourceCandidates } from '@/lib/moderation-queue'
 
 export async function GET() {
   const session = await getSession()
@@ -20,10 +20,11 @@ export async function GET() {
     )
   }
 
-  const [pendingClips, heldClips, workflowClips] = await Promise.all([
+  const [pendingClips, heldClips, workflowClips, sourceCandidates] = await Promise.all([
     getClips({ limit: 100, channelIds: session.channelIds, status: 'pending' }),
     getClips({ limit: 100, channelIds: session.channelIds, status: 'skipped' }),
     getMetricoolWorkflowClips({ limit: 100, channelIds: session.channelIds }),
+    getSourceCandidates({ limit: 20, channelIds: session.channelIds.length > 0 ? session.channelIds : undefined }),
   ])
 
   const seen = new Set<string>()
@@ -34,7 +35,7 @@ export async function GET() {
   })
 
   return NextResponse.json(
-    { ok: true, data: buildDailyContentPlan(clips) },
+    { ok: true, data: buildDailyContentPlan(clips, sourceCandidates) },
     { headers: { 'Cache-Control': 'no-store' } },
   )
 }

@@ -6,6 +6,9 @@ import { getChannelMeta } from './channel-meta'
 import {
   buildRBHQIntelligenceV1,
   withStoredRBHQIntelligenceV1,
+  type RBHQIntelligenceRankLabel,
+  type RBHQIntelligenceUrgency,
+  type SourceCandidateSummary,
 } from './intelligence-v1'
 import {
   analyzeClipForTikTok,
@@ -1866,4 +1869,100 @@ export async function importClips(input: {
     inserted,
     skipped,
   }
+}
+
+type ClipCandidateQueryRow = {
+  id: string
+  title: string
+  hook_text: string | null
+  caption: string | null
+  hashtags: string[] | null
+  score: number | null
+  score_breakdown: {
+    rankLabel?: string
+    urgency?: string
+    whyNow?: string
+  } | null
+  status: string
+  // Supabase returns nested joins as arrays even with !inner
+  ingested_videos: Array<{
+    video_url: string
+    thumbnail_url: string | null
+    published_at: string | null
+    source_channels: Array<{
+      display_name: string
+      target_rbhq_channel_id: string | null
+    }>
+  }>
+}
+
+function normalizeRankLabel(value: unknown): RBHQIntelligenceRankLabel {
+  if (value === 'must_post' || value === 'strong' || value === 'solid' || value === 'low_priority') {
+    return value
+  }
+  return 'low_priority'
+}
+
+function normalizeUrgency(value: unknown): RBHQIntelligenceUrgency {
+  if (value === 'post_now' || value === 'today' || value === 'evergreen' || value === 'hold') {
+    return value
+  }
+  return 'hold'
+}
+
+function toSourceCandidateSummary(row: ClipCandidateQueryRow): SourceCandidateSummary {
+  const iv = Array.isArray(row.ingested_videos) ? row.ingested_videos[0] : null
+  const sc = iv && Array.isArray(iv.source_channels) ? iv.source_channels[0] ?? null : null
+  const breakdown = row.score_breakdown ?? {}
+  const channelMeta = sc?.target_rbhq_channel_id
+    ? getChannelMeta(sc.target_rbhq_channel_id)
+    : null
+  return {
+    id: row.id,
+    title: row.title,
+    videoUrl: iv?.video_url ?? '',
+    thumbnailUrl: iv?.thumbnail_url ?? null,
+    publishedAt: iv?.published_at ?? null,
+    sourceName: sc?.display_name ?? '',
+    targetLane: channelMeta?.label ?? null,
+    score: row.score ?? 0,
+    rankLabel: normalizeRankLabel(breakdown.rankLabel),
+    urgency: normalizeUrgency(breakdown.urgency),
+    hook: row.hook_text ?? '',
+    suggestedCaption: row.caption ?? '',
+    suggestedHashtags: row.hashtags ?? [],
+    whyNow: typeof breakdown.whyNow === 'string' ? breakdown.whyNow : '',
+  }
+}
+
+export async function getSourceCandidates(
+  input: { limit?: number; channelIds?: string[] } = {},
+): Promise<SourceCandidateSummary[]> {
+  if (!hasSupabaseAdminEnv) return []
+
+  let query = supabaseAdmin
+    .from('clip_candidates')
+    .select(
+      `id, title, hook_text, caption, hashtags, score, score_breakdown, status,
+       ingested_videos!inner (
+         video_url, thumbnail_url, published_at,
+         source_channels!inner ( display_name, target_rbhq_channel_id )
+       )`,
+    )
+    .eq('status', 'candidate')
+    .order('score', { ascending: false })
+    .limit(input.limit ?? 20)
+
+  if (input.channelIds && input.channelIds.length > 0) {
+    query = query.in('target_channel_id', input.channelIds)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.warn('[getSourceCandidates] query failed', error.message)
+    return []
+  }
+
+  return ((data ?? []) as unknown as ClipCandidateQueryRow[]).map(toSourceCandidateSummary)
 }

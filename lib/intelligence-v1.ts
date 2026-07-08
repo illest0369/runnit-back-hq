@@ -66,6 +66,23 @@ export type DailyContentPlanClip = {
   createdAt?: string | null
 }
 
+export type SourceCandidateSummary = {
+  id: string
+  title: string
+  videoUrl: string
+  thumbnailUrl: string | null
+  publishedAt: string | null
+  sourceName: string
+  targetLane: string | null
+  score: number
+  rankLabel: RBHQIntelligenceRankLabel
+  urgency: RBHQIntelligenceUrgency
+  hook: string
+  suggestedCaption: string
+  suggestedHashtags: string[]
+  whyNow: string
+}
+
 export type DailyContentPlan = {
   generatedAt: string
   topClipsToPostNow: DailyContentPlanClip[]
@@ -73,6 +90,7 @@ export type DailyContentPlan = {
   holdOrLowPriority: DailyContentPlanClip[]
   laneBalanceNotes: string[]
   suggestedPostingOrder: DailyContentPlanClip[]
+  sourceCandidates: SourceCandidateSummary[]
 }
 
 export const RBHQ_INTELLIGENCE_V1_NOTE_PREFIX = 'rbhq_intelligence_v1:'
@@ -635,7 +653,7 @@ function byPriority(left: DailyContentPlanClip, right: DailyContentPlanClip): nu
 export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {
   status?: string | null
   publish_status?: string | null
-}>(clips: T[]): DailyContentPlan {
+}>(clips: T[], sourceCandidates: SourceCandidateSummary[] = []): DailyContentPlan {
   const planClips = clips.map(toPlanClip).sort(byPriority)
   const topClipsToPostNow = planClips
     .filter((clip) => clip.urgency === 'post_now' || clip.rankLabel === 'must_post')
@@ -675,5 +693,6 @@ export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {
     holdOrLowPriority,
     laneBalanceNotes,
     suggestedPostingOrder,
+    sourceCandidates,
   }
 }
