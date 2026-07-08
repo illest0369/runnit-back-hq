@@ -133,6 +133,51 @@ const EMOTIONAL_PATTERNS = [
   'clutch',
 ]
 
+const SIGNAL_CATEGORIES = [
+  {
+    label: 'breaking/news',
+    caption: 'breaking reaction',
+    hashtags: ['#Breaking', '#News'],
+    patterns: ['breaking', 'just in'],
+  },
+  {
+    label: 'trade/roster',
+    caption: 'trade reaction',
+    hashtags: ['#TradeTalk', '#RosterMoves'],
+    patterns: ['trade', 'traded', 'signed', 'fired'],
+  },
+  {
+    label: 'injury update',
+    caption: 'injury update',
+    hashtags: ['#InjuryUpdate'],
+    patterns: ['injury', 'injured'],
+  },
+  {
+    label: 'clutch/upset',
+    caption: 'clutch upset',
+    hashtags: ['#Clutch', '#Upset'],
+    patterns: ['upset', 'stunner', 'clutch', 'walkoff', 'walk-off', 'comeback'],
+  },
+  {
+    label: 'rivalry/conflict',
+    caption: 'rivalry reaction',
+    hashtags: ['#Rivalry', '#Reaction'],
+    patterns: ['rivalry', 'rival', 'beef', 'trash talk', 'heated', 'controversy', 'controversial'],
+  },
+  {
+    label: 'fan reaction',
+    caption: 'fan reaction',
+    hashtags: ['#FanReaction', '#Reaction'],
+    patterns: ['reaction', 'reacts', 'viral', 'rage'],
+  },
+  {
+    label: 'gaming update',
+    caption: 'patch reaction',
+    hashtags: ['#PatchNotes', '#GamingNews'],
+    patterns: ['nerf', 'patch', 'reveal', 'trailer', 'tournament'],
+  },
+]
+
 function compact(value: string | null | undefined): string {
   return value?.replace(/\s+/g, ' ').trim() ?? ''
 }
@@ -142,6 +187,17 @@ function truncate(value: string, max: number): string {
   return clean.length <= max ? clean : `${clean.slice(0, max - 3).trim()}...`
 }
 
+function sentenceLead(value: string): string {
+  const clean = compact(value)
+  if (!clean) return ''
+  return /[.!?]$/.test(clean) ? clean : `${clean}.`
+}
+
+function sentenceCase(value: string): string {
+  const clean = compact(value)
+  return clean ? `${clean.charAt(0).toUpperCase()}${clean.slice(1)}` : ''
+}
+
 function clampScore(value: number): number {
   return Math.min(100, Math.max(0, Math.round(value)))
 }
@@ -149,7 +205,13 @@ function clampScore(value: number): number {
 function normalizeTag(value: string): string {
   const clean = value.trim()
   if (!clean) return ''
-  return clean.startsWith('#') ? clean : `#${clean.replace(/^#+/, '')}`
+  const body = clean
+    .replace(/^#+/, '')
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('')
+  return body ? `#${body}` : ''
 }
 
 function uniqueHashtags(values: string[]): string[] {
@@ -244,6 +306,29 @@ function countPatternHits(text: string, patterns: string[]): number {
   return patterns.filter((pattern) => text.includes(pattern)).length
 }
 
+function detectedSignals(text: string) {
+  return SIGNAL_CATEGORIES.filter((category) => countPatternHits(text, category.patterns) > 0)
+}
+
+function signalSummary(text: string): string {
+  const labels = detectedSignals(text).map((signal) => signal.label)
+  return labels.length > 0 ? labels.slice(0, 2).join(' + ') : 'story'
+}
+
+function signalHashtags(text: string): string[] {
+  return detectedSignals(text)
+    .map((signal) => signal.hashtags[0])
+    .filter((tag): tag is string => Boolean(tag))
+    .slice(0, 2)
+}
+
+function formatUrgency(value: RBHQIntelligenceUrgency): string {
+  if (value === 'post_now') return 'post now'
+  if (value === 'today') return 'review today'
+  if (value === 'evergreen') return 'evergreen'
+  return 'hold'
+}
+
 function hasAnalyzerTag(analyzer: TikTokAnalyzerOutput | null | undefined, tag: TikTokReasonTag): boolean {
   return analyzer?.reasonTags.includes(tag) ?? false
 }
@@ -327,8 +412,19 @@ function buildCaption(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutp
   if (saved) return truncate(saved, 180)
   if (analyzer?.captionDraft) return truncate(analyzer.captionDraft, 180)
 
+  const text = textForSignals(input)
   const context = compact(input.league || input.sport)
-  return truncate([hook, context ? `${context} is moving.` : 'The timeline is already moving.'].join(' '), 180)
+  const signal = detectedSignals(text)[0]
+  const topic = sentenceCase(compact([context, signal?.caption].filter(Boolean).join(' ')) || 'this clip')
+  const lane = laneSlug(input)
+  const laneClose =
+    lane === 'arena'
+      ? 'the gaming timeline is ready to argue.'
+      : lane === 'combat'
+        ? 'fight fans will have a take.'
+        : 'the timeline has a take right now.'
+
+  return truncate(`${sentenceLead(hook)} ${topic} is why ${laneClose}`, 180)
 }
 
 function buildHashtags(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null): string[] {
@@ -337,17 +433,19 @@ function buildHashtags(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOut
   if (analyzer?.hashtagPack?.length) return uniqueHashtags(analyzer.hashtagPack)
 
   const laneTags: Record<string, string[]> = {
-    sports: ['#Sports', '#Highlights', '#RunnitBack'],
+    sports: ['#Sports', '#RunnitBack', '#Highlights'],
     arena: ['#Gaming', '#Esports', '#RunnitBackGaming'],
     futbol: ['#Futbol', '#Soccer', '#RunnitBack'],
     runnitbackcfb: ['#CollegeFootball', '#CFB', '#RunnitBack'],
     women: ['#WomensSports', '#Highlights', '#RunnitBack'],
     combat: ['#UFC', '#MMA', '#FightNight'],
   }
+  const text = textForSignals(input)
 
   return uniqueHashtags([
     input.league ? `#${input.league}` : '',
     input.sport ? `#${input.sport}` : '',
+    ...signalHashtags(text),
     ...(laneTags[laneSlug(input)] ?? laneTags.sports),
   ])
 }
@@ -359,7 +457,9 @@ function reasonLines(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutpu
   const eventHits = countPatternHits(text, EVENT_PATTERNS)
   const emotionalHits = countPatternHits(text, EMOTIONAL_PATTERNS)
 
-  if (eventHits > 0) reasons.push('Event language is present in the clip/title.')
+  const signals = signalSummary(text)
+
+  if (eventHits > 0) reasons.push(`Story signal is specific: ${signals}.`)
   if (emotionalHits > 0 || hasAnalyzerTag(analyzer, 'controversy') || hasAnalyzerTag(analyzer, 'rivalry')) {
     reasons.push('Emotional or conflict signal should help comments.')
   }
@@ -385,8 +485,12 @@ function reasonLines(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutpu
 
 function whyNowForInput(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null, urgency: RBHQIntelligenceUrgency): string {
   if (analyzer?.whyNow && urgency !== 'evergreen') return truncate(analyzer.whyNow, 180)
-  if (urgency === 'post_now') return 'Post-now signals are concentrated enough that waiting likely costs momentum.'
-  if (urgency === 'today') return 'Best reviewed today while the clip still matches the active lane conversation.'
+  const text = textForSignals(input)
+  const signals = signalSummary(text)
+  const hours = recencyHours(input)
+  const recency = hours === null ? '' : hours <= 3 ? ' and it is fresh' : hours <= 24 ? ' and still timely' : ''
+  if (urgency === 'post_now') return `${laneLabel(input)} has ${signals} momentum${recency}; post before the conversation cools.`
+  if (urgency === 'today') return `${laneLabel(input)} has a ${signals} angle${recency}; review it while the lane is still active.`
   if (urgency === 'hold') return 'Hold until the format, quality, or story signal is stronger.'
   return 'Evergreen angle: useful as a fill-in when higher-urgency clips are thin.'
 }
@@ -399,7 +503,8 @@ function operatorSummaryForInput(
 ): string {
   if (analyzer?.operatorSummary) return truncate(analyzer.operatorSummary, 180)
   const source = compact(input.source_name) || 'source'
-  return `${laneLabel(input)}: ${source} clip is ${rankLabel.replace(/_/g, ' ')} at ${score}/100.`
+  const signal = signalSummary(textForSignals(input))
+  return `${laneLabel(input)}: ${source} clip is ${rankLabel.replace(/_/g, ' ')} at ${score}/100 with a ${signal} angle; ${formatUrgency(urgencyForInput(input, analyzer, score))}.`
 }
 
 export function adaptTikTokAnalysisToRBHQIntelligenceV1(
@@ -544,16 +649,24 @@ export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {
   const holdOrLowPriority = planClips
     .filter((clip) => clip.urgency === 'hold' || clip.rankLabel === 'low_priority')
     .slice(0, 10)
+  const suggestedPostingOrder = [...topClipsToPostNow, ...strongAlternates].sort(byPriority).slice(0, 12)
   const lanes = new Map<string, number>()
   for (const clip of [...topClipsToPostNow, ...strongAlternates]) {
     lanes.set(clip.lane, (lanes.get(clip.lane) ?? 0) + 1)
   }
-  const laneBalanceNotes =
+  const laneBalanceNotesBase =
     lanes.size === 0
       ? ['No high-priority clips are available in the current lane set.']
       : [...lanes.entries()]
           .sort((left, right) => right[1] - left[1])
           .map(([lane, count]) => `${lane}: ${count} priority clip${count === 1 ? '' : 's'} available.`)
+  const leadClip = suggestedPostingOrder[0]
+  const laneBalanceNotes = leadClip
+    ? [
+        ...laneBalanceNotesBase,
+        `Lead with ${truncate(leadClip.title, 72)} from ${leadClip.lane} (${leadClip.score}/100, ${formatUrgency(leadClip.urgency)}).`,
+      ]
+    : laneBalanceNotesBase
 
   return {
     generatedAt: new Date().toISOString(),
@@ -561,6 +674,6 @@ export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {
     strongAlternates,
     holdOrLowPriority,
     laneBalanceNotes,
-    suggestedPostingOrder: [...topClipsToPostNow, ...strongAlternates].sort(byPriority).slice(0, 12),
+    suggestedPostingOrder,
   }
 }

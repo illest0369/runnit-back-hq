@@ -57,7 +57,12 @@ const plan = buildDailyContentPlan([
 assert.equal(stored?.score, sports.score)
 assert.equal(fallback.score, sports.score)
 assert.ok(sports.score >= 0 && sports.score <= 100)
+assert.ok(sports.suggestedCaption.includes('breaking reaction'))
+assert.ok(sports.whyNow.includes('breaking/news'))
+assert.ok(sports.suggestedHashtags.some((tag) => tag.toLowerCase().includes('tradetalk')))
 assert.ok(arena.suggestedHashtags.some((tag) => tag.toLowerCase().includes('gaming')))
+assert.ok(arena.suggestedCaption.includes('gaming timeline'))
+assert.ok(arena.whyNow.includes('clutch/upset'))
 assert.ok(plan.suggestedPostingOrder.length >= 1)
 assert.ok(plan.topClipsToPostNow.length + plan.strongAlternates.length >= 1)
 
