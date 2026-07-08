@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 
 import { buildPublishExportPackage } from '@/lib/export/build-export'
 import { getSession } from '@/lib/auth'
+import { getRBHQIntelligenceV1 } from '@/lib/intelligence-v1'
 import { getMetricoolWorkflowClips } from '@/lib/moderation-queue'
 import { getStoredTikTokAnalysis, getTikTokVerticalReadiness } from '@/lib/tiktok-analyzer'
 
@@ -21,10 +22,12 @@ export async function GET() {
   const clips = await getMetricoolWorkflowClips({ limit: 100, channelIds: session.channelIds })
   const data = clips.flatMap((clip) => {
     if (!clip.video_url) return []
+    const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
 
     return [{
       ...clip,
-      tiktok_analysis: getStoredTikTokAnalysis(clip.moderation_notes),
+      tiktok_analysis: analysis,
+      intelligence_v1: getRBHQIntelligenceV1({ ...clip, analyzer: analysis }),
       vertical_readiness: getTikTokVerticalReadiness(clip),
       export_package: buildPublishExportPackage(clip),
     }]

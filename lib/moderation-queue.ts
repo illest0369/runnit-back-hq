@@ -4,6 +4,10 @@ import { loadSourceSystemConfig } from './source-system'
 import { isDownloadableMp4Url } from './media-url'
 import { getChannelMeta } from './channel-meta'
 import {
+  buildRBHQIntelligenceV1,
+  withStoredRBHQIntelligenceV1,
+} from './intelligence-v1'
+import {
   analyzeClipForTikTok,
   getStoredTikTokAnalysis,
   hasTikTokPostingReadiness,
@@ -1283,7 +1287,17 @@ export async function refreshClipTikTokAnalysis(
   if (!current) return null
 
   const analysis = await analyzeClipForTikTok(toAnalyzerInput(current))
-  const moderationNotes = withStoredTikTokAnalysis(current.moderation_notes, analysis)
+  const intelligence = buildRBHQIntelligenceV1({
+    ...toAnalyzerInput(current),
+    analyzer: analysis,
+    created_at: current.created_at,
+    updated_at: current.updated_at,
+    approved_at: current.approved_at,
+  })
+  const moderationNotes = withStoredRBHQIntelligenceV1(
+    withStoredTikTokAnalysis(current.moderation_notes, analysis),
+    intelligence,
+  )
   const { data, error } = await supabaseAdmin
     .from('clips')
     .update({
@@ -1747,7 +1761,7 @@ export async function importClips(input: {
     }))
 
   const analyzedRows = await Promise.all(rowsToInsert.map(async (row) => {
-    const analysis = await analyzeClipForTikTok({
+    const analyzerInput = {
       id: null,
       channel_id: row.channel_id,
       title: row.title,
@@ -1765,13 +1779,22 @@ export async function importClips(input: {
       recommended_hook: row.recommended_hook,
       risk_flags: row.risk_flags,
       moderation_notes: row.moderation_notes,
+    }
+    const analysis = await analyzeClipForTikTok(analyzerInput)
+    const intelligence = buildRBHQIntelligenceV1({
+      ...analyzerInput,
+      analyzer: analysis,
+      created_at: new Date().toISOString(),
     })
 
     return {
       ...row,
       ai_score: analysis.priorityScore,
       recommended_hook: row.recommended_hook || analysis.hookLine,
-      moderation_notes: withStoredTikTokAnalysis(row.moderation_notes, analysis),
+      moderation_notes: withStoredRBHQIntelligenceV1(
+        withStoredTikTokAnalysis(row.moderation_notes, analysis),
+        intelligence,
+      ),
     }
   }))
 

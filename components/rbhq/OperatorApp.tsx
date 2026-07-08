@@ -46,6 +46,9 @@ type PublishStatus =
 type QueueAction = "approve" | "reject" | "hold";
 
 type RankLabel = "Hot" | "Solid" | "Hold" | "Reject";
+type IntelligenceRankLabel = "must_post" | "strong" | "solid" | "low_priority";
+type IntelligenceUrgency = "post_now" | "today" | "evergreen" | "hold";
+type DisplayRankLabel = RankLabel | IntelligenceRankLabel;
 type ReasonTag =
   | "breaking"
   | "rivalry"
@@ -74,6 +77,18 @@ type TikTokAnalysis = {
   alternateCaptions?: string[];
   provider?: string;
   analyzedAt?: string;
+};
+
+type RBHQIntelligenceV1 = {
+  score: number;
+  rankLabel: IntelligenceRankLabel;
+  urgency: IntelligenceUrgency;
+  reasons: string[];
+  suggestedCaption: string;
+  suggestedHashtags: string[];
+  hook: string;
+  operatorSummary: string;
+  whyNow: string;
 };
 
 type VerticalReadiness = {
@@ -130,6 +145,7 @@ type ReviewClipApi = {
   moderation_notes?: string[] | null;
   risk_flags?: string[] | null;
   tiktok_analysis?: TikTokAnalysis | null;
+  intelligence_v1?: RBHQIntelligenceV1 | null;
   vertical_readiness?: VerticalReadiness | null;
   publish_status?: PublishStatus | null;
   review_status?: "pending" | "approved" | "rejected" | "skipped" | null;
@@ -166,6 +182,7 @@ type Clip = {
   moderationNotes: string[];
   riskFlags: string[];
   analysis: TikTokAnalysis | null;
+  intelligence: RBHQIntelligenceV1 | null;
   verticalReadiness: VerticalReadiness;
   approvedAt: string | null;
 };
@@ -281,6 +298,49 @@ function readTikTokAnalysis(notes: string[] | null | undefined, fallback: TikTok
   }
 }
 
+function adaptTikTokAnalysisToIntelligence(analysis: TikTokAnalysis | null): RBHQIntelligenceV1 | null {
+  if (!analysis) return null;
+  const rankLabel: IntelligenceRankLabel =
+    analysis.rankLabel === "Hot" ? "must_post" :
+    analysis.rankLabel === "Solid" ? "strong" :
+    analysis.rankLabel === "Hold" ? "solid" :
+    "low_priority";
+  const urgency: IntelligenceUrgency =
+    analysis.rankLabel === "Hot" ? "post_now" :
+    analysis.rankLabel === "Solid" ? "today" :
+    analysis.rankLabel === "Reject" ? "hold" :
+    "evergreen";
+
+  return {
+    score: analysis.priorityScore,
+    rankLabel,
+    urgency,
+    reasons: analysis.reasonTags.map((tag) => formatReasonTag(tag)),
+    suggestedCaption: analysis.captionDraft,
+    suggestedHashtags: analysis.hashtagPack,
+    hook: analysis.hookLine,
+    operatorSummary: analysis.operatorSummary,
+    whyNow: analysis.whyNow,
+  };
+}
+
+function readRBHQIntelligenceV1(
+  notes: string[] | null | undefined,
+  direct: RBHQIntelligenceV1 | null | undefined,
+  fallbackAnalysis: TikTokAnalysis | null,
+): RBHQIntelligenceV1 | null {
+  if (direct) return direct;
+  const marker = notes?.find((note) => note.startsWith("rbhq_intelligence_v1:"))?.slice("rbhq_intelligence_v1:".length);
+  if (marker) {
+    try {
+      return JSON.parse(marker) as RBHQIntelligenceV1;
+    } catch {
+      // Fall through to the legacy analyzer adapter.
+    }
+  }
+  return adaptTikTokAnalysisToIntelligence(fallbackAnalysis);
+}
+
 async function readApiJson(response: Response, fallbackMessage: string) {
   try {
     return await response.json();
@@ -298,6 +358,7 @@ function mapApiClip(item: ReviewClipApi): Clip | null {
   const moderationNotes = Array.isArray(item.moderation_notes) ? item.moderation_notes : [];
   const publishStatus = readMetricoolStatus(moderationNotes, item.publish_status);
   const analysis = readTikTokAnalysis(moderationNotes, item.tiktok_analysis);
+  const intelligence = readRBHQIntelligenceV1(moderationNotes, item.intelligence_v1, analysis);
 
   if (!id || !videoUrl) return null;
 
@@ -305,7 +366,7 @@ function mapApiClip(item: ReviewClipApi): Clip | null {
     id,
     title: shortText(hook || title || "Untitled clip"),
     hook: hook || title || "Untitled clip",
-    score: analysis?.priorityScore ?? parseNumber(item.performance_score ?? item.score) ?? 0,
+    score: intelligence?.score ?? analysis?.priorityScore ?? parseNumber(item.performance_score ?? item.score) ?? 0,
     performanceLabel: item.performance_label ?? "decent",
     status: item.review_status === "skipped" ? "held" : READY_PUBLISH_STATUSES.has(publishStatus) ? "approved" : "pending",
     publishStatus,
@@ -321,6 +382,7 @@ function mapApiClip(item: ReviewClipApi): Clip | null {
     moderationNotes,
     riskFlags: Array.isArray(item.risk_flags) ? item.risk_flags : [],
     analysis,
+    intelligence,
     verticalReadiness: item.vertical_readiness ?? DEFAULT_VERTICAL_READINESS,
     approvedAt: item.approved_at ?? null,
   };
@@ -350,6 +412,11 @@ function mapPublishItem(item: ReviewClipApi & { export_package: PublishExportPac
       moderationNotes: Array.isArray(item.moderation_notes) ? item.moderation_notes : [],
       riskFlags: Array.isArray(item.risk_flags) ? item.risk_flags : [],
       analysis: readTikTokAnalysis(item.moderation_notes, item.tiktok_analysis),
+      intelligence: readRBHQIntelligenceV1(
+        item.moderation_notes,
+        item.intelligence_v1,
+        readTikTokAnalysis(item.moderation_notes, item.tiktok_analysis),
+      ),
       verticalReadiness: item.vertical_readiness ?? DEFAULT_VERTICAL_READINESS,
       approvedAt: item.approved_at ?? null,
     }),
@@ -1139,11 +1206,18 @@ function QueueClipCard({
   );
 }
 
-function rankTone(label: RankLabel | undefined) {
-  if (label === "Hot") return "bg-[#FFF1EC] text-[#E2162B] border-[#E2162B]/20";
-  if (label === "Solid") return "bg-[#ECFDF5] text-[#128A49] border-[#128A49]/20";
-  if (label === "Hold") return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
+function rankTone(label: DisplayRankLabel | undefined) {
+  if (label === "must_post" || label === "Hot") return "bg-[#FFF1EC] text-[#E2162B] border-[#E2162B]/20";
+  if (label === "strong" || label === "Solid") return "bg-[#ECFDF5] text-[#128A49] border-[#128A49]/20";
+  if (label === "solid" || label === "Hold") return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
   return "bg-[#FFF1F2] text-[#DC2626] border-[#DC2626]/20";
+}
+
+function formatRankLabel(label: DisplayRankLabel | undefined) {
+  if (!label) return "Hold";
+  if (label === "must_post") return "Must post";
+  if (label === "low_priority") return "Low priority";
+  return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
 function formatReasonTag(tag: ReasonTag) {
@@ -1165,9 +1239,11 @@ function verticalStatusTone(status: VerticalStatus) {
 }
 
 function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefreshAnalysis: (id: string) => void }) {
+  const intelligence = clip.intelligence;
   const analysis = clip.analysis;
   const tags = analysis?.reasonTags ?? [];
-  const score = analysis?.priorityScore ?? clip.score;
+  const score = intelligence?.score ?? analysis?.priorityScore ?? clip.score;
+  const rankLabel = intelligence?.rankLabel ?? analysis?.rankLabel;
   const vertical = clip.verticalReadiness;
 
   return (
@@ -1178,8 +1254,8 @@ function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefr
             <span className="rounded-full bg-[var(--rb-text)] px-2.5 py-1 text-[11px] font-black text-white">
               {Math.round(score)}
             </span>
-            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${rankTone(analysis?.rankLabel)}`}>
-              {analysis?.rankLabel ?? "Hold"}
+            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${rankTone(rankLabel)}`}>
+              {formatRankLabel(rankLabel)}
             </span>
             <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${verticalStatusTone(vertical.verticalStatus)}`}>
               {verticalStatusLabel(vertical)}
@@ -1211,14 +1287,14 @@ function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefr
       )}
 
       <div className="mt-3 space-y-2">
-        <p className="text-[12px] font-semibold leading-5 text-[var(--rb-text)]">{analysis?.whyNow ?? "Review timing is based on local scoring signals."}</p>
-        <p className="text-[12px] leading-5 text-[var(--rb-muted)]">{analysis?.operatorSummary ?? "No analyzer summary stored yet."}</p>
+        <p className="text-[12px] font-semibold leading-5 text-[var(--rb-text)]">{intelligence?.whyNow ?? analysis?.whyNow ?? "Review timing is based on local scoring signals."}</p>
+        <p className="text-[12px] leading-5 text-[var(--rb-muted)]">{intelligence?.operatorSummary ?? analysis?.operatorSummary ?? "No analyzer summary stored yet."}</p>
         <p className="rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] p-3 text-[12px] font-semibold leading-5 text-[var(--rb-text)]">
-          {analysis?.hookLine ?? clip.recommendedHook ?? clip.hook}
+          {intelligence?.hook ?? analysis?.hookLine ?? clip.recommendedHook ?? clip.hook}
         </p>
-        <p className="text-[12px] leading-5 text-[var(--rb-muted)]">{analysis?.captionDraft ?? "Caption draft will generate on refresh."}</p>
-        {analysis?.hashtagPack?.length ? (
-          <p className="text-[11px] font-bold leading-5 text-[var(--rb-muted)]">{analysis.hashtagPack.join(" ")}</p>
+        <p className="text-[12px] leading-5 text-[var(--rb-muted)]">{intelligence?.suggestedCaption ?? analysis?.captionDraft ?? "Caption draft will generate on refresh."}</p>
+        {(intelligence?.suggestedHashtags?.length || analysis?.hashtagPack?.length) ? (
+          <p className="text-[11px] font-bold leading-5 text-[var(--rb-muted)]">{(intelligence?.suggestedHashtags ?? analysis?.hashtagPack ?? []).join(" ")}</p>
         ) : null}
       </div>
     </section>
@@ -1823,6 +1899,9 @@ function laneMetaForChannel(label: string | null | undefined) {
 }
 
 function QueueListCard({ clip, onReview }: { clip: Clip; onReview: (id: string) => void }) {
+  const score = clip.intelligence?.score ?? clip.analysis?.priorityScore ?? clip.score;
+  const rankLabel = clip.intelligence?.rankLabel ?? clip.analysis?.rankLabel;
+
   return (
     <div className="flex items-start gap-3 rounded-[16px] border border-[var(--rb-line)] bg-white p-3">
       <div
@@ -1844,17 +1923,17 @@ function QueueListCard({ clip, onReview }: { clip: Clip; onReview: (id: string) 
         <p className="truncate text-[11.5px] text-[var(--rb-muted)]">{clip.sourceName}</p>
         <h3 className="mt-0.5 line-clamp-2 text-[14px] font-black leading-snug text-[var(--rb-text)]">{clip.title}</h3>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          <span className="rounded-full bg-[var(--rb-text)] px-2 py-0.5 text-[10.5px] font-black text-white">{Math.round(clip.analysis?.priorityScore ?? clip.score)}</span>
-          <span className={`rounded-full border px-2 py-0.5 text-[10.5px] font-bold ${rankTone(clip.analysis?.rankLabel)}`}>
-            {clip.analysis?.rankLabel ?? "Hold"}
+          <span className="rounded-full bg-[var(--rb-text)] px-2 py-0.5 text-[10.5px] font-black text-white">{Math.round(score)}</span>
+          <span className={`rounded-full border px-2 py-0.5 text-[10.5px] font-bold ${rankTone(rankLabel)}`}>
+            {formatRankLabel(rankLabel)}
           </span>
           <ClipStatusBadge status={clip.status} />
           {clip.durationSeconds ? (
             <span className="text-[11px] text-[var(--rb-faint)]">{formatDuration(clip.durationSeconds)}</span>
           ) : null}
         </div>
-        {clip.analysis?.whyNow ? (
-          <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-4 text-[var(--rb-muted)]">{clip.analysis.whyNow}</p>
+        {(clip.intelligence?.whyNow || clip.analysis?.whyNow) ? (
+          <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-4 text-[var(--rb-muted)]">{clip.intelligence?.whyNow ?? clip.analysis?.whyNow}</p>
         ) : null}
         <button
           type="button"

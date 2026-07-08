@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 
 import { getSession } from '@/lib/auth'
 import { getClips, getNextPendingClip } from '@/lib/moderation-queue'
+import { getRBHQIntelligenceV1 } from '@/lib/intelligence-v1'
 import { getStoredTikTokAnalysis, getTikTokVerticalReadiness } from '@/lib/tiktok-analyzer'
 
 export async function GET(request: Request) {
@@ -51,6 +52,7 @@ export async function GET(request: Request) {
 
 function toReviewClip(clip: Awaited<ReturnType<typeof getClips>>[number]) {
   const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
+  const intelligence = getRBHQIntelligenceV1({ ...clip, analyzer: analysis })
   const vertical = getTikTokVerticalReadiness(clip)
 
   return {
@@ -81,6 +83,7 @@ function toReviewClip(clip: Awaited<ReturnType<typeof getClips>>[number]) {
     risk_flags: clip.risk_flags,
     moderation_notes: clip.moderation_notes,
     tiktok_analysis: analysis,
+    intelligence_v1: intelligence,
     vertical_readiness: vertical,
     gemini_processed_at: clip.gemini_processed_at,
     duration_seconds: clip.duration_seconds,
