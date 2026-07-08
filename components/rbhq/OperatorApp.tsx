@@ -8,6 +8,7 @@ import {
   Download,
   Flame,
   Hash,
+  ListChecks,
   LogOut,
   Radio,
   RefreshCw,
@@ -22,7 +23,7 @@ import { getCsrfHeaders } from "@/lib/client-csrf";
 import type { PublishExportPackage } from "@/lib/export/types";
 import { RBHQ_SOURCES, type RbhqSource, type RbhqSourceType } from "@/lib/rbhq-sources";
 
-type AppTab = "dashboard" | "queue" | "publish" | "sources" | "profile";
+type AppTab = "dashboard" | "queue" | "plan" | "publish" | "sources" | "profile";
 type ClipStatus = "pending" | "held" | "approving" | "approved" | "rejecting" | "rejected";
 type PublishStatus =
   | "draft"
@@ -189,6 +190,33 @@ type Clip = {
 
 type PublishQueueItem = Clip & {
   exportPackage: PublishExportPackage;
+};
+
+type DailyPlanClip = {
+  id: string | null;
+  title: string;
+  channelId: string | null;
+  lane: string;
+  sourceName: string | null;
+  score: number;
+  rankLabel: IntelligenceRankLabel;
+  urgency: IntelligenceUrgency;
+  whyNow: string;
+  operatorSummary: string;
+  suggestedCaption: string;
+  suggestedHashtags: string[];
+  status?: string | null;
+  publishStatus?: string | null;
+  createdAt?: string | null;
+};
+
+type DailyPlan = {
+  generatedAt: string;
+  topClipsToPostNow: DailyPlanClip[];
+  strongAlternates: DailyPlanClip[];
+  holdOrLowPriority: DailyPlanClip[];
+  laneBalanceNotes: string[];
+  suggestedPostingOrder: DailyPlanClip[];
 };
 
 type QueueMode = "pending" | "held";
@@ -475,6 +503,9 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
   const [clips, setClips] = useState<Clip[]>([]);
   const [publishItems, setPublishItems] = useState<PublishQueueItem[]>([]);
   const [sources, setSources] = useState<SourceFilterOption[]>([]);
+  const [dailyPlan, setDailyPlan] = useState<DailyPlan | null>(null);
+  const [dailyPlanLoading, setDailyPlanLoading] = useState(false);
+  const [dailyPlanError, setDailyPlanError] = useState("");
   const [source, setSource] = useState("");
   const [queueMode, setQueueMode] = useState<QueueMode>("pending");
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -569,6 +600,21 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
     );
   }, []);
 
+  const fetchDailyPlan = useCallback(async (showLoading = false) => {
+    if (showLoading) setDailyPlanLoading(true);
+    try {
+      const response = await fetch("/api/intelligence/daily-plan", { cache: "no-store" });
+      const json = await readApiJson(response, "Daily plan unavailable");
+      if (!response.ok || !json.ok) throw new Error(json.error || "Daily plan unavailable");
+      setDailyPlan(json.data as DailyPlan);
+      setDailyPlanError("");
+    } catch (planError) {
+      setDailyPlanError(planError instanceof Error ? planError.message : "Daily plan unavailable");
+    } finally {
+      if (showLoading) setDailyPlanLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let alive = true;
 
@@ -597,7 +643,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
         setUser({ ...nextUser, channels });
         setSelectedChannelId(initialChannelId);
         await fetchQueue(initialChannelId, "", "pending");
-        await Promise.allSettled([fetchPublishQueue(), fetchSources()]);
+        await Promise.allSettled([fetchPublishQueue(), fetchSources(), fetchDailyPlan()]);
         setError("");
       } catch (bootError) {
         if (alive) setError(bootError instanceof Error ? bootError.message : "Queue unavailable");
@@ -610,7 +656,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
     return () => {
       alive = false;
     };
-  }, [fetchQueue, fetchPublishQueue, fetchSources]);
+  }, [fetchDailyPlan, fetchQueue, fetchPublishQueue, fetchSources]);
 
   useEffect(() => {
     if (!user || !selectedChannelId) return;
@@ -620,7 +666,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
     async function refresh() {
       try {
         await fetchQueue(currentChannelId, source, queueMode);
-        await Promise.allSettled([fetchPublishQueue(), fetchSources()]);
+        await Promise.allSettled([fetchPublishQueue(), fetchSources(), fetchDailyPlan()]);
         if (alive) setError("");
       } catch (refreshError) {
         if (alive) setError(refreshError instanceof Error ? refreshError.message : "Live refresh failed");
@@ -633,7 +679,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
       alive = false;
       window.clearInterval(timer);
     };
-  }, [fetchQueue, fetchPublishQueue, fetchSources, queueMode, selectedChannelId, source, user]);
+  }, [fetchDailyPlan, fetchQueue, fetchPublishQueue, fetchSources, queueMode, selectedChannelId, source, user]);
 
   function handleChannelChange(channelId: string) {
     if (channelId === selectedChannelId) return;
@@ -669,6 +715,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
 
       setToast(action === "approve" ? "approved" : action === "reject" ? "rejected" : "held");
       if (action === "approve") await fetchPublishQueue();
+      void fetchDailyPlan();
     } catch {
       optimisticIdsRef.current.delete(id);
       if (restoredClip) {
@@ -702,6 +749,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
       if (!response.ok) throw new Error("refresh failed");
       if (selectedChannelId) await fetchQueue(selectedChannelId, source, queueMode);
       await fetchPublishQueue();
+      void fetchDailyPlan();
       setToast("ranking refreshed");
     } catch {
       setToast("refresh failed");
@@ -785,6 +833,15 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
               items={publishItems}
               onCopy={(message) => setToast(message)}
               onSendToTikTok={sendToTikTokPosting}
+            />
+          )}
+          {tab === "plan" && (
+            <DailyPlanScreen
+              key="plan"
+              plan={dailyPlan}
+              loading={dailyPlanLoading}
+              error={dailyPlanError}
+              onRefresh={() => void fetchDailyPlan(true)}
             />
           )}
           {tab === "sources" && (
@@ -1224,6 +1281,29 @@ function formatReasonTag(tag: ReasonTag) {
   return tag.replace(/_/g, " ");
 }
 
+function formatUrgencyLabel(value: IntelligenceUrgency | undefined) {
+  if (value === "post_now") return "Post now";
+  if (value === "today") return "Today";
+  if (value === "evergreen") return "Evergreen";
+  if (value === "hold") return "Hold";
+  return "Today";
+}
+
+function dailyPlanHasContent(plan: DailyPlan | null) {
+  if (!plan) return false;
+  return (
+    (plan.topClipsToPostNow ?? []).length > 0 ||
+    (plan.strongAlternates ?? []).length > 0 ||
+    (plan.holdOrLowPriority ?? []).length > 0 ||
+    (plan.laneBalanceNotes ?? []).length > 0 ||
+    (plan.suggestedPostingOrder ?? []).length > 0
+  );
+}
+
+function dailyPlanClipKey(prefix: string, clip: DailyPlanClip, index: number) {
+  return `${prefix}-${clip.id ?? `${clip.title}-${index}`}`;
+}
+
 function verticalStatusLabel(readiness: VerticalReadiness) {
   if (readiness.verticalStatus === "vertical_ready") return "vertical ready";
   if (readiness.verticalStatus === "needs_resize") return "needs resize";
@@ -1474,6 +1554,183 @@ function publishStatusLabel(status: PublishStatus) {
   if (status === "metricool_failed") return "Failed";
   if (READY_PUBLISH_STATUSES.has(status)) return "Ready";
   return "Not ready";
+}
+
+function DailyPlanScreen({
+  plan,
+  loading,
+  error,
+  onRefresh,
+}: {
+  plan: DailyPlan | null;
+  loading: boolean;
+  error: string;
+  onRefresh: () => void;
+}) {
+  const hasContent = dailyPlanHasContent(plan);
+
+  return (
+    <PageShell
+      eyebrow="Intelligence"
+      title="Plan"
+      trailing={<ListChecks className="h-5 w-5 text-[#ff4d00]" />}
+    >
+      <div className="mb-4 flex items-center justify-between rounded-[16px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-4 py-3">
+        <div className="min-w-0">
+          <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[var(--rb-muted)]">Daily Content Plan</p>
+          <p className="mt-1 text-[12px] font-medium text-[var(--rb-faint)]">
+            {plan?.generatedAt ? `Updated ${new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(plan.generatedAt))}` : "Waiting for rankings"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={loading}
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] text-[var(--rb-muted)] active:scale-95 disabled:opacity-45"
+          aria-label="Refresh daily plan"
+          title="Refresh daily plan"
+        >
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} strokeWidth={1.8} />
+        </button>
+      </div>
+
+      {error && (
+        <div className="mb-4 rounded-[16px] border border-[#DC2626]/20 bg-[#FFF1F2] px-4 py-3 text-[12px] font-semibold text-[#DC2626]">
+          {error}
+        </div>
+      )}
+
+      {loading && !plan ? (
+        <EmptyState title="Building plan" body="Ranking clips by lane, urgency, and caption potential." />
+      ) : !hasContent ? (
+        <EmptyState title="No plan yet" body="Ranked clips will appear here when the queue has available inventory." />
+      ) : (
+        <div className="flex flex-col gap-5">
+          <DailyPlanSection title="Top Clips To Post Now" count={(plan?.topClipsToPostNow ?? []).length}>
+            <div className="flex flex-col gap-3">
+              {(plan?.topClipsToPostNow ?? []).map((clip, index) => (
+                <DailyPlanClipCard key={dailyPlanClipKey("top", clip, index)} clip={clip} />
+              ))}
+            </div>
+          </DailyPlanSection>
+
+          <DailyPlanSection title="Strong Alternates" count={(plan?.strongAlternates ?? []).length}>
+            <div className="flex flex-col gap-3">
+              {(plan?.strongAlternates ?? []).map((clip, index) => (
+                <DailyPlanClipCard key={dailyPlanClipKey("alt", clip, index)} clip={clip} />
+              ))}
+            </div>
+          </DailyPlanSection>
+
+          <DailyPlanSection title="Hold / Low Priority" count={(plan?.holdOrLowPriority ?? []).length}>
+            <div className="flex flex-col gap-2">
+              {(plan?.holdOrLowPriority ?? []).map((clip, index) => (
+                <DailyPlanCompactClip key={dailyPlanClipKey("hold", clip, index)} clip={clip} />
+              ))}
+            </div>
+          </DailyPlanSection>
+
+          <DailyPlanSection title="Lane Balance Notes" count={(plan?.laneBalanceNotes ?? []).length}>
+            <div className="rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-4">
+              {(plan?.laneBalanceNotes ?? []).length === 0 ? (
+                <p className="text-[12px] font-medium leading-5 text-[var(--rb-muted)]">No lane notes yet.</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {(plan?.laneBalanceNotes ?? []).map((note) => (
+                    <li key={note} className="text-[12px] font-medium leading-5 text-[var(--rb-muted)]">
+                      {note}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </DailyPlanSection>
+
+          <DailyPlanSection title="Suggested Posting Order" count={(plan?.suggestedPostingOrder ?? []).length}>
+            <div className="flex flex-col gap-2">
+              {(plan?.suggestedPostingOrder ?? []).map((clip, index) => (
+                <DailyPlanCompactClip key={dailyPlanClipKey("order", clip, index)} clip={clip} index={index + 1} />
+              ))}
+            </div>
+          </DailyPlanSection>
+        </div>
+      )}
+    </PageShell>
+  );
+}
+
+function DailyPlanSection({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  return (
+    <section>
+      <div className="mb-2.5 flex items-center justify-between">
+        <h2 className="text-[11px] font-black uppercase tracking-[0.14em] text-[var(--rb-muted)]">{title}</h2>
+        <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[10px] font-black text-[var(--rb-muted)]">
+          {count}
+        </span>
+      </div>
+      {count === 0 ? (
+        <div className="rounded-[18px] border border-dashed border-[var(--rb-line)] bg-[var(--rb-surface)] px-4 py-5 text-[12px] font-medium text-[var(--rb-muted)]">
+          No clips in this group.
+        </div>
+      ) : children}
+    </section>
+  );
+}
+
+function DailyPlanClipCard({ clip }: { clip: DailyPlanClip }) {
+  return (
+    <article className="rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--rb-accent)]">
+            {clip.sourceName || "RBHQ"} · {clip.lane}
+          </p>
+          <h3 className="mt-1 line-clamp-2 text-[16px] font-black leading-tight text-[var(--rb-text)]">{clip.title}</h3>
+        </div>
+        <span className="shrink-0 rounded-full bg-[var(--rb-text)] px-2.5 py-1 text-[11px] font-black text-white">
+          {Math.round(clip.score)}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <span className={`rounded-full border px-2.5 py-1 text-[10.5px] font-black ${rankTone(clip.rankLabel)}`}>
+          {formatRankLabel(clip.rankLabel)}
+        </span>
+        <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2.5 py-1 text-[10.5px] font-bold text-[var(--rb-muted)]">
+          {formatUrgencyLabel(clip.urgency)}
+        </span>
+      </div>
+
+      <p className="mt-3 text-[12px] font-semibold leading-5 text-[var(--rb-text)]">{clip.whyNow || "Ranked from current queue signals."}</p>
+      {clip.operatorSummary ? (
+        <p className="mt-2 text-[12px] leading-5 text-[var(--rb-muted)]">{clip.operatorSummary}</p>
+      ) : null}
+      {clip.suggestedCaption ? (
+        <p className="mt-3 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] p-3 text-[12px] font-semibold leading-5 text-[var(--rb-text)]">
+          {clip.suggestedCaption}
+        </p>
+      ) : null}
+      {clip.suggestedHashtags.length > 0 ? (
+        <p className="mt-2 text-[11px] font-bold leading-5 text-[var(--rb-muted)]">{clip.suggestedHashtags.join(" ")}</p>
+      ) : null}
+    </article>
+  );
+}
+
+function DailyPlanCompactClip({ clip, index }: { clip: DailyPlanClip; index?: number }) {
+  return (
+    <div className="flex items-start gap-3 rounded-[16px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-3">
+      <span className="grid h-8 min-w-8 place-items-center rounded-full bg-[var(--rb-text)] px-2 text-[11px] font-black text-white">
+        {index ?? Math.round(clip.score)}
+      </span>
+      <div className="min-w-0 flex-1">
+        <h3 className="line-clamp-2 text-[13px] font-black leading-snug text-[var(--rb-text)]">{clip.title}</h3>
+        <p className="mt-1 truncate text-[11px] text-[var(--rb-muted)]">
+          {clip.sourceName || "RBHQ"} · {clip.lane} · {formatRankLabel(clip.rankLabel)} · {formatUrgencyLabel(clip.urgency)}
+        </p>
+      </div>
+    </div>
+  );
 }
 
 type ManagedSource = { id: string; url: string; platform: string; channel_name: string | null };
@@ -1856,6 +2113,7 @@ function BottomNav({ active, onChange }: { active: AppTab; onChange: (tab: AppTa
   const items: Array<{ id: AppTab; label: string; emoji: string }> = [
     { id: "dashboard", label: "Dashboard", emoji: "🏠" },
     { id: "queue", label: "Queue", emoji: "📥" },
+    { id: "plan", label: "Plan", emoji: "📋" },
     { id: "sources", label: "Sources", emoji: "🔗" },
     { id: "publish", label: "Publish", emoji: "📤" },
     { id: "profile", label: "Profile", emoji: "👤" },
@@ -1866,7 +2124,7 @@ function BottomNav({ active, onChange }: { active: AppTab; onChange: (tab: AppTa
       className="fixed inset-x-0 bottom-0 z-50 mx-auto max-w-[520px] border-t border-[#E7E5E1] bg-white"
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 8px)" }}
     >
-      <div className="grid grid-cols-5 px-1 pt-2">
+      <div className="grid grid-cols-6 px-1 pt-2">
         {items.map((item) => {
           const selected = active === item.id;
           return (
