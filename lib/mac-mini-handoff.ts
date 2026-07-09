@@ -9,6 +9,7 @@ import {
   readClipPrepFromCandidate,
   type ClipPrepV1,
 } from './clip-prep'
+import { syncLoadedCandidateIntelligenceV1 } from './candidate-intelligence'
 import { getChannelMeta } from './channel-meta'
 
 export type MacMiniPackageStatus = 'ready' | 'fetched' | 'dry_run_complete' | 'dry_run_failed' | 'cancelled'
@@ -131,6 +132,7 @@ type JoinedIngestedVideo = {
   id: string
   title: string
   description: string | null
+  platform?: string | null
   video_url: string
   published_at: string | null
   duration_seconds: number | string | null
@@ -489,7 +491,7 @@ export async function createMacMiniClipPackageFromCandidate(
        clip_prep, suggested_clip_start_seconds, suggested_clip_end_seconds, suggested_clip_length_seconds, clip_reason, opening_text, edit_notes,
        asset_instructions, clip_prep_status, clip_prep_confidence, status,
        ingested_videos!inner (
-         id, title, description, video_url, published_at, duration_seconds,
+         id, title, description, platform, video_url, published_at, duration_seconds,
          source_channels ( display_name, target_rbhq_channel_id )
        )`,
     )
@@ -501,7 +503,9 @@ export async function createMacMiniClipPackageFromCandidate(
   }
 
   const candidate = candidateData as ClipCandidateForPackage
-  assertPackageEligible(candidate)
+  if (candidate.status === 'promoted' || candidate.status === 'rejected') {
+    assertPackageEligible(candidate)
+  }
 
   const video = firstJoined(candidate.ingested_videos)
   if (!video?.video_url?.trim()) {
@@ -524,7 +528,12 @@ export async function createMacMiniClipPackageFromCandidate(
     throw new Error(`Mac mini package lane has no browser profile key: ${channel.slug}.`)
   }
 
-  const now = (input.now ?? (() => new Date()))().toISOString()
+  const nowDate = (input.now ?? (() => new Date()))()
+  const sync = await syncLoadedCandidateIntelligenceV1(supabase, candidate, { now: () => nowDate })
+  Object.assign(candidate, sync.update)
+  assertPackageEligible(candidate)
+
+  const now = nowDate.toISOString()
   const packageId = input.packageId ?? randomUUID()
   const scoreBreakdown = candidate.score_breakdown ?? {}
   const sourceName = compact(source?.display_name) || 'RBHQ Source'

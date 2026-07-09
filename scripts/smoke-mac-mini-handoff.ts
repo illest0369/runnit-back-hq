@@ -88,6 +88,11 @@ class MemoryQuery {
     onfulfilled?: ((value: { data: Row[]; error: null }) => TResult1 | PromiseLike<TResult1>) | null,
     onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | null,
   ) {
+    if (this.updatePayload) {
+      for (const row of this.rows()) {
+        Object.assign(row, this.updatePayload)
+      }
+    }
     return Promise.resolve({ data: this.rows(), error: null }).then(onfulfilled, onrejected)
   }
 }
@@ -123,6 +128,7 @@ async function main() {
   }) as typeof fetch
 
   try {
+    const freshPublishedAt = new Date(Date.now() - 30 * 60 * 1000).toISOString()
     const candidateId = '11111111-1111-4111-8111-111111111111'
     const packageId = '22222222-2222-4222-8222-222222222222'
     const db = new MemorySupabase({
@@ -134,26 +140,28 @@ async function main() {
           start_seconds: 4,
           end_seconds: 19,
           title: 'Breaking trade reaction after clutch playoff upset',
-          summary: 'RB Sports: ESPN candidate has breaking/news + trade/roster; post now in the 0-3 hour viral window.',
+          summary: 'STALE operator summary',
           hook_text: 'Fans are losing it after the final play',
-          caption: 'Fans are losing it after the final play. Quick review before the sports feed moves on.',
-          hashtags: ['#NBA', '#Breaking', '#TradeTalk', '#RunnitBack'],
-          score: 92,
+          caption: 'STALE CAPTION',
+          hashtags: ['#StaleTag'],
+          score: 10,
           score_breakdown: {
-            rankLabel: 'must_post',
-            urgency: 'post_now',
-            whyNow: 'RB Sports has breaking/news + trade/roster momentum; 0-3 hour viral window.',
-            operatorSummary: 'RB Sports: ESPN candidate is must post at 92/100 with breaking/news + trade/roster.',
-            reasons: [
-              'Viral signal is specific: breaking/news + trade/roster.',
-              'Freshness signal: use the 0-3 hour posting window.',
-            ],
+            model: 'stale_fixture',
+            rankLabel: 'low_priority',
+            urgency: 'hold',
+            whyNow: 'STALE why now',
+            operatorSummary: 'STALE operator summary',
+            reasons: ['STALE reason'],
           },
           status: 'approved_for_handoff',
           ingested_videos: {
             id: '33333333-3333-4333-8333-333333333333',
             title: 'ESPN trade reaction source video',
+            description: 'Breaking trade reaction after a clutch playoff upset has fans losing it.',
+            platform: 'youtube',
             video_url: 'https://www.youtube.com/watch?v=MACMINISMOKE',
+            published_at: freshPublishedAt,
+            duration_seconds: 180,
             source_channels: {
               display_name: 'ESPN',
               target_rbhq_channel_id: 'a1000000-0000-0000-0000-000000000001',
@@ -178,9 +186,20 @@ async function main() {
     assert.equal(created.payload.safety.metricoolAllowed, false)
     assert.equal(created.payload.safety.finalPostClickAllowed, false)
     assert.equal(created.sourceUrl, 'https://www.youtube.com/watch?v=MACMINISMOKE')
+    assert.notEqual(created.caption, 'STALE CAPTION')
+    assert.ok(created.caption.includes('Quick review:'))
+    assert.ok(created.hashtags.some((tag) => tag.toLowerCase().includes('tradetalk')))
+    assert.ok(created.score > 10)
     assert.ok(created.whyNow.includes('0-3 hour viral window'))
+    assert.notEqual(created.operatorSummary, 'STALE operator summary')
     assert.ok(created.operatorSummary.includes('0-3 hour viral window'))
     assert.ok(created.editNotes.some((note) => note.includes('candidate_start_seconds:4')))
+
+    const syncedCandidate = db.rows('clip_candidates')[0]
+    assert.notEqual(syncedCandidate?.caption, 'STALE CAPTION')
+    assert.ok(Array.isArray(syncedCandidate?.hashtags) && syncedCandidate.hashtags.length > 1)
+    assert.ok(Number(syncedCandidate?.score) > 10)
+    assert.equal((syncedCandidate?.score_breakdown as Record<string, unknown>)?.model, 'rbhq_intelligence_v1')
 
     const pending = await getPendingMacMiniClipPackages(db as never, { limit: 5 })
     assert.equal(pending.length, 1)

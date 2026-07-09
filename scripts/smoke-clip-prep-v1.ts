@@ -129,6 +129,7 @@ async function main() {
   }) as typeof fetch
 
   try {
+    const freshPublishedAt = new Date(Date.now() - 30 * 60 * 1000).toISOString()
     const transcriptSegments = [
       { start: 3, duration: 7, end: 10, text: 'The rookie answers the pressure right away.' },
       { start: 10, duration: 8, end: 18, text: 'The crowd is stunned as the comeback starts.' },
@@ -143,14 +144,18 @@ async function main() {
           start_seconds: 3,
           end_seconds: 25,
           title: 'Rookie answers pressure with clutch comeback finish',
-          summary: 'Transcript-backed candidate with a clear comeback moment.',
+          summary: 'STALE operator summary',
           hook_text: 'The crowd is stunned as the comeback starts',
-          caption: 'EDITORIAL CAPTION MUST STAY',
-          hashtags: ['#Editorial', '#KeepMe'],
-          score: 91,
+          caption: 'STALE CANDIDATE CAPTION',
+          hashtags: ['#StaleCandidate'],
+          score: 10,
           score_breakdown: {
-            whyNow: 'RB Sports has clutch/upset momentum in the same-cycle viral window.',
-            reasons: ['Freshness signal: use the 0-3 hour posting window.'],
+            model: 'stale_fixture',
+            rankLabel: 'low_priority',
+            urgency: 'hold',
+            whyNow: 'STALE why now',
+            operatorSummary: 'STALE operator summary',
+            reasons: ['STALE reason'],
           },
           status: 'approved_for_handoff',
         },
@@ -177,7 +182,7 @@ async function main() {
           title: 'Full rookie comeback interview',
           description: 'A rookie answers pressure after a clutch comeback finish.',
           video_url: 'https://www.youtube.com/watch?v=CLIPPREPTIMED',
-          published_at: '2026-07-09T15:00:00.000Z',
+          published_at: freshPublishedAt,
           duration_seconds: 180,
         },
         {
@@ -236,8 +241,12 @@ async function main() {
     const timedCandidate = db.rows('clip_candidates')[0]
     assert.equal(timedCandidate?.clip_prep_status, 'ready')
     assert.equal(timedCandidate?.clip_prep_confidence, 'high')
-    assert.equal(timedCandidate?.caption, 'EDITORIAL CAPTION MUST STAY')
-    assert.deepEqual(timedCandidate?.hashtags, ['#Editorial', '#KeepMe'])
+    assert.notEqual(timedCandidate?.caption, 'STALE CANDIDATE CAPTION')
+    assert.ok(String(timedCandidate?.caption).includes('Quick review:'))
+    assert.ok(Array.isArray(timedCandidate?.hashtags) && timedCandidate.hashtags.length > 1)
+    assert.ok(Number(timedCandidate?.score) > 10)
+    assert.equal((timedCandidate?.score_breakdown as Record<string, unknown>)?.model, 'rbhq_intelligence_v1')
+    assert.equal((timedCandidate?.score_breakdown as Record<string, unknown>)?.urgency, 'post_now')
 
     const timedPackage = db.rows('mac_mini_clip_packages')[0]
     const payload = timedPackage?.package_payload as Record<string, unknown>

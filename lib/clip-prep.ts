@@ -1,4 +1,5 @@
 import { buildRBHQIntelligenceV1, type RBHQIntelligenceV1 } from './intelligence-v1'
+import { syncCandidateIntelligenceV1ForLoadedData } from './candidate-intelligence'
 import { readTimedSegments, type ScoutSegment } from './tiktok-clip-scout'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -429,6 +430,23 @@ export async function refreshClipPrepForCandidate(
     source = sourceData as ClipPrepSourceRow | null
   }
 
+  const nowDate = (input.now ?? (() => new Date()))()
+  const intelligenceSync = await syncCandidateIntelligenceV1ForLoadedData(supabase, {
+    candidate,
+    video: {
+      id: video.id,
+      title: video.title,
+      description: video.description,
+      video_url: video.video_url,
+      published_at: video.published_at,
+      duration_seconds: video.duration_seconds,
+      source_channels: source,
+    },
+    source,
+    now: () => nowDate,
+  })
+  Object.assign(candidate, intelligenceSync.update)
+
   const { data: transcriptData, error: transcriptError } = await supabase
     .from('video_transcripts')
     .select('transcript_source, transcript_text, transcript_json, language')
@@ -440,7 +458,7 @@ export async function refreshClipPrepForCandidate(
 
   const transcript = transcriptData as ClipPrepTranscriptInput
   const prep = buildClipPrepV1({ candidate, video, source, transcript })
-  const now = (input.now ?? (() => new Date()))().toISOString()
+  const now = nowDate.toISOString()
 
   const { error: updateCandidateError } = await supabase
     .from('clip_candidates')
