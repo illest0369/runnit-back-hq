@@ -101,19 +101,68 @@ const CANDIDATE_CAPTION_PREFIX = 'candidate_caption:'
 const CANDIDATE_HASHTAGS_PREFIX = 'candidate_hashtags:'
 const MAX_REASON_COUNT = 6
 
+type ViralSignalKey =
+  | 'breaking_news'
+  | 'trade_roster'
+  | 'injury_return'
+  | 'clutch_upset'
+  | 'rivalry_conflict'
+  | 'fan_reaction'
+  | 'championship_playoff_tournament'
+  | 'debut_record_milestone'
+  | 'gaming_update'
+  | 'source_authority'
+  | 'freshness'
+  | 'topic_momentum'
+
+type ViralSignalCategory = {
+  key: ViralSignalKey
+  label: string
+  caption: string
+  hashtags: string[]
+  patterns: string[]
+  scoreBoost: number
+  timingWeight: number
+  lanes?: string[]
+}
+
 const EVENT_PATTERNS = [
   'breaking',
   'just in',
+  'latest',
+  'report',
+  'reports',
+  'reported',
   'trade',
   'traded',
+  'transfer',
+  'transfers',
   'signed',
+  'signs',
+  'signing',
   'fired',
+  'waived',
+  'released',
+  'roster',
   'upset',
   'stunner',
   'injury',
   'injured',
+  'questionable',
+  'ruled out',
+  'returns',
+  'return',
+  'back in',
   'debut',
   'rookie',
+  'record',
+  'milestone',
+  'first career',
+  'first ever',
+  'youngest',
+  'oldest',
+  'historic',
+  'history',
   'rivalry',
   'rival',
   'beef',
@@ -128,12 +177,23 @@ const EVENT_PATTERNS = [
   'reaction',
   'reacts',
   'viral',
+  'fans',
+  'crowd',
   'rage',
   'nerf',
   'patch',
   'reveal',
   'trailer',
   'tournament',
+  'championship',
+  'playoff',
+  'playoffs',
+  'finals',
+  'semifinal',
+  'semifinals',
+  'grand final',
+  'title',
+  'cup',
 ]
 
 const EMOTIONAL_PATTERNS = [
@@ -151,48 +211,88 @@ const EMOTIONAL_PATTERNS = [
   'clutch',
 ]
 
-const SIGNAL_CATEGORIES = [
+const VIRAL_SIGNAL_CATEGORIES: ViralSignalCategory[] = [
   {
+    key: 'breaking_news',
     label: 'breaking/news',
     caption: 'breaking reaction',
     hashtags: ['#Breaking', '#News'],
-    patterns: ['breaking', 'just in'],
+    patterns: ['breaking', 'just in', 'latest', 'report:', 'reports', 'reported', 'per ', 'sources say', 'confirmed'],
+    scoreBoost: 8,
+    timingWeight: 5,
   },
   {
+    key: 'trade_roster',
     label: 'trade/roster',
     caption: 'trade reaction',
     hashtags: ['#TradeTalk', '#RosterMoves'],
-    patterns: ['trade', 'traded', 'signed', 'fired'],
+    patterns: ['trade', 'traded', 'transfer', 'transfers', 'signed', 'signs', 'signing', 'fired', 'waived', 'released', 'roster'],
+    scoreBoost: 7,
+    timingWeight: 5,
   },
   {
-    label: 'injury update',
+    key: 'injury_return',
+    label: 'injury/return',
     caption: 'injury update',
-    hashtags: ['#InjuryUpdate'],
-    patterns: ['injury', 'injured'],
+    hashtags: ['#InjuryUpdate', '#ReturnWatch'],
+    patterns: ['injury', 'injured', 'questionable', 'ruled out', 'returns', 'return', 'back in', 'cleared'],
+    scoreBoost: 7,
+    timingWeight: 5,
   },
   {
+    key: 'clutch_upset',
     label: 'clutch/upset',
     caption: 'clutch upset',
     hashtags: ['#Clutch', '#Upset'],
     patterns: ['upset', 'stunner', 'clutch', 'walkoff', 'walk-off', 'comeback'],
+    scoreBoost: 6,
+    timingWeight: 4,
   },
   {
+    key: 'rivalry_conflict',
     label: 'rivalry/conflict',
     caption: 'rivalry reaction',
     hashtags: ['#Rivalry', '#Reaction'],
-    patterns: ['rivalry', 'rival', 'beef', 'trash talk', 'heated', 'controversy', 'controversial'],
+    patterns: ['rivalry', 'rival', 'beef', 'trash talk', 'heated', 'controversy', 'controversial', 'calls out', 'called out', 'faceoff', 'face off'],
+    scoreBoost: 6,
+    timingWeight: 4,
   },
   {
+    key: 'fan_reaction',
     label: 'fan reaction',
     caption: 'fan reaction',
     hashtags: ['#FanReaction', '#Reaction'],
-    patterns: ['reaction', 'reacts', 'viral', 'rage'],
+    patterns: ['reaction', 'reacts', 'viral', 'rage', 'fans', 'crowd', 'erupts', 'goes crazy', 'losing it'],
+    scoreBoost: 4,
+    timingWeight: 3,
   },
   {
+    key: 'championship_playoff_tournament',
+    label: 'championship/playoff/tournament',
+    caption: 'tournament reaction',
+    hashtags: ['#Playoffs', '#Tournament'],
+    patterns: ['championship', 'playoff', 'playoffs', 'finals', 'semifinal', 'semifinals', 'grand final', 'tournament', 'title', 'cup', 'bracket'],
+    scoreBoost: 5,
+    timingWeight: 3,
+  },
+  {
+    key: 'debut_record_milestone',
+    label: 'debut/record/milestone',
+    caption: 'milestone reaction',
+    hashtags: ['#Milestone', '#RecordWatch'],
+    patterns: ['debut', 'rookie', 'record', 'milestone', 'first career', 'first ever', 'youngest', 'oldest', 'historic', 'history'],
+    scoreBoost: 5,
+    timingWeight: 3,
+  },
+  {
+    key: 'gaming_update',
     label: 'gaming update',
     caption: 'patch reaction',
     hashtags: ['#PatchNotes', '#GamingNews'],
     patterns: ['nerf', 'patch', 'reveal', 'trailer'],
+    scoreBoost: 4,
+    timingWeight: 4,
+    lanes: ['arena'],
   },
 ]
 
@@ -324,23 +424,161 @@ function countPatternHits(text: string, patterns: string[]): number {
   return patterns.filter((pattern) => text.includes(pattern)).length
 }
 
-function detectedSignals(text: string, lane: string) {
-  return SIGNAL_CATEGORIES.filter((category) => {
-    if (category.label === 'gaming update' && lane !== 'arena') return false
+function detectedPatternSignals(text: string, lane: string): ViralSignalCategory[] {
+  return VIRAL_SIGNAL_CATEGORIES.filter((category) => {
+    if (category.lanes && !category.lanes.includes(lane)) return false
     return countPatternHits(text, category.patterns) > 0
   })
 }
 
-function signalSummary(text: string, lane: string): string {
-  const labels = detectedSignals(text, lane).map((signal) => signal.label)
+function sourceAuthoritySignal(input: RBHQIntelligenceInput): ViralSignalCategory | null {
+  const source = compact(`${input.source_name ?? ''} ${input.source_type ?? ''}`).toLowerCase()
+  if (!source) return null
+  const authorityPatterns = [
+    'espn',
+    'nba',
+    'nfl',
+    'wnba',
+    'ufc',
+    'one championship',
+    'pfl',
+    'bellator',
+    'dazn',
+    'valorant champions tour',
+    'lol esports',
+    'rocket league esports',
+    'call of duty league',
+    'esl counter-strike',
+    'nwsl',
+    'ncaa',
+    'sec',
+    'acc digital network',
+    'cfp',
+    'major league soccer',
+    'mls',
+    'fifa',
+    'uefa',
+    'official',
+  ]
+  if (authorityPatterns.some((pattern) => source.includes(pattern))) {
+    return {
+      key: 'source_authority',
+      label: 'source authority',
+      caption: 'trusted source',
+      hashtags: [],
+      patterns: [],
+      scoreBoost: 3,
+      timingWeight: 0,
+    }
+  }
+  return null
+}
+
+function freshnessSignal(input: RBHQIntelligenceInput): ViralSignalCategory | null {
+  const hours = recencyHours(input)
+  if (hours === null || hours > 24) return null
+  return {
+    key: 'freshness',
+    label: hours <= 3 ? 'freshness: 0-3 hour window' : 'freshness: same-day window',
+    caption: 'fresh clip',
+    hashtags: [],
+    patterns: [],
+    scoreBoost: hours <= 3 ? 4 : 2,
+    timingWeight: hours <= 3 ? 4 : 2,
+  }
+}
+
+function topicMomentumSignal(text: string): ViralSignalCategory | null {
+  const momentumHits = countPatternHits(text, [
+    'reports',
+    'sources',
+    'confirmed',
+    'reaction',
+    'reacts',
+    'fans',
+    'crowd',
+    'everyone',
+    'internet',
+    'viral',
+    'roundup',
+  ])
+  if (momentumHits < 2) return null
+  return {
+    key: 'topic_momentum',
+    label: 'topic momentum',
+    caption: 'timeline reaction',
+    hashtags: ['#Reaction'],
+    patterns: [],
+    scoreBoost: 3,
+    timingWeight: 2,
+  }
+}
+
+function detectedViralSignals(input: RBHQIntelligenceInput): ViralSignalCategory[] {
+  const text = textForSignals(input)
+  const signals = [
+    ...detectedPatternSignals(text, laneSlug(input)),
+    topicMomentumSignal(text),
+    sourceAuthoritySignal(input),
+    freshnessSignal(input),
+  ].filter((signal): signal is ViralSignalCategory => Boolean(signal))
+
+  const seen = new Set<ViralSignalKey>()
+  return signals.filter((signal) => {
+    if (seen.has(signal.key)) return false
+    seen.add(signal.key)
+    return true
+  })
+}
+
+function signalSummary(input: RBHQIntelligenceInput): string {
+  const labels = detectedViralSignals(input)
+    .filter((signal) => signal.key !== 'source_authority' && signal.key !== 'freshness')
+    .map((signal) => signal.label)
   return labels.length > 0 ? labels.slice(0, 2).join(' + ') : 'story'
 }
 
 function signalHashtags(text: string, lane: string): string[] {
-  return detectedSignals(text, lane)
+  return detectedPatternSignals(text, lane)
     .map((signal) => signal.hashtags[0])
     .filter((tag): tag is string => Boolean(tag))
     .slice(0, 2)
+}
+
+function postingWindowForInput(input: RBHQIntelligenceInput, urgency: RBHQIntelligenceUrgency): string {
+  const hours = recencyHours(input)
+  if (urgency === 'post_now') {
+    if (hours !== null && hours <= 3) return '0-3 hour viral window'
+    if (hours !== null && hours <= 12) return 'same-cycle viral window'
+    return 'active conversation window'
+  }
+  if (urgency === 'today') {
+    if (hours !== null && hours <= 24) return 'same-day review window'
+    return 'today-only review window'
+  }
+  if (urgency === 'evergreen') return 'evergreen fill-in window'
+  return 'hold window'
+}
+
+function laneWindowPhrase(input: RBHQIntelligenceInput, urgency: RBHQIntelligenceUrgency): string {
+  const lane = laneSlug(input)
+  if (urgency === 'post_now') {
+    if (lane === 'arena') return 'before the match, patch, or lobby conversation moves on'
+    if (lane === 'combat') return 'before fight fans move to the next faceoff or card'
+    if (lane === 'women') return 'while women\'s sports fans are still reacting'
+    if (lane === 'futbol') return 'before the match-day futbol conversation resets'
+    if (lane === 'runnitbackcfb') return 'before the college football timeline rolls into the next debate'
+    return 'before the sports timeline cools'
+  }
+  if (urgency === 'today') {
+    if (lane === 'arena') return 'keep it in today\'s gaming review batch'
+    if (lane === 'combat') return 'keep it in today\'s fight review batch'
+    if (lane === 'women') return 'keep it in today\'s women\'s sports review batch'
+    if (lane === 'futbol') return 'keep it in today\'s futbol review batch'
+    if (lane === 'runnitbackcfb') return 'keep it in today\'s college football review batch'
+    return 'keep it in today\'s sports review batch'
+  }
+  return 'use it only after higher-timing clips are handled'
 }
 
 function formatUrgency(value: RBHQIntelligenceUrgency): string {
@@ -393,6 +631,32 @@ function baseScore(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput 
   return score + sourceFreshnessAdjustment(input)
 }
 
+function viralSignalBoost(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null): number {
+  const signalBoost = detectedViralSignals(input)
+    .reduce((total, signal) => total + signal.scoreBoost, 0)
+  const analyzerBoost =
+    (hasAnalyzerTag(analyzer, 'breaking') ? 5 : 0) +
+    (hasAnalyzerTag(analyzer, 'injury') ? 4 : 0) +
+    (hasAnalyzerTag(analyzer, 'rivalry') ? 3 : 0) +
+    (hasAnalyzerTag(analyzer, 'controversy') ? 3 : 0) +
+    (hasAnalyzerTag(analyzer, 'fan_reaction') ? 2 : 0)
+
+  return Math.min(22, signalBoost + analyzerBoost)
+}
+
+function viralTimingWeight(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null): number {
+  const signalWeight = detectedViralSignals(input)
+    .reduce((total, signal) => total + signal.timingWeight, 0)
+  const analyzerWeight =
+    (hasAnalyzerTag(analyzer, 'breaking') ? 5 : 0) +
+    (hasAnalyzerTag(analyzer, 'injury') ? 5 : 0) +
+    (hasAnalyzerTag(analyzer, 'rivalry') ? 3 : 0) +
+    (hasAnalyzerTag(analyzer, 'controversy') ? 3 : 0) +
+    (hasAnalyzerTag(analyzer, 'fan_reaction') ? 2 : 0)
+
+  return signalWeight + analyzerWeight
+}
+
 function rankForScore(score: number, urgency: RBHQIntelligenceUrgency): RBHQIntelligenceRankLabel {
   if (score >= 88 || (urgency === 'post_now' && score >= 82)) return 'must_post'
   if (score >= 76) return 'strong'
@@ -405,6 +669,8 @@ function urgencyForInput(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerO
   const eventHits = countPatternHits(text, EVENT_PATTERNS)
   const hours = recencyHours(input)
   const staleSourceCandidate = isYouTubeRssSource(input) && hours !== null && hours > 72
+  const timingWeight = viralTimingWeight(input, analyzer)
+  const hasFreshness = hours === null || hours <= 24
   const blocked =
     score < 45 ||
     hasAnalyzerTag(analyzer, 'wrong_format') ||
@@ -413,18 +679,11 @@ function urgencyForInput(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerO
 
   if (blocked) return 'hold'
   if (staleSourceCandidate) return 'evergreen'
-  if (
-    hasAnalyzerTag(analyzer, 'breaking') ||
-    hasAnalyzerTag(analyzer, 'injury') ||
-    (eventHits >= 2 && (hours === null || hours <= 12)) ||
-    (hours !== null && hours <= 3 && eventHits > 0)
-  ) {
+  if (timingWeight >= 8 && hasFreshness && (hours === null || hours <= 12 || eventHits >= 3)) {
     return 'post_now'
   }
   if (
-    hasAnalyzerTag(analyzer, 'rivalry') ||
-    hasAnalyzerTag(analyzer, 'controversy') ||
-    hasAnalyzerTag(analyzer, 'fan_reaction') ||
+    timingWeight > 0 ||
     eventHits > 0 ||
     (hours !== null && hours <= 24)
   ) {
@@ -452,7 +711,7 @@ function buildCaption(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutp
   const text = textForSignals(input)
   const context = compact(input.league || input.sport)
   const lane = laneSlug(input)
-  const signal = detectedSignals(text, lane)[0]
+  const signal = detectedPatternSignals(text, lane)[0]
   const topic = compact([context, signal?.caption].filter(Boolean).join(' '))
   const angle = topic
     ? `${sentenceCase(topic)} is the angle to test`
@@ -502,15 +761,22 @@ function reasonLines(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutpu
   const hours = recencyHours(input)
   const eventHits = countPatternHits(text, EVENT_PATTERNS)
   const emotionalHits = countPatternHits(text, EMOTIONAL_PATTERNS)
+  const viralSignals = detectedViralSignals(input)
 
-  const signals = signalSummary(text, laneSlug(input))
+  const signals = signalSummary(input)
 
-  if (eventHits > 0) reasons.push(`Story signal is specific: ${signals}.`)
+  if (eventHits > 0) reasons.push(`Viral signal is specific: ${signals}.`)
+  if (viralSignals.some((signal) => signal.key === 'source_authority')) {
+    reasons.push('Source authority is strong enough for operator trust.')
+  }
+  if (viralSignals.some((signal) => signal.key === 'topic_momentum')) {
+    reasons.push('Topic momentum shows repeated reporting or fan reaction language.')
+  }
   if (emotionalHits > 0 || hasAnalyzerTag(analyzer, 'controversy') || hasAnalyzerTag(analyzer, 'rivalry')) {
     reasons.push('Emotional or conflict signal should help comments.')
   }
   if (hours !== null && hours <= 24) {
-    reasons.push(hours <= 3 ? 'Fresh clip: imported in the last 3 hours.' : 'Recent clip: still useful for today.')
+    reasons.push(hours <= 3 ? 'Freshness signal: use the 0-3 hour posting window.' : 'Freshness signal: still inside the same-day window.')
   }
   if (analyzer?.reasonTags.length) {
     reasons.push(`Analyzer tags: ${analyzer.reasonTags.slice(0, 3).map((tag) => tag.replace(/_/g, ' ')).join(', ')}.`)
@@ -531,14 +797,14 @@ function reasonLines(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutpu
 
 function whyNowForInput(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null, urgency: RBHQIntelligenceUrgency): string {
   if (analyzer?.whyNow && urgency !== 'evergreen') return truncate(analyzer.whyNow, 180)
-  const text = textForSignals(input)
-  const signals = signalSummary(text, laneSlug(input))
+  const signals = signalSummary(input)
   const hours = recencyHours(input)
-  const recency = hours === null ? '' : hours <= 3 ? ' and the upload is fresh' : hours <= 24 ? ' and the upload is still timely' : ''
-  if (urgency === 'post_now') return `${laneLabel(input)} has ${signals} momentum${recency}; post before the conversation cools.`
-  if (urgency === 'today') return `${laneLabel(input)} has a ${signals} angle${recency}; review it while the lane is still active.`
+  const recency = hours === null ? '' : hours <= 3 ? ' with a fresh upload' : hours <= 24 ? ' with same-day freshness' : ''
+  const window = postingWindowForInput(input, urgency)
+  if (urgency === 'post_now') return `${laneLabel(input)} has ${signals} momentum${recency}; ${window}, ${laneWindowPhrase(input, urgency)}.`
+  if (urgency === 'today') return `${laneLabel(input)} has a ${signals} angle${recency}; ${window}, ${laneWindowPhrase(input, urgency)}.`
   if (urgency === 'hold') return 'Hold until the format, quality, or story signal is stronger.'
-  return 'Evergreen angle: useful as a fill-in when higher-urgency clips are thin.'
+  return `${laneLabel(input)} is not in a live viral window; use as evergreen fill-in when higher-urgency clips are thin.`
 }
 
 function operatorSummaryForInput(
@@ -549,8 +815,9 @@ function operatorSummaryForInput(
 ): string {
   if (analyzer?.operatorSummary) return truncate(analyzer.operatorSummary, 180)
   const source = compact(input.source_name) || 'source'
-  const signal = signalSummary(textForSignals(input), laneSlug(input))
-  return `${laneLabel(input)}: ${source} clip is ${rankLabel.replace(/_/g, ' ')} at ${score}/100 with a ${signal} angle; ${formatUrgency(urgencyForInput(input, analyzer, score))}.`
+  const signal = signalSummary(input)
+  const urgency = urgencyForInput(input, analyzer, score)
+  return `${laneLabel(input)}: ${source} clip is ${rankLabel.replace(/_/g, ' ')} at ${score}/100 with ${signal}; ${formatUrgency(urgency)} in the ${postingWindowForInput(input, urgency)}.`
 }
 
 export function adaptTikTokAnalysisToRBHQIntelligenceV1(
@@ -562,10 +829,7 @@ export function adaptTikTokAnalysisToRBHQIntelligenceV1(
 
 export function buildRBHQIntelligenceV1(input: RBHQIntelligenceInput): RBHQIntelligenceV1 {
   const analyzer = input.analyzer ?? getStoredTikTokAnalysis(input.moderation_notes)
-  const text = textForSignals(input)
-  const scoreBoost =
-    Math.min(8, countPatternHits(text, EVENT_PATTERNS) * 2) +
-    Math.min(6, countPatternHits(text, EMOTIONAL_PATTERNS) * 2)
+  const scoreBoost = viralSignalBoost(input, analyzer)
   const urgencyProbeScore = clampScore(baseScore(input, analyzer) + scoreBoost)
   const urgency = urgencyForInput(input, analyzer, urgencyProbeScore)
   const score = urgency === 'hold' ? Math.min(urgencyProbeScore, 62) : urgencyProbeScore
@@ -684,12 +948,12 @@ export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {
 }>(clips: T[], sourceCandidates: SourceCandidateSummary[] = []): DailyContentPlan {
   const planClips = clips.map(toPlanClip).sort(byPriority)
   const topClipsToPostNow = planClips
-    .filter((clip) => clip.urgency === 'post_now' || clip.rankLabel === 'must_post')
+    .filter((clip) => clip.urgency === 'post_now')
     .slice(0, 6)
   const strongAlternates = planClips
     .filter((clip) =>
       !topClipsToPostNow.some((topClip) => topClip.id === clip.id) &&
-      (clip.rankLabel === 'strong' || (clip.rankLabel === 'solid' && clip.urgency !== 'hold')),
+      (clip.rankLabel === 'must_post' || clip.rankLabel === 'strong' || (clip.rankLabel === 'solid' && clip.urgency !== 'hold')),
     )
     .slice(0, 10)
   const holdOrLowPriority = planClips
