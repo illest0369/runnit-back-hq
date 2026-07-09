@@ -10,6 +10,9 @@ type JsonObject = Record<string, unknown>
 export type MacMiniWorkerPackage = {
   id: string
   browserChannelKey: string
+  localAssetPath: string | null
+  assetStatus: 'missing' | 'attached' | 'invalid'
+  assetError: string | null
   sourceUrl: string
   sourceTitle: string
   caption: string
@@ -86,9 +89,12 @@ function readPayloadPackage(raw: unknown): MacMiniWorkerPackage {
   const payload = objectValue(item.payload)
   const lane = objectValue(payload.lane)
   const source = objectValue(payload.source)
+  const asset = objectValue(payload.asset)
   const draft = objectValue(payload.tiktokDraft)
   const id = compact(item.id || payload.packageId)
   const browserChannelKey = compact(item.browserChannelKey || lane.browserChannelKey)
+  const localAssetPath = compact(item.localAssetPath || payload.localAssetPath || asset.localPath)
+  const assetStatus = compact(item.assetStatus || asset.status)
 
   if (!id) throw new Error('Fetched Mac mini package is missing id.')
   if (!browserChannelKey) throw new Error(`Mac mini package ${id} is missing browserChannelKey.`)
@@ -96,6 +102,9 @@ function readPayloadPackage(raw: unknown): MacMiniWorkerPackage {
   return {
     id,
     browserChannelKey,
+    localAssetPath: localAssetPath || null,
+    assetStatus: assetStatus === 'attached' || assetStatus === 'invalid' ? assetStatus : 'missing',
+    assetError: compact(item.assetError || asset.error) || null,
     sourceUrl: compact(item.sourceUrl || source.url || draft.sourceVideoUrl),
     sourceTitle: compact(item.sourceTitle || source.title || draft.title),
     caption: compact(item.caption || draft.caption),
@@ -134,7 +143,13 @@ function readNestedString(source: JsonObject, pathKeys: string[]): string | null
 }
 
 function mediaPathFromPackage(pkg: MacMiniWorkerPackage): string | null {
+  if (pkg.assetStatus === 'attached' && pkg.localAssetPath) {
+    return pkg.localAssetPath
+  }
+
   const candidates = [
+    readNestedString(pkg.payload, ['localAssetPath']),
+    readNestedString(pkg.payload, ['asset', 'localPath']),
     readNestedString(pkg.payload, ['mediaPath']),
     readNestedString(pkg.payload, ['localPath']),
     readNestedString(pkg.payload, ['media', 'localPath']),
@@ -305,7 +320,7 @@ export async function runMacMiniDryRunWorker(
     const profileResult = safeJsonParse(profile.stdout)
     profileDir = compact(profileResult.profileDir) || null
     const channelKey = compact(profileResult.channelKey) || pkg.browserChannelKey
-    const media = await verifyLocalMp4(options.mediaPath ?? mediaPathFromPackage(pkg))
+    const media = await verifyLocalMp4(mediaPathFromPackage(pkg) ?? options.mediaPath ?? null)
     assetMissing = media.assetMissing
     draftPath = await writeDraftFile(pkg, {
       channelKey,
@@ -372,6 +387,8 @@ export async function runMacMiniDryRunWorker(
         profileDir,
         draftPath,
         asset_missing: assetMissing,
+        asset_status: pkg.assetStatus,
+        local_asset_path: assetMissing ? null : media.mediaPath,
         captionPrepared: Boolean(pkg.caption),
         hashtagsPrepared: pkg.hashtags.length > 0,
         uploaderResult,
@@ -408,6 +425,8 @@ export async function runMacMiniDryRunWorker(
         profileDir,
         draftPath,
         asset_missing: assetMissing,
+        asset_status: pkg.assetStatus,
+        local_asset_path: null,
         error,
         safety: baseSafety,
       },

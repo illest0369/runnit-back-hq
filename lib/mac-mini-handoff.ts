@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import { stat } from 'node:fs/promises'
+import path from 'node:path'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
@@ -7,6 +9,7 @@ import { getChannelMeta } from './channel-meta'
 export type MacMiniPackageStatus = 'ready' | 'fetched' | 'dry_run_complete' | 'dry_run_failed' | 'cancelled'
 export type MacMiniHandoffStatus = 'pending' | 'fetched' | 'dry_run_succeeded' | 'dry_run_failed' | 'cancelled'
 export type MacMiniDryRunStatus = 'success' | 'failure'
+export type MacMiniAssetStatus = 'missing' | 'attached' | 'invalid'
 
 export type MacMiniClipPackagePayload = {
   version: 'rbhq-mac-mini-clip-package-v1'
@@ -26,12 +29,20 @@ export type MacMiniClipPackagePayload = {
     title: string
     name: string
   }
+  localAssetPath?: string | null
+  asset?: {
+    localPath: string | null
+    status: MacMiniAssetStatus
+    error: string | null
+  }
   tiktokDraft: {
     title: string
     hook: string
     caption: string
     hashtags: string[]
     sourceVideoUrl: string
+    mediaPath?: string | null
+    localPath?: string | null
     whyNow: string
     operatorSummary: string
     editNotes: string[]
@@ -73,6 +84,10 @@ export type MacMiniClipPackage = {
   fetchedAt: string | null
   dryRunAt: string | null
   dryRunError: string | null
+  localAssetPath: string | null
+  assetStatus: MacMiniAssetStatus
+  assetError: string | null
+  assetAttachedAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -133,6 +148,10 @@ type MacMiniClipPackageRow = {
   fetched_at: string | null
   dry_run_at: string | null
   dry_run_error: string | null
+  local_asset_path: string | null
+  asset_status: MacMiniAssetStatus | null
+  asset_error: string | null
+  asset_attached_at: string | null
   created_at: string
   updated_at: string
 }
@@ -162,11 +181,16 @@ const PACKAGE_SELECT = [
   'fetched_at',
   'dry_run_at',
   'dry_run_error',
+  'local_asset_path',
+  'asset_status',
+  'asset_error',
+  'asset_attached_at',
   'created_at',
   'updated_at',
 ].join(', ')
 
 const HIGH_PRIORITY_SCORE = 76
+const DEFAULT_MAC_MINI_ASSET_ROOT = path.join(process.cwd(), 'tmp', 'mac-mini-assets')
 
 function compact(value: string | null | undefined): string {
   return value?.replace(/\s+/g, ' ').trim() ?? ''
@@ -262,8 +286,97 @@ function normalizePackageRow(row: MacMiniClipPackageRow): MacMiniClipPackage {
     fetchedAt: row.fetched_at,
     dryRunAt: row.dry_run_at,
     dryRunError: row.dry_run_error,
+    localAssetPath: row.local_asset_path,
+    assetStatus: row.asset_status ?? 'missing',
+    assetError: row.asset_error,
+    assetAttachedAt: row.asset_attached_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  }
+}
+
+function getMacMiniAssetRoot(): string {
+  return path.resolve(process.env.MAC_MINI_ASSET_ROOT?.trim() || DEFAULT_MAC_MINI_ASSET_ROOT)
+}
+
+function isPathInside(parent: string, child: string): boolean {
+  const relative = path.relative(parent, child)
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+function assertDryRunPayload(payload: MacMiniClipPackagePayload): void {
+  if (payload.targetPlatform !== 'tiktok') {
+    throw new Error('Mac mini package asset attach requires targetPlatform=tiktok.')
+  }
+  if (payload.publishAction !== 'dry_run') {
+    throw new Error('Mac mini package asset attach requires publishAction=dry_run.')
+  }
+  if (payload.testMode !== true) {
+    throw new Error('Mac mini package asset attach requires testMode=true.')
+  }
+  if (payload.safety.finalPostClickAllowed !== false || payload.safety.livePostingAllowed !== false) {
+    throw new Error('Mac mini package asset attach requires final-post/live-post safety flags.')
+  }
+}
+
+export async function validateMacMiniLocalAssetPath(
+  assetPath: string,
+  input: { assetRoot?: string } = {},
+): Promise<{ ok: true; absolutePath: string; assetRoot: string } | { ok: false; absolutePath: string; assetRoot: string; error: string }> {
+  const absolutePath = path.resolve(assetPath)
+  const assetRoot = path.resolve(input.assetRoot || getMacMiniAssetRoot())
+
+  if (!isPathInside(assetRoot, absolutePath)) {
+    return {
+      ok: false,
+      absolutePath,
+      assetRoot,
+      error: `Local asset path must be inside ${assetRoot}.`,
+    }
+  }
+
+  if (!absolutePath.toLowerCase().endsWith('.mp4')) {
+    return {
+      ok: false,
+      absolutePath,
+      assetRoot,
+      error: 'Local asset path must point to an .mp4 file.',
+    }
+  }
+
+  const assetStat = await stat(absolutePath).catch(() => null)
+  if (!assetStat?.isFile()) {
+    return {
+      ok: false,
+      absolutePath,
+      assetRoot,
+      error: 'Local asset file does not exist or is not a file.',
+    }
+  }
+
+  return { ok: true, absolutePath, assetRoot }
+}
+
+function payloadWithLocalAsset(
+  payload: MacMiniClipPackagePayload,
+  input: { localAssetPath: string | null; assetStatus: MacMiniAssetStatus; assetError: string | null },
+): MacMiniClipPackagePayload {
+  assertDryRunPayload(payload)
+  return {
+    ...payload,
+    localAssetPath: input.localAssetPath,
+    asset: {
+      localPath: input.localAssetPath,
+      status: input.assetStatus,
+      error: input.assetError,
+    },
+    tiktokDraft: {
+      ...payload.tiktokDraft,
+      mediaPath: input.localAssetPath,
+      localPath: input.localAssetPath,
+      publishAction: 'dry_run',
+      testMode: true,
+    },
   }
 }
 
@@ -303,12 +416,20 @@ function buildPayload(input: {
       title: input.sourceTitle,
       name: input.sourceName,
     },
+    localAssetPath: null,
+    asset: {
+      localPath: null,
+      status: 'missing',
+      error: null,
+    },
     tiktokDraft: {
       title: input.candidate.title || input.sourceTitle,
       hook: input.hook,
       caption: input.caption,
       hashtags: input.hashtags,
       sourceVideoUrl: input.sourceUrl,
+      mediaPath: null,
+      localPath: null,
       whyNow: input.whyNow,
       operatorSummary: input.operatorSummary,
       editNotes: input.editNotes,
@@ -440,6 +561,10 @@ export async function createMacMiniClipPackageFromCandidate(
       package_payload: payload,
       package_status: 'ready',
       handoff_status: 'pending',
+      local_asset_path: null,
+      asset_status: 'missing',
+      asset_error: null,
+      asset_attached_at: null,
       created_at: now,
       updated_at: now,
     })
@@ -467,6 +592,80 @@ export async function getPendingMacMiniClipPackages(
 
   if (error) throw new Error(error.message)
   return ((data ?? []) as unknown as MacMiniClipPackageRow[]).map(normalizePackageRow)
+}
+
+export async function attachMacMiniLocalAsset(
+  supabase: MacMiniDb,
+  packageId: string,
+  assetPath: string,
+  input: { now?: () => Date; assetRoot?: string } = {},
+): Promise<MacMiniClipPackage> {
+  const { data: currentData, error: currentError } = await supabase
+    .from('mac_mini_clip_packages')
+    .select(PACKAGE_SELECT)
+    .eq('id', packageId)
+    .single()
+
+  if (currentError || !currentData) {
+    throw new Error(currentError?.message || 'Mac mini clip package not found.')
+  }
+
+  const current = currentData as unknown as MacMiniClipPackageRow
+  assertDryRunPayload(current.package_payload)
+
+  const validation = await validateMacMiniLocalAssetPath(assetPath, { assetRoot: input.assetRoot })
+  const now = (input.now ?? (() => new Date()))().toISOString()
+
+  if (!validation.ok) {
+    const invalidPayload = payloadWithLocalAsset(current.package_payload, {
+      localAssetPath: null,
+      assetStatus: 'invalid',
+      assetError: validation.error,
+    })
+    const { data, error } = await supabase
+      .from('mac_mini_clip_packages')
+      .update({
+        local_asset_path: null,
+        asset_status: 'invalid',
+        asset_error: validation.error,
+        asset_attached_at: null,
+        package_payload: invalidPayload,
+        updated_at: now,
+      })
+      .eq('id', packageId)
+      .select(PACKAGE_SELECT)
+      .single()
+
+    if (error || !data) {
+      throw new Error(error?.message || 'Invalid Mac mini local asset state could not be recorded.')
+    }
+    throw new Error(validation.error)
+  }
+
+  const payload = payloadWithLocalAsset(current.package_payload, {
+    localAssetPath: validation.absolutePath,
+    assetStatus: 'attached',
+    assetError: null,
+  })
+  const { data, error } = await supabase
+    .from('mac_mini_clip_packages')
+    .update({
+      local_asset_path: validation.absolutePath,
+      asset_status: 'attached',
+      asset_error: null,
+      asset_attached_at: now,
+      package_payload: payload,
+      updated_at: now,
+    })
+    .eq('id', packageId)
+    .select(PACKAGE_SELECT)
+    .single()
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Mac mini local asset could not be attached.')
+  }
+
+  return normalizePackageRow(data as unknown as MacMiniClipPackageRow)
 }
 
 export async function recordMacMiniPackageDryRun(
