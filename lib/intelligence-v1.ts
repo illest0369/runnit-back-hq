@@ -192,7 +192,7 @@ const SIGNAL_CATEGORIES = [
     label: 'gaming update',
     caption: 'patch reaction',
     hashtags: ['#PatchNotes', '#GamingNews'],
-    patterns: ['nerf', 'patch', 'reveal', 'trailer', 'tournament'],
+    patterns: ['nerf', 'patch', 'reveal', 'trailer'],
   },
 ]
 
@@ -362,6 +362,20 @@ function recencyHours(input: RBHQIntelligenceInput): number | null {
   return Math.max(0, (Date.now() - parsed) / 3_600_000)
 }
 
+function isYouTubeRssSource(input: RBHQIntelligenceInput): boolean {
+  return input.source_type === 'youtube_rss'
+}
+
+function sourceFreshnessAdjustment(input: RBHQIntelligenceInput): number {
+  if (!isYouTubeRssSource(input)) return 0
+  const hours = recencyHours(input)
+  if (hours === null) return 0
+  if (hours > 168) return -10
+  if (hours > 72) return -6
+  if (hours > 24) return -3
+  return 0
+}
+
 function baseScore(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null): number {
   const ai = typeof input.ai_score === 'number' ? input.ai_score : null
   const virality = typeof input.virality_score === 'number' ? input.virality_score : null
@@ -376,7 +390,7 @@ function baseScore(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput 
   if (typeof duration === 'number' && duration > 0 && duration <= 24) score += 3
   if (typeof duration === 'number' && duration > 50) score -= 4
 
-  return score
+  return score + sourceFreshnessAdjustment(input)
 }
 
 function rankForScore(score: number, urgency: RBHQIntelligenceUrgency): RBHQIntelligenceRankLabel {
@@ -390,6 +404,7 @@ function urgencyForInput(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerO
   const text = textForSignals(input)
   const eventHits = countPatternHits(text, EVENT_PATTERNS)
   const hours = recencyHours(input)
+  const staleSourceCandidate = isYouTubeRssSource(input) && hours !== null && hours > 72
   const blocked =
     score < 45 ||
     hasAnalyzerTag(analyzer, 'wrong_format') ||
@@ -397,6 +412,7 @@ function urgencyForInput(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerO
     (input.risk_flags ?? []).some((flag) => /wrong_format|low_quality|blocked/i.test(flag))
 
   if (blocked) return 'hold'
+  if (staleSourceCandidate) return 'evergreen'
   if (
     hasAnalyzerTag(analyzer, 'breaking') ||
     hasAnalyzerTag(analyzer, 'injury') ||
@@ -448,7 +464,11 @@ function buildCaption(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutp
         ? 'before fight fans move to the next card.'
         : lane === 'women'
           ? 'before the women\'s sports feed moves on.'
-          : 'before the sports feed moves on.'
+          : lane === 'futbol'
+            ? 'before the futbol feed moves on.'
+            : lane === 'runnitbackcfb'
+              ? 'before the college football feed moves on.'
+              : 'before the sports feed moves on.'
 
   return truncate(`${sentenceLead(hook)} Quick review: ${angle} ${laneClose}`, 180)
 }
@@ -464,7 +484,7 @@ function buildHashtags(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOut
     futbol: ['#Futbol', '#Soccer', '#RunnitBack'],
     runnitbackcfb: ['#CollegeFootball', '#CFB', '#RunnitBack'],
     women: ['#WomensSports', '#Highlights', '#RunnitBack'],
-    combat: ['#UFC', '#MMA', '#FightNight'],
+    combat: ['#CombatSports', '#FightNight', '#RunnitBack'],
   }
   const text = textForSignals(input)
 
@@ -502,7 +522,7 @@ function reasonLines(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutpu
     reasons.push('Saved editorial caption or hashtags are already available.')
   }
   if (laneSlug(input) === 'arena') {
-    reasons.push('Gaming lane fit favors speed while the clip is still current.')
+    reasons.push('Gaming lane fit is clear for this source.')
   }
   if (score < 58) reasons.push('Score is below the main operator priority band.')
 
