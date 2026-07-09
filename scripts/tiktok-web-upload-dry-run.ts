@@ -16,6 +16,7 @@ type CliOptions = {
   headed: boolean
   keepOpen: boolean
   chromeOnly: boolean
+  loginFriendly: boolean
   timeoutMs: number
   slowMo: number
   profileDirOverride: string | null
@@ -75,6 +76,7 @@ function readOptions(): CliOptions {
     headed,
     keepOpen: hasFlag('--keep-open') || mode === 'login',
     chromeOnly: hasFlag('--chrome-only'),
+    loginFriendly: hasFlag('--login-friendly'),
     timeoutMs: readNumberFlag('--timeout-ms', 45_000),
     slowMo: readNumberFlag('--slow-mo', 0),
     profileDirOverride: readFlagValue('--profile-dir') || process.env.TIKTOK_PLAYWRIGHT_PROFILE || null,
@@ -82,6 +84,20 @@ function readOptions(): CliOptions {
     artifactDir: path.resolve(readFlagValue('--artifact-dir') || path.join(process.cwd(), 'tmp', 'tiktok-web-upload-artifacts')),
   }
 }
+
+const LOGIN_FRIENDLY_IGNORE_DEFAULT_ARGS = [
+  '--disable-background-networking',
+  '--disable-client-side-phishing-detection',
+  '--disable-component-extensions-with-background-pages',
+  '--disable-component-update',
+  '--disable-default-apps',
+  '--disable-extensions',
+  '--disable-sync',
+  '--no-first-run',
+  '--no-service-autorun',
+  '--password-store=basic',
+  '--use-mock-keychain',
+]
 
 function stringValue(value: unknown): string | null {
   return typeof value === 'string' && value.trim() ? value.trim() : null
@@ -256,6 +272,9 @@ function buildCaption(draft: DraftPackage) {
 
 async function launchLocalBrowser(options: CliOptions, profileDir: string) {
   await mkdir(profileDir, { recursive: true })
+  if (options.loginFriendly && options.mode === 'dry-run') {
+    throw new Error('--login-friendly is only supported for --login, --session-check, or --print-profile validation.')
+  }
 
   const launchOptions = {
     channel: 'chrome',
@@ -263,6 +282,7 @@ async function launchLocalBrowser(options: CliOptions, profileDir: string) {
     slowMo: options.slowMo,
     viewport: { width: 1440, height: 1000 },
     acceptDownloads: false,
+    ignoreDefaultArgs: options.loginFriendly ? LOGIN_FRIENDLY_IGNORE_DEFAULT_ARGS : undefined,
   } as const
 
   try {
@@ -274,6 +294,7 @@ async function launchLocalBrowser(options: CliOptions, profileDir: string) {
       slowMo: options.slowMo,
       viewport: { width: 1440, height: 1000 },
       acceptDownloads: false,
+      ignoreDefaultArgs: options.loginFriendly ? LOGIN_FRIENDLY_IGNORE_DEFAULT_ARGS : undefined,
     })
   }
 }
