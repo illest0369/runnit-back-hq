@@ -210,6 +210,24 @@ type DailyPlanClip = {
   createdAt?: string | null;
 };
 
+type DailyPlanSourceCandidate = {
+  id: string;
+  title: string;
+  videoUrl: string;
+  thumbnailUrl: string | null;
+  publishedAt: string | null;
+  sourceName: string;
+  targetLane: string | null;
+  score: number;
+  rankLabel: IntelligenceRankLabel;
+  urgency: IntelligenceUrgency;
+  hook: string;
+  suggestedCaption: string;
+  suggestedHashtags: string[];
+  whyNow: string;
+  operatorSummary: string;
+};
+
 type DailyPlan = {
   generatedAt: string;
   topClipsToPostNow: DailyPlanClip[];
@@ -217,6 +235,7 @@ type DailyPlan = {
   holdOrLowPriority: DailyPlanClip[];
   laneBalanceNotes: string[];
   suggestedPostingOrder: DailyPlanClip[];
+  sourceCandidates: DailyPlanSourceCandidate[];
 };
 
 type QueueMode = "pending" | "held";
@@ -1295,6 +1314,7 @@ function dailyPlanHasContent(plan: DailyPlan | null) {
     (plan.topClipsToPostNow ?? []).length > 0 ||
     (plan.strongAlternates ?? []).length > 0 ||
     (plan.holdOrLowPriority ?? []).length > 0 ||
+    (plan.sourceCandidates ?? []).length > 0 ||
     (plan.laneBalanceNotes ?? []).length > 0 ||
     (plan.suggestedPostingOrder ?? []).length > 0
   );
@@ -1622,6 +1642,14 @@ function DailyPlanScreen({
             </div>
           </DailyPlanSection>
 
+          <DailyPlanSection title="Source Candidates" count={(plan?.sourceCandidates ?? []).length}>
+            <div className="flex flex-col gap-3">
+              {(plan?.sourceCandidates ?? []).map((candidate) => (
+                <DailyPlanSourceCandidateCard key={candidate.id} candidate={candidate} />
+              ))}
+            </div>
+          </DailyPlanSection>
+
           <DailyPlanSection title="Hold / Low Priority" count={(plan?.holdOrLowPriority ?? []).length}>
             <div className="flex flex-col gap-2">
               {(plan?.holdOrLowPriority ?? []).map((clip, index) => (
@@ -1712,6 +1740,51 @@ function DailyPlanClipCard({ clip }: { clip: DailyPlanClip }) {
       ) : null}
       {clip.suggestedHashtags.length > 0 ? (
         <p className="mt-2 text-[11px] font-bold leading-5 text-[var(--rb-muted)]">{clip.suggestedHashtags.join(" ")}</p>
+      ) : null}
+    </article>
+  );
+}
+
+function DailyPlanSourceCandidateCard({ candidate }: { candidate: DailyPlanSourceCandidate }) {
+  return (
+    <article className="rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-[11px] font-bold uppercase tracking-[0.14em] text-[var(--rb-accent)]">
+            {candidate.sourceName || "RBHQ"} · {candidate.targetLane || "Unassigned lane"}
+          </p>
+          <h3 className="mt-1 line-clamp-2 text-[16px] font-black leading-tight text-[var(--rb-text)]">{candidate.title}</h3>
+        </div>
+        <span className="shrink-0 rounded-full bg-[var(--rb-text)] px-2.5 py-1 text-[11px] font-black text-white">
+          {Math.round(candidate.score)}
+        </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <span className={`rounded-full border px-2.5 py-1 text-[10.5px] font-black ${rankTone(candidate.rankLabel)}`}>
+          {formatRankLabel(candidate.rankLabel)}
+        </span>
+        <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2.5 py-1 text-[10.5px] font-bold text-[var(--rb-muted)]">
+          {formatUrgencyLabel(candidate.urgency)}
+        </span>
+      </div>
+
+      {candidate.whyNow ? (
+        <p className="mt-3 text-[12px] font-semibold leading-5 text-[var(--rb-text)]">{candidate.whyNow}</p>
+      ) : null}
+      {candidate.operatorSummary ? (
+        <p className="mt-2 text-[12px] leading-5 text-[var(--rb-muted)]">{candidate.operatorSummary}</p>
+      ) : null}
+      {candidate.hook ? (
+        <p className="mt-3 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] p-3 text-[12px] font-semibold leading-5 text-[var(--rb-text)]">
+          {candidate.hook}
+        </p>
+      ) : null}
+      {candidate.suggestedCaption ? (
+        <p className="mt-3 text-[12px] leading-5 text-[var(--rb-muted)]">{candidate.suggestedCaption}</p>
+      ) : null}
+      {candidate.suggestedHashtags.length > 0 ? (
+        <p className="mt-2 text-[11px] font-bold leading-5 text-[var(--rb-muted)]">{candidate.suggestedHashtags.join(" ")}</p>
       ) : null}
     </article>
   );

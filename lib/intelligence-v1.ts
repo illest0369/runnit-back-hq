@@ -81,6 +81,7 @@ export type SourceCandidateSummary = {
   suggestedCaption: string
   suggestedHashtags: string[]
   whyNow: string
+  operatorSummary: string
 }
 
 export type DailyContentPlan = {

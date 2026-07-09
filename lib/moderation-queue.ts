@@ -1882,6 +1882,7 @@ type ClipCandidateQueryRow = {
     rankLabel?: string
     urgency?: string
     whyNow?: string
+    operatorSummary?: string
   } | null
   status: string
   // Supabase nested joins can be returned as arrays or objects depending on
@@ -1952,6 +1953,7 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow): SourceCandidateSu
     suggestedCaption: row.caption ?? '',
     suggestedHashtags: row.hashtags ?? [],
     whyNow: typeof breakdown.whyNow === 'string' ? breakdown.whyNow : '',
+    operatorSummary: typeof breakdown.operatorSummary === 'string' ? breakdown.operatorSummary : '',
   }
 }
 

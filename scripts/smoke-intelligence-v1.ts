@@ -5,6 +5,7 @@ import {
   buildRBHQIntelligenceV1,
   getRBHQIntelligenceV1,
   getStoredRBHQIntelligenceV1,
+  type SourceCandidateSummary,
   withStoredRBHQIntelligenceV1,
 } from '../lib/intelligence-v1'
 
@@ -104,11 +105,28 @@ const highScoreEvergreen = buildRBHQIntelligenceV1(highScoreEvergreenCandidate)
 const storedNotes = withStoredRBHQIntelligenceV1([], sports)
 const stored = getStoredRBHQIntelligenceV1(storedNotes)
 const fallback = getRBHQIntelligenceV1({ ...sportsClip, moderation_notes: storedNotes })
+const sourceCandidateSummary: SourceCandidateSummary = {
+  id: 'source-candidate-smoke',
+  title: 'Breaking source candidate with operator context',
+  videoUrl: 'https://www.youtube.com/watch?v=SOURCECANDIDATE',
+  thumbnailUrl: null,
+  publishedAt: new Date().toISOString(),
+  sourceName: 'ESPN',
+  targetLane: 'RB Sports',
+  score: 88,
+  rankLabel: 'must_post',
+  urgency: 'post_now',
+  hook: 'The operator needs this source candidate now',
+  suggestedCaption: 'Source candidate caption draft.',
+  suggestedHashtags: ['#SourceCandidate', '#RunnitBack'],
+  whyNow: 'Source candidate has live timing.',
+  operatorSummary: 'Operator summary should surface in the daily plan.',
+}
 const plan = buildDailyContentPlan([
   { ...sportsClip, moderation_notes: storedNotes, status: 'pending', publish_status: 'not_ready' },
   { ...arenaClip, status: 'pending', publish_status: 'not_ready' },
   { ...highScoreEvergreenCandidate, status: 'pending', publish_status: 'not_ready' },
-])
+], [sourceCandidateSummary])
 
 assert.equal(stored?.score, sports.score)
 assert.equal(fallback.score, sports.score)
@@ -152,6 +170,7 @@ assert.ok(plan.suggestedPostingOrder.length >= 1)
 assert.ok(plan.topClipsToPostNow.length + plan.strongAlternates.length >= 1)
 assert.ok(!plan.topClipsToPostNow.some((clip) => clip.id === highScoreEvergreenCandidate.id))
 assert.ok(plan.strongAlternates.some((clip) => clip.id === highScoreEvergreenCandidate.id))
+assert.equal(plan.sourceCandidates[0]?.operatorSummary, sourceCandidateSummary.operatorSummary)
 
 console.log(JSON.stringify({
   sports,
