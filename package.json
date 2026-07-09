@@ -35,6 +35,7 @@
     "handoff:n8n": "tsx scripts/handoff-n8n.ts",
     "handoff:mac-mini:package": "tsx scripts/package-candidate-for-mac-mini.ts",
     "handoff:mac-mini:fetch": "tsx scripts/mac-mini-fetch-packages.ts",
+    "handoff:mac-mini:show": "tsx scripts/mac-mini-show-package.ts",
     "handoff:mac-mini:attach-asset": "tsx scripts/mac-mini-attach-asset.ts",
     "handoff:mac-mini:dry-run": "tsx scripts/mac-mini-record-dry-run.ts",
     "handoff:mac-mini:run-dry-run": "tsx scripts/mac-mini-run-dry-run.ts",

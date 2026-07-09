@@ -594,6 +594,20 @@ export async function getPendingMacMiniClipPackages(
   return ((data ?? []) as unknown as MacMiniClipPackageRow[]).map(normalizePackageRow)
 }
 
+export async function getMacMiniClipPackageById(
+  supabase: MacMiniDb,
+  packageId: string,
+): Promise<MacMiniClipPackage | null> {
+  const { data, error } = await supabase
+    .from('mac_mini_clip_packages')
+    .select(PACKAGE_SELECT)
+    .eq('id', packageId)
+    .maybeSingle()
+
+  if (error) throw new Error(error.message)
+  return data ? normalizePackageRow(data as unknown as MacMiniClipPackageRow) : null
+}
+
 export async function attachMacMiniLocalAsset(
   supabase: MacMiniDb,
   packageId: string,
