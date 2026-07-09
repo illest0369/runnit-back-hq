@@ -1,0 +1,383 @@
+import { execFile } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
+import { mkdir, stat } from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
+
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+import { readClipPrepV1, type ClipPrepV1 } from './clip-prep'
+import { attachMacMiniLocalAsset, type MacMiniClipPackage } from './mac-mini-handoff'
+
+const execFileAsync = promisify(execFile)
+const DEFAULT_MAC_MINI_ASSET_ROOT = path.join(process.cwd(), 'tmp', 'mac-mini-assets')
+
+type LocalRenderPrepDb = Pick<SupabaseClient, 'from'>
+
+type ClipCandidatePrepRow = {
+  id: string
+  title: string | null
+  clip_prep: unknown
+  score_breakdown: Record<string, unknown> | null
+  suggested_clip_start_seconds: number | string | null
+  suggested_clip_end_seconds: number | string | null
+  suggested_clip_length_seconds: number | string | null
+}
+
+type MacMiniPackagePrepRow = {
+  id: string
+  clip_candidate_id: string
+  package_payload: Record<string, unknown> | null
+}
+
+export type LocalRenderPrepResult = {
+  status: 'rendered'
+  packageId: string | null
+  candidateId: string
+  sourcePath: string
+  outputPath: string
+  assetRoot: string
+  startSeconds: number
+  endSeconds: number
+  durationSeconds: number
+  sizeBytes: number
+  attached: boolean
+  attachedPackage: MacMiniClipPackage | null
+  safety: {
+    downloadsVideo: false
+    uploadsVideo: false
+    postsVideo: false
+    clicksFinalPost: false
+    livePublish: false
+  }
+}
+
+type ResolvedPrep = {
+  packageId: string | null
+  candidateId: string
+  candidateTitle: string
+  clipPrep: ClipPrepV1 | null
+  startSeconds: number
+  endSeconds: number
+}
+
+function readNumber(value: number | string | null | undefined): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+function assetRoot(input: { assetRoot?: string | null } = {}): string {
+  return path.resolve(input.assetRoot?.trim() || process.env.MAC_MINI_ASSET_ROOT?.trim() || DEFAULT_MAC_MINI_ASSET_ROOT)
+}
+
+function isPathInside(parent: string, child: string): boolean {
+  const relative = path.relative(parent, child)
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function sanitizeFileStem(value: string): string {
+  return value
+    .replace(/[^a-zA-Z0-9._-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 120) || 'clip-prep'
+}
+
+async function requireBinary(binary: 'ffmpeg'): Promise<void> {
+  try {
+    await execFileAsync(binary, ['-version'], { maxBuffer: 1024 * 1024 })
+  } catch {
+    throw new Error(`${binary} is required for local Clip Prep rendering.`)
+  }
+}
+
+export async function validateLocalSourceMp4(sourcePath: string): Promise<string> {
+  const clean = sourcePath.trim()
+  if (!clean) {
+    throw new Error('Local source MP4 path is required.')
+  }
+  if (isHttpUrl(clean)) {
+    throw new Error('Local Clip Prep render refuses URL sources. Provide an existing local .mp4 file.')
+  }
+  if (!clean.toLowerCase().endsWith('.mp4')) {
+    throw new Error('Local Clip Prep render source must be an .mp4 file.')
+  }
+
+  const absolute = path.resolve(clean)
+  const sourceStat = await stat(absolute).catch(() => null)
+  if (!sourceStat?.isFile()) {
+    throw new Error(`Local source MP4 does not exist or is not a file: ${absolute}`)
+  }
+  if (sourceStat.size <= 0) {
+    throw new Error(`Local source MP4 is empty: ${absolute}`)
+  }
+  return absolute
+}
+
+export function validateOutputPathInsideAssetRoot(outputPath: string, root: string): string {
+  const absoluteRoot = path.resolve(root)
+  const absoluteOutput = path.resolve(outputPath)
+  if (!isPathInside(absoluteRoot, absoluteOutput)) {
+    throw new Error(`Rendered Clip Prep output must stay inside ${absoluteRoot}.`)
+  }
+  if (!absoluteOutput.toLowerCase().endsWith('.mp4')) {
+    throw new Error('Rendered Clip Prep output must be an .mp4 file.')
+  }
+  return absoluteOutput
+}
+
+function readPrepFromPackage(row: MacMiniPackagePrepRow | null): ClipPrepV1 | null {
+  return readClipPrepV1(row?.package_payload?.clipPrep)
+}
+
+function readPrepFromCandidate(row: ClipCandidatePrepRow): ClipPrepV1 | null {
+  return readClipPrepV1(row.clip_prep) ?? readClipPrepV1(row.score_breakdown?.clipPrep)
+}
+
+function resolveTiming(input: { clipPrep: ClipPrepV1 | null; candidate: ClipCandidatePrepRow }): { start: number; end: number } {
+  const start = readNumber(input.clipPrep?.suggested_clip_start_seconds) ?? readNumber(input.candidate.suggested_clip_start_seconds)
+  const end = readNumber(input.clipPrep?.suggested_clip_end_seconds) ?? readNumber(input.candidate.suggested_clip_end_seconds)
+  if (start === null || end === null || end <= start) {
+    throw new Error('Clip Prep render requires suggested_clip_start_seconds and suggested_clip_end_seconds.')
+  }
+
+  const length = end - start
+  if (length < 1 || length > 60) {
+    throw new Error(`Clip Prep render length must be 1-60 seconds; received ${Number(length.toFixed(3))}.`)
+  }
+
+  return { start, end }
+}
+
+async function resolvePackageById(supabase: LocalRenderPrepDb, packageId: string): Promise<MacMiniPackagePrepRow> {
+  const { data, error } = await supabase
+    .from('mac_mini_clip_packages')
+    .select('id, clip_candidate_id, package_payload')
+    .eq('id', packageId)
+    .single()
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Mac mini clip package not found.')
+  }
+  return data as unknown as MacMiniPackagePrepRow
+}
+
+async function resolvePackageByCandidateId(supabase: LocalRenderPrepDb, candidateId: string): Promise<MacMiniPackagePrepRow | null> {
+  const { data, error } = await supabase
+    .from('mac_mini_clip_packages')
+    .select('id, clip_candidate_id, package_payload')
+    .eq('clip_candidate_id', candidateId)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+  return data ? data as unknown as MacMiniPackagePrepRow : null
+}
+
+async function resolveCandidate(supabase: LocalRenderPrepDb, candidateId: string): Promise<ClipCandidatePrepRow> {
+  const { data, error } = await supabase
+    .from('clip_candidates')
+    .select('id, title, clip_prep, score_breakdown, suggested_clip_start_seconds, suggested_clip_end_seconds, suggested_clip_length_seconds')
+    .eq('id', candidateId)
+    .single()
+
+  if (error || !data) {
+    throw new Error(error?.message || 'Clip candidate not found.')
+  }
+  return data as unknown as ClipCandidatePrepRow
+}
+
+export async function resolveClipPrepForLocalRender(
+  supabase: LocalRenderPrepDb,
+  input: { packageId?: string | null; candidateId?: string | null },
+): Promise<ResolvedPrep> {
+  const requestedPackageId = input.packageId?.trim() || null
+  const requestedCandidateId = input.candidateId?.trim() || null
+  if (!requestedPackageId && !requestedCandidateId) {
+    throw new Error('Use --package-id <id> or --candidate-id <id>.')
+  }
+
+  const pkg = requestedPackageId
+    ? await resolvePackageById(supabase, requestedPackageId)
+    : requestedCandidateId
+      ? await resolvePackageByCandidateId(supabase, requestedCandidateId)
+      : null
+  const candidateId = requestedCandidateId || pkg?.clip_candidate_id
+  if (!candidateId) {
+    throw new Error('Clip candidate could not be resolved from input.')
+  }
+
+  const candidate = await resolveCandidate(supabase, candidateId)
+  const clipPrep = readPrepFromPackage(pkg) ?? readPrepFromCandidate(candidate)
+  const timing = resolveTiming({ clipPrep, candidate })
+  return {
+    packageId: pkg?.id ?? null,
+    candidateId: candidate.id,
+    candidateTitle: candidate.title || candidate.id,
+    clipPrep,
+    startSeconds: timing.start,
+    endSeconds: timing.end,
+  }
+}
+
+export function localRenderOutputPath(input: {
+  candidateId: string
+  packageId?: string | null
+  title?: string | null
+  outputDir?: string | null
+  assetRoot?: string | null
+}): { assetRoot: string; outputPath: string } {
+  const root = assetRoot({ assetRoot: input.assetRoot })
+  const outputDir = path.resolve(input.outputDir?.trim() || root)
+  if (!isPathInside(root, outputDir)) {
+    throw new Error(`Clip Prep render output directory must stay inside ${root}.`)
+  }
+
+  const stem = sanitizeFileStem([
+    input.packageId ? `pkg-${input.packageId}` : null,
+    `candidate-${input.candidateId}`,
+    input.title ?? null,
+    randomUUID().slice(0, 8),
+  ].filter(Boolean).join('-'))
+  return {
+    assetRoot: root,
+    outputPath: validateOutputPathInsideAssetRoot(path.join(outputDir, `${stem}.mp4`), root),
+  }
+}
+
+export async function renderLocalClipPrepMp4(input: {
+  sourcePath: string
+  outputPath: string
+  assetRoot: string
+  startSeconds: number
+  endSeconds: number
+}): Promise<{ outputPath: string; sizeBytes: number; durationSeconds: number }> {
+  await requireBinary('ffmpeg')
+  const sourcePath = await validateLocalSourceMp4(input.sourcePath)
+  const outputPath = validateOutputPathInsideAssetRoot(input.outputPath, input.assetRoot)
+  const durationSeconds = Number((input.endSeconds - input.startSeconds).toFixed(3))
+  if (durationSeconds < 1 || durationSeconds > 60) {
+    throw new Error(`Clip Prep render length must be 1-60 seconds; received ${durationSeconds}.`)
+  }
+
+  await mkdir(path.dirname(outputPath), { recursive: true })
+  await execFileAsync(
+    'ffmpeg',
+    [
+      '-y',
+      '-ss',
+      String(input.startSeconds),
+      '-i',
+      sourcePath,
+      '-t',
+      String(durationSeconds),
+      '-map',
+      '0:v:0',
+      '-map',
+      '0:a?',
+      '-c:v',
+      'libx264',
+      '-preset',
+      'veryfast',
+      '-crf',
+      '23',
+      '-c:a',
+      'aac',
+      '-b:a',
+      '128k',
+      '-movflags',
+      '+faststart',
+      outputPath,
+    ],
+    { maxBuffer: 1024 * 1024 * 20 },
+  )
+
+  const outputStat = await stat(outputPath)
+  if (!outputStat.isFile() || outputStat.size <= 0) {
+    throw new Error('ffmpeg did not produce a non-empty local Clip Prep MP4.')
+  }
+
+  return {
+    outputPath,
+    sizeBytes: outputStat.size,
+    durationSeconds,
+  }
+}
+
+export async function renderLocalClipPrepForCandidateOrPackage(
+  supabase: LocalRenderPrepDb,
+  input: {
+    packageId?: string | null
+    candidateId?: string | null
+    sourcePath: string
+    assetRoot?: string | null
+    outputDir?: string | null
+    attach?: boolean
+    now?: () => Date
+  },
+): Promise<LocalRenderPrepResult> {
+  const sourcePath = await validateLocalSourceMp4(input.sourcePath)
+  const prep = await resolveClipPrepForLocalRender(supabase, {
+    packageId: input.packageId,
+    candidateId: input.candidateId,
+  })
+  const output = localRenderOutputPath({
+    candidateId: prep.candidateId,
+    packageId: prep.packageId,
+    title: prep.candidateTitle,
+    outputDir: input.outputDir,
+    assetRoot: input.assetRoot,
+  })
+  const rendered = await renderLocalClipPrepMp4({
+    sourcePath,
+    outputPath: output.outputPath,
+    assetRoot: output.assetRoot,
+    startSeconds: prep.startSeconds,
+    endSeconds: prep.endSeconds,
+  })
+  const shouldAttach = Boolean(input.attach)
+  if (shouldAttach && !prep.packageId) {
+    throw new Error('Use --package-id or render a candidate that already has a Mac mini package before --attach.')
+  }
+  const attachedPackage = shouldAttach && prep.packageId
+    ? await attachMacMiniLocalAsset(supabase, prep.packageId, rendered.outputPath, {
+        assetRoot: output.assetRoot,
+        now: input.now,
+      })
+    : null
+
+  return {
+    status: 'rendered',
+    packageId: prep.packageId,
+    candidateId: prep.candidateId,
+    sourcePath,
+    outputPath: rendered.outputPath,
+    assetRoot: output.assetRoot,
+    startSeconds: prep.startSeconds,
+    endSeconds: prep.endSeconds,
+    durationSeconds: rendered.durationSeconds,
+    sizeBytes: rendered.sizeBytes,
+    attached: Boolean(attachedPackage),
+    attachedPackage,
+    safety: {
+      downloadsVideo: false,
+      uploadsVideo: false,
+      postsVideo: false,
+      clicksFinalPost: false,
+      livePublish: false,
+    },
+  }
+}
