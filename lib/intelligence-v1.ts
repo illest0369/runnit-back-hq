@@ -433,16 +433,21 @@ function buildCaption(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutp
   const text = textForSignals(input)
   const context = compact(input.league || input.sport)
   const signal = detectedSignals(text)[0]
-  const topic = sentenceCase(compact([context, signal?.caption].filter(Boolean).join(' ')) || 'this clip')
+  const topic = compact([context, signal?.caption].filter(Boolean).join(' '))
   const lane = laneSlug(input)
+  const angle = topic
+    ? `${sentenceCase(topic)} is the angle to test`
+    : 'Test the strongest moment'
   const laneClose =
     lane === 'arena'
-      ? 'the gaming timeline is ready to argue.'
+      ? 'before the gaming feed moves on.'
       : lane === 'combat'
-        ? 'fight fans will have a take.'
-        : 'the timeline has a take right now.'
+        ? 'before fight fans move to the next card.'
+        : lane === 'women'
+          ? 'before the women\'s sports feed moves on.'
+          : 'before the sports feed moves on.'
 
-  return truncate(`${sentenceLead(hook)} ${topic} is why ${laneClose}`, 180)
+  return truncate(`${sentenceLead(hook)} Quick review: ${angle} ${laneClose}`, 180)
 }
 
 function buildHashtags(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null): string[] {
@@ -506,7 +511,7 @@ function whyNowForInput(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOu
   const text = textForSignals(input)
   const signals = signalSummary(text)
   const hours = recencyHours(input)
-  const recency = hours === null ? '' : hours <= 3 ? ' and it is fresh' : hours <= 24 ? ' and still timely' : ''
+  const recency = hours === null ? '' : hours <= 3 ? ' and the upload is fresh' : hours <= 24 ? ' and the upload is still timely' : ''
   if (urgency === 'post_now') return `${laneLabel(input)} has ${signals} momentum${recency}; post before the conversation cools.`
   if (urgency === 'today') return `${laneLabel(input)} has a ${signals} angle${recency}; review it while the lane is still active.`
   if (urgency === 'hold') return 'Hold until the format, quality, or story signal is stronger.'

@@ -1884,7 +1884,8 @@ type ClipCandidateQueryRow = {
     whyNow?: string
   } | null
   status: string
-  // Supabase returns nested joins as arrays even with !inner
+  // Supabase nested joins can be returned as arrays or objects depending on
+  // relationship metadata in the target project.
   ingested_videos: Array<{
     video_url: string
     thumbnail_url: string | null
@@ -1892,8 +1893,27 @@ type ClipCandidateQueryRow = {
     source_channels: Array<{
       display_name: string
       target_rbhq_channel_id: string | null
-    }>
-  }>
+    }> | {
+      display_name: string
+      target_rbhq_channel_id: string | null
+    } | null
+  }> | {
+    video_url: string
+    thumbnail_url: string | null
+    published_at: string | null
+    source_channels: Array<{
+      display_name: string
+      target_rbhq_channel_id: string | null
+    }> | {
+      display_name: string
+      target_rbhq_channel_id: string | null
+    } | null
+  } | null
+}
+
+function firstJoined<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null
+  return value ?? null
 }
 
 function normalizeRankLabel(value: unknown): RBHQIntelligenceRankLabel {
@@ -1911,8 +1931,8 @@ function normalizeUrgency(value: unknown): RBHQIntelligenceUrgency {
 }
 
 function toSourceCandidateSummary(row: ClipCandidateQueryRow): SourceCandidateSummary {
-  const iv = Array.isArray(row.ingested_videos) ? row.ingested_videos[0] : null
-  const sc = iv && Array.isArray(iv.source_channels) ? iv.source_channels[0] ?? null : null
+  const iv = firstJoined(row.ingested_videos)
+  const sc = firstJoined(iv?.source_channels)
   const breakdown = row.score_breakdown ?? {}
   const channelMeta = sc?.target_rbhq_channel_id
     ? getChannelMeta(sc.target_rbhq_channel_id)
