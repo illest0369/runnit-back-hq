@@ -47,6 +47,8 @@ type SmokeResult = {
   safety: {
     n8nRequired: false
     livePublishStateSet: false
+    productionCronPath: '/api/cron/rss-poll' | 'missing'
+    legacyQueueIngestCron: false
   }
 }
 
@@ -72,6 +74,18 @@ function loadFixture(): YouTubeRssEntry[] {
   const fixturePath = path.join(process.cwd(), 'docs/fixtures/youtube-rss.sample.xml')
   const xml = fs.readFileSync(fixturePath, 'utf8')
   return parseYouTubeRssXml(xml)
+}
+
+function readProductionCronPath(): '/api/cron/rss-poll' | 'missing' {
+  const vercelConfigPath = path.join(process.cwd(), 'vercel.json')
+  if (!fs.existsSync(vercelConfigPath)) return 'missing'
+
+  const config = JSON.parse(fs.readFileSync(vercelConfigPath, 'utf8')) as {
+    crons?: Array<{ path?: string }>
+  }
+  const paths = config.crons?.map((cron) => cron.path) ?? []
+  assert(!paths.includes('/api/cron/ingest'), 'Production cron must not call legacy queue/posts ingest.')
+  return paths.includes('/api/cron/rss-poll') ? '/api/cron/rss-poll' : 'missing'
 }
 
 async function hasSourceSchema(supabase: NonNullable<ReturnType<typeof createSupabase>>) {
@@ -343,6 +357,8 @@ async function main() {
 
   const intelligence = verifyIntelligencePrecedence()
   assert(Object.values(intelligence).every(Boolean), 'Intelligence V1 precedence or candidate field smoke failed.')
+  const productionCronPath = readProductionCronPath()
+  assert(productionCronPath === '/api/cron/rss-poll', 'Production cron does not target safe RSS polling route.')
 
   const result: SmokeResult = {
     result: 'PASS',
@@ -355,6 +371,8 @@ async function main() {
     safety: {
       n8nRequired: false,
       livePublishStateSet: false,
+      productionCronPath,
+      legacyQueueIngestCron: false,
     },
   }
 
