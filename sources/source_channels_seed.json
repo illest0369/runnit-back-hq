@@ -44,9 +44,37 @@
   {
     "channel_key": "vct_official",
     "display_name": "VALORANT Champions Tour",
-    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCXViCkQZqjCc_BoL2QFG0zw",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCA1d3HFGFUmkKr2JIUA5Vlw",
     "lane_key": "arena",
     "notes": "VCT — clutch plays, comms, stage moments, trash talk"
+  },
+  {
+    "channel_key": "lol_esports",
+    "display_name": "LoL Esports",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCvqRdlKsE5Q8mf8YXbdIJLw",
+    "lane_key": "arena",
+    "notes": "Official League of Legends esports — stage moments, finals, player reactions"
+  },
+  {
+    "channel_key": "rocket_league_esports",
+    "display_name": "Rocket League Esports",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCdKuPY64fEpI4cdlBSyvEJw",
+    "lane_key": "arena",
+    "notes": "Official Rocket League esports — clutch goals, tournament highlights"
+  },
+  {
+    "channel_key": "call_of_duty_league",
+    "display_name": "Call of Duty League",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCbLIqv9Puhyp9_ZjVtfOy7w",
+    "lane_key": "arena",
+    "notes": "Official Call of Duty League — match highlights, rivalry, comms"
+  },
+  {
+    "channel_key": "esl_counterstrike",
+    "display_name": "ESL Counter-Strike",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCPq2ETz4aAGo2Z-8JisDPIA",
+    "lane_key": "arena",
+    "notes": "ESL Counter-Strike — tournament highlights, clutch rounds, desk reactions"
   },
   {
     "channel_key": "wnba_official",
