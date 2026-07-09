@@ -4,6 +4,11 @@ import path from 'node:path'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import {
+  buildClipPrepV1,
+  readClipPrepFromCandidate,
+  type ClipPrepV1,
+} from './clip-prep'
 import { getChannelMeta } from './channel-meta'
 
 export type MacMiniPackageStatus = 'ready' | 'fetched' | 'dry_run_complete' | 'dry_run_failed' | 'cancelled'
@@ -35,6 +40,7 @@ export type MacMiniClipPackagePayload = {
     status: MacMiniAssetStatus
     error: string | null
   }
+  clipPrep: ClipPrepV1
   tiktokDraft: {
     title: string
     hook: string
@@ -107,6 +113,16 @@ type ClipCandidateForPackage = {
   hashtags: string[] | null
   score: number | string | null
   score_breakdown: Record<string, unknown> | null
+  clip_prep: ClipPrepV1 | null
+  suggested_clip_start_seconds: number | string | null
+  suggested_clip_end_seconds: number | string | null
+  suggested_clip_length_seconds: number | string | null
+  clip_reason: string | null
+  opening_text: string | null
+  edit_notes: string[] | null
+  asset_instructions: string | null
+  clip_prep_status: string | null
+  clip_prep_confidence: string | null
   status: string
   ingested_videos: JoinedIngestedVideo | JoinedIngestedVideo[] | null
 }
@@ -114,7 +130,10 @@ type ClipCandidateForPackage = {
 type JoinedIngestedVideo = {
   id: string
   title: string
+  description: string | null
   video_url: string
+  published_at: string | null
+  duration_seconds: number | string | null
   source_channels: JoinedSourceChannel | JoinedSourceChannel[] | null
 }
 
@@ -396,6 +415,7 @@ function buildPayload(input: {
   whyNow: string
   operatorSummary: string
   editNotes: string[]
+  clipPrep: ClipPrepV1
   now: string
 }): MacMiniClipPackagePayload {
   return {
@@ -422,6 +442,7 @@ function buildPayload(input: {
       status: 'missing',
       error: null,
     },
+    clipPrep: input.clipPrep,
     tiktokDraft: {
       title: input.candidate.title || input.sourceTitle,
       hook: input.hook,
@@ -464,9 +485,11 @@ export async function createMacMiniClipPackageFromCandidate(
   const { data: candidateData, error: candidateError } = await supabase
     .from('clip_candidates')
     .select(
-      `id, ingested_video_id, target_channel_id, start_seconds, end_seconds, title, summary, hook_text, caption, hashtags, score, score_breakdown, status,
+      `id, ingested_video_id, target_channel_id, start_seconds, end_seconds, title, summary, hook_text, caption, hashtags, score, score_breakdown,
+       clip_prep, suggested_clip_start_seconds, suggested_clip_end_seconds, suggested_clip_length_seconds, clip_reason, opening_text, edit_notes,
+       asset_instructions, clip_prep_status, clip_prep_confidence, status,
        ingested_videos!inner (
-         id, title, video_url,
+         id, title, description, video_url, published_at, duration_seconds,
          source_channels ( display_name, target_rbhq_channel_id )
        )`,
     )
@@ -510,9 +533,28 @@ export async function createMacMiniClipPackageFromCandidate(
   const caption = compact(candidate.caption) || compact(candidate.title)
   const hashtags = stringArray(candidate.hashtags)
   const hook = compact(candidate.hook_text) || compact(candidate.title)
+  const clipPrep = readClipPrepFromCandidate(candidate) ?? buildClipPrepV1({
+    candidate,
+    video: {
+      id: video.id,
+      title: sourceTitle,
+      description: video.description,
+      video_url: sourceUrl,
+      published_at: video.published_at,
+      duration_seconds: video.duration_seconds,
+    },
+    source: {
+      display_name: sourceName,
+      target_rbhq_channel_id: source?.target_rbhq_channel_id ?? null,
+    },
+    transcript: null,
+  })
   const whyNow = readBreakdownString(scoreBreakdown, 'whyNow') || 'Approved candidate is queued for Mac mini dry-run review.'
   const operatorSummary = compact(candidate.summary) || readBreakdownString(scoreBreakdown, 'operatorSummary') || 'Mac mini dry-run package is ready for operator review.'
   const editNotes = [
+    `clip_prep_status:${clipPrep.status}`,
+    `clip_prep_confidence:${clipPrep.confidence}`,
+    ...clipPrep.edit_notes,
     ...readBreakdownReasons(scoreBreakdown),
     candidate.start_seconds !== null ? `candidate_start_seconds:${candidate.start_seconds}` : '',
     candidate.end_seconds !== null ? `candidate_end_seconds:${candidate.end_seconds}` : '',
@@ -534,6 +576,7 @@ export async function createMacMiniClipPackageFromCandidate(
     whyNow,
     operatorSummary,
     editNotes,
+    clipPrep,
     now,
   })
 

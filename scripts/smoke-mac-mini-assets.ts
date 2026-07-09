@@ -57,6 +57,42 @@ class MemorySupabase {
   }
 }
 
+function clipPrepFixture() {
+  return {
+    version: 'rbhq-clip-prep-v1' as const,
+    status: 'ready' as const,
+    confidence: 'high' as const,
+    suggested_clip_start_seconds: 4,
+    suggested_clip_end_seconds: 19,
+    suggested_clip_length_seconds: 15,
+    clip_reason: 'RB Sports has breaking/news momentum; 0-3 hour viral window.',
+    opening_text: 'Fans are losing it after the final play',
+    edit_notes: ['Suggested manual cut: 4s-19s (15s).'],
+    asset_instructions: 'Manually provide a local MP4 asset, then cut 4s-19s after human review. No automated download or render is performed.',
+    basis: {
+      transcript_available: true,
+      timed_transcript_available: true,
+      transcript_source: 'fixture-timed-transcript',
+      source_title: 'ESPN trade reaction source video',
+      source_name: 'ESPN',
+      published_at: '2026-07-09T12:00:00.000Z',
+      intelligence: {
+        score: 92,
+        rankLabel: 'must_post' as const,
+        urgency: 'post_now' as const,
+        reasons: ['Freshness signal: use the 0-3 hour posting window.'],
+        whyNow: 'RB Sports has breaking/news momentum; 0-3 hour viral window.',
+      },
+    },
+    safety: {
+      downloads_video: false as const,
+      renders_video: false as const,
+      uploads_video: false as const,
+      posts_video: false as const,
+    },
+  }
+}
+
 function packagePayload(packageId: string): MacMiniClipPackagePayload {
   return {
     version: 'rbhq-mac-mini-clip-package-v1',
@@ -82,6 +118,7 @@ function packagePayload(packageId: string): MacMiniClipPackagePayload {
       status: 'missing',
       error: null,
     },
+    clipPrep: clipPrepFixture(),
     tiktokDraft: {
       title: 'ESPN trade reaction source video',
       hook: 'Fans are losing it after the final play',

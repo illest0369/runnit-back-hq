@@ -17,6 +17,42 @@ function responseJson(value: unknown, status = 200): Response {
   })
 }
 
+function clipPrepFixture() {
+  return {
+    version: 'rbhq-clip-prep-v1',
+    status: 'ready',
+    confidence: 'high',
+    suggested_clip_start_seconds: 4,
+    suggested_clip_end_seconds: 19,
+    suggested_clip_length_seconds: 15,
+    clip_reason: 'RB Sports has breaking/news momentum; 0-3 hour viral window.',
+    opening_text: 'Fans are losing it after the final play',
+    edit_notes: ['Suggested manual cut: 4s-19s (15s).'],
+    asset_instructions: 'Manually provide a local MP4 asset, then cut 4s-19s after human review. No automated download or render is performed.',
+    basis: {
+      transcript_available: true,
+      timed_transcript_available: true,
+      transcript_source: 'fixture-timed-transcript',
+      source_title: 'ESPN trade reaction source video',
+      source_name: 'ESPN',
+      published_at: '2026-07-09T12:00:00.000Z',
+      intelligence: {
+        score: 92,
+        rankLabel: 'must_post',
+        urgency: 'post_now',
+        reasons: ['Freshness signal: use the 0-3 hour posting window.'],
+        whyNow: 'RB Sports has breaking/news momentum; 0-3 hour viral window.',
+      },
+    },
+    safety: {
+      downloads_video: false,
+      renders_video: false,
+      uploads_video: false,
+      posts_video: false,
+    },
+  }
+}
+
 function packageFixture(input: { id: string; mediaPath?: string | null }) {
   return {
     id: input.id,
@@ -47,6 +83,7 @@ function packageFixture(input: { id: string; mediaPath?: string | null }) {
         title: 'ESPN trade reaction source video',
         name: 'ESPN',
       },
+      clipPrep: clipPrepFixture(),
       tiktokDraft: {
         title: 'ESPN trade reaction source video',
         hook: 'Fans are losing it after the final play',
