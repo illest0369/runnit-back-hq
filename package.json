@@ -25,6 +25,7 @@
     "smoke:mac-mini-assets": "tsx scripts/smoke-mac-mini-assets.ts",
     "smoke:clip-prep": "tsx scripts/smoke-clip-prep-v1.ts",
     "smoke:local-render-prep": "tsx scripts/smoke-local-render-prep.ts",
+    "smoke:operator-queue-readiness": "tsx scripts/smoke-operator-queue-readiness.ts",
     "metricool:probe": "tsx scripts/probe-metricool-config.ts",
     "n8n:probe": "tsx scripts/probe-n8n-config.ts",
     "n8n:help": "tsx scripts/print-n8n-dry-run-help.ts",

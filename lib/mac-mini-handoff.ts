@@ -262,7 +262,7 @@ function browserChannelKeyForSlug(slug: string): string | null {
 }
 
 function hasApprovedCandidateStatus(status: string): boolean {
-  return ['approved', 'approved_for_review', 'approved_for_handoff'].includes(status)
+  return ['approved', 'approved_for_review', 'approved_for_handoff', 'promoted'].includes(status)
 }
 
 function isHighPriorityCandidate(candidate: ClipCandidateForPackage): boolean {
@@ -273,7 +273,7 @@ function isHighPriorityCandidate(candidate: ClipCandidateForPackage): boolean {
 }
 
 function assertPackageEligible(candidate: ClipCandidateForPackage): void {
-  if (candidate.status === 'promoted' || candidate.status === 'rejected') {
+  if (candidate.status === 'rejected') {
     throw new Error(`Candidate status ${candidate.status} cannot be packaged for Mac mini handoff.`)
   }
   if (!hasApprovedCandidateStatus(candidate.status) && !isHighPriorityCandidate(candidate)) {
@@ -503,7 +503,7 @@ export async function createMacMiniClipPackageFromCandidate(
   }
 
   const candidate = candidateData as ClipCandidateForPackage
-  if (candidate.status === 'promoted' || candidate.status === 'rejected') {
+  if (candidate.status === 'rejected') {
     assertPackageEligible(candidate)
   }
 

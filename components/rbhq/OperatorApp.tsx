@@ -44,7 +44,7 @@ type PublishStatus =
   | "metricool_published"
   | "metricool_failed"
   | "manually_published";
-type QueueAction = "approve" | "reject" | "hold";
+type QueueAction = "approve" | "reject" | "hold" | "needs_clip_prep" | "create_mac_mini_package";
 
 type RankLabel = "Hot" | "Solid" | "Hold" | "Reject";
 type IntelligenceRankLabel = "must_post" | "strong" | "solid" | "low_priority";
@@ -102,6 +102,21 @@ type VerticalReadiness = {
   manualException: boolean;
 };
 
+type PackageReadiness = {
+  candidateId: string | null;
+  candidateStatus: string | null;
+  clipPrepStatus: string | null;
+  clipPrepConfidence: string | null;
+  clipPrepReady: boolean;
+  macMiniPackageId: string | null;
+  macMiniPackageStatus: string | null;
+  macMiniHandoffStatus: string | null;
+  macMiniPackageReady: boolean;
+  localRenderStatus: string | null;
+  localRenderAttached: boolean;
+  localAssetPath: string | null;
+};
+
 type User = {
   id: string;
   name: string;
@@ -136,8 +151,18 @@ type ReviewClipApi = {
   video_url: string | null;
   tiktok_url: string | null;
   source_video_url: string | null;
+  source_url?: string | null;
   source_name?: string | null;
   source_type?: string | null;
+  source?: {
+    name: string | null;
+    type: string | null;
+    url: string | null;
+    channel_id: string | null;
+    external_id: string | null;
+    original_platform: string | null;
+    import_batch_id: string | null;
+  } | null;
   sport?: string | null;
   league?: string | null;
   duration_seconds?: number | string | null;
@@ -148,6 +173,7 @@ type ReviewClipApi = {
   tiktok_analysis?: TikTokAnalysis | null;
   intelligence_v1?: RBHQIntelligenceV1 | null;
   vertical_readiness?: VerticalReadiness | null;
+  package_readiness?: PackageReadiness | null;
   publish_status?: PublishStatus | null;
   review_status?: "pending" | "approved" | "rejected" | "skipped" | null;
   approved_at?: string | null;
@@ -175,6 +201,11 @@ type Clip = {
   videoUrl: string | null;
   sourceName: string;
   sourceType: string;
+  sourceUrl: string | null;
+  sourceChannelId: string | null;
+  sourceExternalId: string | null;
+  originalPlatform: string | null;
+  importBatchId: string | null;
   sport: string | null;
   league: string | null;
   durationSeconds: number | null;
@@ -185,6 +216,7 @@ type Clip = {
   analysis: TikTokAnalysis | null;
   intelligence: RBHQIntelligenceV1 | null;
   verticalReadiness: VerticalReadiness;
+  packageReadiness: PackageReadiness;
   approvedAt: string | null;
 };
 
@@ -250,6 +282,20 @@ const DEFAULT_VERTICAL_READINESS: VerticalReadiness = {
   height: null,
   verticalStatus: "unknown",
   manualException: false,
+};
+const DEFAULT_PACKAGE_READINESS: PackageReadiness = {
+  candidateId: null,
+  candidateStatus: null,
+  clipPrepStatus: null,
+  clipPrepConfidence: null,
+  clipPrepReady: false,
+  macMiniPackageId: null,
+  macMiniPackageStatus: null,
+  macMiniHandoffStatus: null,
+  macMiniPackageReady: false,
+  localRenderStatus: null,
+  localRenderAttached: false,
+  localAssetPath: null,
 };
 
 const SOURCE_CODES: Record<string, string> = {
@@ -421,6 +467,11 @@ function mapApiClip(item: ReviewClipApi): Clip | null {
     videoUrl,
     sourceName: item.source_name ?? "RBHQ",
     sourceType: item.source_type ?? "unknown",
+    sourceUrl: item.source?.url ?? item.source_url ?? item.source_video_url ?? null,
+    sourceChannelId: item.source?.channel_id ?? item.channel_id ?? null,
+    sourceExternalId: item.source?.external_id ?? null,
+    originalPlatform: item.source?.original_platform ?? null,
+    importBatchId: item.source?.import_batch_id ?? null,
     sport: item.sport ?? null,
     league: item.league ?? null,
     durationSeconds: parseNumber(item.duration_seconds),
@@ -431,6 +482,7 @@ function mapApiClip(item: ReviewClipApi): Clip | null {
     analysis,
     intelligence,
     verticalReadiness: item.vertical_readiness ?? DEFAULT_VERTICAL_READINESS,
+    packageReadiness: item.package_readiness ?? DEFAULT_PACKAGE_READINESS,
     approvedAt: item.approved_at ?? null,
   };
 }
@@ -451,6 +503,11 @@ function mapPublishItem(item: ReviewClipApi & { export_package: PublishExportPac
       videoUrl: item.cdn_url ?? item.video_url ?? item.local_url ?? item.tiktok_url ?? item.source_video_url ?? null,
       sourceName: item.source_name ?? "RBHQ",
       sourceType: item.source_type ?? "unknown",
+      sourceUrl: item.source?.url ?? item.source_url ?? item.source_video_url ?? null,
+      sourceChannelId: item.source?.channel_id ?? item.channel_id ?? null,
+      sourceExternalId: item.source?.external_id ?? null,
+      originalPlatform: item.source?.original_platform ?? null,
+      importBatchId: item.source?.import_batch_id ?? null,
       sport: item.sport ?? null,
       league: item.league ?? null,
       durationSeconds: parseNumber(item.duration_seconds),
@@ -465,6 +522,7 @@ function mapPublishItem(item: ReviewClipApi & { export_package: PublishExportPac
         readTikTokAnalysis(item.moderation_notes, item.tiktok_analysis),
       ),
       verticalReadiness: item.vertical_readiness ?? DEFAULT_VERTICAL_READINESS,
+      packageReadiness: item.package_readiness ?? DEFAULT_PACKAGE_READINESS,
       approvedAt: item.approved_at ?? null,
     }),
     status: "approved",
@@ -527,6 +585,8 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
   const [dailyPlanError, setDailyPlanError] = useState("");
   const [source, setSource] = useState("");
   const [queueMode, setQueueMode] = useState<QueueMode>("pending");
+  const [urgencyFilter, setUrgencyFilter] = useState<IntelligenceUrgency | "">("");
+  const [scoreThreshold, setScoreThreshold] = useState(0);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [exitDirections, setExitDirections] = useState<Record<string, DecisionAction>>({});
   const [loading, setLoading] = useState(true);
@@ -566,7 +626,13 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
     setSources(json.data as SourceFilterOption[]);
   }, []);
 
-  const fetchQueue = useCallback(async (channelId: string, selectedSource = source, mode = queueMode) => {
+  const fetchQueue = useCallback(async (
+    channelId: string,
+    selectedSource: string,
+    mode: QueueMode,
+    selectedUrgency: IntelligenceUrgency | "",
+    minScore: number,
+  ) => {
     if (!channelId) {
       setClips([]);
       setActiveId(null);
@@ -579,6 +645,8 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
       status: mode,
     });
     if (selectedSource) params.set("source_name", selectedSource);
+    if (selectedUrgency) params.set("urgency", selectedUrgency);
+    if (minScore > 0) params.set("min_score", String(minScore));
 
     const response = await fetch(`/api/clips?${params.toString()}`, { cache: "no-store" });
     const json = await readApiJson(response, "Queue unavailable");
@@ -661,7 +729,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
         const initialChannelId = channels[0]?.id ?? "";
         setUser({ ...nextUser, channels });
         setSelectedChannelId(initialChannelId);
-        await fetchQueue(initialChannelId, "", "pending");
+        await fetchQueue(initialChannelId, "", "pending", "", 0);
         await Promise.allSettled([fetchPublishQueue(), fetchSources(), fetchDailyPlan()]);
         setError("");
       } catch (bootError) {
@@ -684,7 +752,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
 
     async function refresh() {
       try {
-        await fetchQueue(currentChannelId, source, queueMode);
+        await fetchQueue(currentChannelId, source, queueMode, urgencyFilter, scoreThreshold);
         await Promise.allSettled([fetchPublishQueue(), fetchSources(), fetchDailyPlan()]);
         if (alive) setError("");
       } catch (refreshError) {
@@ -698,18 +766,41 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
       alive = false;
       window.clearInterval(timer);
     };
-  }, [fetchDailyPlan, fetchQueue, fetchPublishQueue, fetchSources, queueMode, selectedChannelId, source, user]);
+  }, [fetchDailyPlan, fetchQueue, fetchPublishQueue, fetchSources, queueMode, scoreThreshold, selectedChannelId, source, urgencyFilter, user]);
 
   function handleChannelChange(channelId: string) {
     if (channelId === selectedChannelId) return;
     optimisticIdsRef.current.clear();
     setSelectedChannelId(channelId);
     setSource("");
+    setUrgencyFilter("");
+    setScoreThreshold(0);
     setActiveId(null);
     setClips([]);
   }
 
   async function moderateClip(id: string, action: DecisionAction) {
+    if (action === "needs_clip_prep" || action === "create_mac_mini_package") {
+      setToast(action === "needs_clip_prep" ? "clip prep queued" : "package requested");
+      try {
+        const csrfHeaders = await getCsrfHeaders();
+        const response = await fetch(`/api/posts/${id}/decision`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...csrfHeaders },
+          body: JSON.stringify({ action, time_to_decision: 1.2 }),
+        });
+        const json = await readApiJson(response, "action failed");
+        if (!response.ok || !json.ok) throw new Error(json.error || "action failed");
+        setToast(action === "needs_clip_prep" ? "clip prep refreshed" : "package ready");
+        if (selectedChannelId) await fetchQueue(selectedChannelId, source, queueMode, urgencyFilter, scoreThreshold);
+        await fetchPublishQueue();
+        void fetchDailyPlan();
+      } catch (actionError) {
+        setToast(actionError instanceof Error ? actionError.message : "action failed");
+      }
+      return;
+    }
+
     const restoredClip = clips.find((clip) => clip.id === id);
     let restoreIndex = 0;
 
@@ -766,7 +857,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
         headers: csrfHeaders,
       });
       if (!response.ok) throw new Error("refresh failed");
-      if (selectedChannelId) await fetchQueue(selectedChannelId, source, queueMode);
+      if (selectedChannelId) await fetchQueue(selectedChannelId, source, queueMode, urgencyFilter, scoreThreshold);
       await fetchPublishQueue();
       void fetchDailyPlan();
       setToast("ranking refreshed");
@@ -838,8 +929,15 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
               selectedChannelId={selectedChannelId}
               error={error}
               queueMode={queueMode}
+              sources={visibleSources}
+              selectedSource={source}
+              urgencyFilter={urgencyFilter}
+              scoreThreshold={scoreThreshold}
               onSelectChannel={handleChannelChange}
               onQueueMode={setQueueMode}
+              onSelectSource={setSource}
+              onUrgencyFilter={setUrgencyFilter}
+              onScoreThreshold={setScoreThreshold}
               onActive={setActiveId}
               onModerate={moderateClip}
               onRefreshAnalysis={refreshClipAnalysis}
@@ -929,8 +1027,15 @@ function QueueScreen({
   selectedChannelId,
   error,
   queueMode,
+  sources,
+  selectedSource,
+  urgencyFilter,
+  scoreThreshold,
   onSelectChannel,
   onQueueMode,
+  onSelectSource,
+  onUrgencyFilter,
+  onScoreThreshold,
   onActive,
   onModerate,
   onRefreshAnalysis,
@@ -941,8 +1046,15 @@ function QueueScreen({
   selectedChannelId: string;
   error: string;
   queueMode: QueueMode;
+  sources: SourceFilterOption[];
+  selectedSource: string;
+  urgencyFilter: IntelligenceUrgency | "";
+  scoreThreshold: number;
   onSelectChannel: (channelId: string) => void;
   onQueueMode: (value: QueueMode) => void;
+  onSelectSource: (value: string) => void;
+  onUrgencyFilter: (value: IntelligenceUrgency | "") => void;
+  onScoreThreshold: (value: number) => void;
   onActive: (id: string) => void;
   onModerate: (id: string, action: DecisionAction) => void;
   onRefreshAnalysis: (id: string) => void;
@@ -1078,6 +1190,56 @@ function QueueScreen({
         </button>
       </div>
 
+      <div className="shrink-0 border-b border-[var(--rb-line)] px-5 py-3">
+        <div className="grid grid-cols-2 gap-2">
+          <label className="min-w-0">
+            <span className="sr-only">Source filter</span>
+            <select
+              value={selectedSource}
+              onChange={(event) => onSelectSource(event.target.value)}
+              className="h-10 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3 text-[12px] font-bold text-[var(--rb-text)] outline-none"
+            >
+              <option value="">All sources</option>
+              {sources.map((item) => (
+                <option key={`${item.source_name}-${item.source_type}`} value={item.source_name}>
+                  {item.source_name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="min-w-0">
+            <span className="sr-only">Urgency filter</span>
+            <select
+              value={urgencyFilter}
+              onChange={(event) => onUrgencyFilter(event.target.value as IntelligenceUrgency | "")}
+              className="h-10 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3 text-[12px] font-bold text-[var(--rb-text)] outline-none"
+            >
+              <option value="">All urgency</option>
+              <option value="post_now">Post now</option>
+              <option value="today">Today</option>
+              <option value="evergreen">Evergreen</option>
+              <option value="hold">Hold</option>
+            </select>
+          </label>
+        </div>
+        <div className="mt-2 flex items-center gap-2">
+          {[0, 65, 75, 85].map((score) => (
+            <button
+              key={score}
+              type="button"
+              onClick={() => onScoreThreshold(score)}
+              className={`h-8 flex-1 rounded-full border text-[11px] font-black transition active:scale-95 ${
+                scoreThreshold === score
+                  ? "border-[var(--rb-text)] bg-[var(--rb-text)] text-white"
+                  : "border-[var(--rb-line)] bg-[var(--rb-surface)] text-[var(--rb-muted)]"
+              }`}
+            >
+              {score === 0 ? "Any score" : `${score}+`}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {error && clips.length > 0 && (
         <p className="shrink-0 px-5 py-1 text-center text-[11px] lowercase text-[var(--rb-muted)]">reconnecting</p>
       )}
@@ -1136,6 +1298,7 @@ function QueueClipCard({
   const mediaY = useTransform(smoothX, [-180, 0, 180], [3, 0, 3]);
   const approveOpacity = useTransform(smoothX, [32, 142], [0, 0.16]);
   const rejectOpacity = useTransform(smoothX, [-132, -28], [0.13, 0]);
+  const hasCandidate = Boolean(clip.packageReadiness.candidateId);
 
   useEffect(() => {
     const node = ref.current;
@@ -1277,6 +1440,26 @@ function QueueClipCard({
       {canModerate && (
         <p className="mt-3 text-center text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--rb-faint)]">swipe or tap to decide</p>
       )}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={() => onModerate(clip.id, "needs_clip_prep")}
+          disabled={!hasCandidate}
+          className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3 text-[11px] font-black text-[var(--rb-text)] active:scale-[0.98] disabled:opacity-45"
+        >
+          <ListChecks className="h-4 w-4" strokeWidth={1.8} />
+          Clip Prep
+        </button>
+        <button
+          type="button"
+          onClick={() => onModerate(clip.id, "create_mac_mini_package")}
+          disabled={!hasCandidate}
+          className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-3 text-[11px] font-black text-[var(--rb-text)] active:scale-[0.98] disabled:opacity-45"
+        >
+          <Download className="h-4 w-4" strokeWidth={1.8} />
+          Mac mini
+        </button>
+      </div>
       <ClipIntelligencePanel clip={clip} onRefreshAnalysis={onRefreshAnalysis} />
     </div>
   );
@@ -1305,7 +1488,7 @@ function formatUrgencyLabel(value: IntelligenceUrgency | undefined) {
   if (value === "today") return "Today";
   if (value === "evergreen") return "Evergreen";
   if (value === "hold") return "Hold";
-  return "Today";
+  return "Unranked";
 }
 
 function dailyPlanHasContent(plan: DailyPlan | null) {
@@ -1338,13 +1521,60 @@ function verticalStatusTone(status: VerticalStatus) {
   return "bg-[#F5F5F5] text-[#6F6A60] border-[var(--rb-line)]";
 }
 
+function readinessTone(ready: boolean, blocked = false) {
+  if (ready) return "bg-[#ECFDF5] text-[#128A49] border-[#128A49]/20";
+  if (blocked) return "bg-[#FFF1F2] text-[#DC2626] border-[#DC2626]/20";
+  return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
+}
+
+function clipPrepLabel(readiness: PackageReadiness) {
+  if (readiness.clipPrepStatus === "ready") return `Clip Prep ready${readiness.clipPrepConfidence ? ` · ${readiness.clipPrepConfidence}` : ""}`;
+  if (readiness.clipPrepStatus === "metadata_only") return "Clip Prep metadata";
+  return "Clip Prep needed";
+}
+
+function macMiniPackageLabel(readiness: PackageReadiness) {
+  if (!readiness.macMiniPackageId) return "Package needed";
+  if (readiness.macMiniPackageReady) return "Package ready";
+  return `Package ${readiness.macMiniPackageStatus ?? "created"}`;
+}
+
+function localRenderLabel(readiness: PackageReadiness) {
+  if (readiness.localRenderAttached) return "Render attached";
+  if (readiness.localRenderStatus === "invalid") return "Render invalid";
+  return "Render missing";
+}
+
+function QueueReadinessStrip({ readiness }: { readiness: PackageReadiness }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${readinessTone(readiness.clipPrepReady)}`}>
+        {clipPrepLabel(readiness)}
+      </span>
+      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${readinessTone(readiness.macMiniPackageReady)}`}>
+        {macMiniPackageLabel(readiness)}
+      </span>
+      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${readinessTone(readiness.localRenderAttached, readiness.localRenderStatus === "invalid")}`}>
+        {localRenderLabel(readiness)}
+      </span>
+    </div>
+  );
+}
+
 function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefreshAnalysis: (id: string) => void }) {
   const intelligence = clip.intelligence;
   const analysis = clip.analysis;
   const tags = analysis?.reasonTags ?? [];
   const score = intelligence?.score ?? analysis?.priorityScore ?? clip.score;
   const rankLabel = intelligence?.rankLabel ?? analysis?.rankLabel;
+  const urgency = intelligence?.urgency;
   const vertical = clip.verticalReadiness;
+  const sourceLine = [
+    clip.sourceName,
+    clip.sourceType,
+    clip.originalPlatform,
+    clip.sourceChannelId ? `channel ${clip.sourceChannelId.slice(0, 8)}` : "",
+  ].filter(Boolean).join(" · ");
 
   return (
     <section className="mt-4 rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] p-4 shadow-sm">
@@ -1356,6 +1586,9 @@ function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefr
             </span>
             <span className={`rounded-full border px-2.5 py-1 text-[11px] font-black ${rankTone(rankLabel)}`}>
               {formatRankLabel(rankLabel)}
+            </span>
+            <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2.5 py-1 text-[11px] font-black text-[var(--rb-muted)]">
+              {formatUrgencyLabel(urgency)}
             </span>
             <span className={`rounded-full border px-2.5 py-1 text-[11px] font-bold ${verticalStatusTone(vertical.verticalStatus)}`}>
               {verticalStatusLabel(vertical)}
@@ -1386,15 +1619,38 @@ function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefr
         </div>
       )}
 
+      <div className="mt-3">
+        <QueueReadinessStrip readiness={clip.packageReadiness} />
+      </div>
+
+      <div className="mt-3 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 py-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">Source</p>
+        <p className="mt-1 text-[11.5px] font-semibold leading-4 text-[var(--rb-muted)]">{sourceLine || "RBHQ source"}</p>
+        {clip.sourceUrl ? (
+          <p className="mt-1 truncate text-[10.5px] font-medium text-[var(--rb-faint)]">{clip.sourceUrl}</p>
+        ) : null}
+      </div>
+
       <div className="mt-3 space-y-2">
-        <p className="text-[12px] font-semibold leading-5 text-[var(--rb-text)]">{intelligence?.whyNow ?? analysis?.whyNow ?? "Review timing is based on local scoring signals."}</p>
-        <p className="text-[12px] leading-5 text-[var(--rb-muted)]">{intelligence?.operatorSummary ?? analysis?.operatorSummary ?? "No analyzer summary stored yet."}</p>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">Why now</p>
+          <p className="mt-1 text-[12px] font-semibold leading-5 text-[var(--rb-text)]">{intelligence?.whyNow ?? analysis?.whyNow ?? "Review timing is based on local scoring signals."}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">Operator summary</p>
+          <p className="mt-1 text-[12px] leading-5 text-[var(--rb-muted)]">{intelligence?.operatorSummary ?? analysis?.operatorSummary ?? "No analyzer summary stored yet."}</p>
+        </div>
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">Hook</p>
         <p className="rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] p-3 text-[12px] font-semibold leading-5 text-[var(--rb-text)]">
           {intelligence?.hook ?? analysis?.hookLine ?? clip.recommendedHook ?? clip.hook}
         </p>
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">Caption draft</p>
         <p className="text-[12px] leading-5 text-[var(--rb-muted)]">{intelligence?.suggestedCaption ?? analysis?.captionDraft ?? "Caption draft will generate on refresh."}</p>
         {(intelligence?.suggestedHashtags?.length || analysis?.hashtagPack?.length) ? (
-          <p className="text-[11px] font-bold leading-5 text-[var(--rb-muted)]">{(intelligence?.suggestedHashtags ?? analysis?.hashtagPack ?? []).join(" ")}</p>
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">Hashtag pack</p>
+            <p className="mt-1 text-[11px] font-bold leading-5 text-[var(--rb-muted)]">{(intelligence?.suggestedHashtags ?? analysis?.hashtagPack ?? []).join(" ")}</p>
+          </div>
         ) : null}
       </div>
     </section>
@@ -2232,6 +2488,9 @@ function laneMetaForChannel(label: string | null | undefined) {
 function QueueListCard({ clip, onReview }: { clip: Clip; onReview: (id: string) => void }) {
   const score = clip.intelligence?.score ?? clip.analysis?.priorityScore ?? clip.score;
   const rankLabel = clip.intelligence?.rankLabel ?? clip.analysis?.rankLabel;
+  const urgency = clip.intelligence?.urgency;
+  const captionDraft = clip.intelligence?.suggestedCaption ?? clip.analysis?.captionDraft ?? "";
+  const hashtags = clip.intelligence?.suggestedHashtags ?? clip.analysis?.hashtagPack ?? [];
 
   return (
     <div className="flex items-start gap-3 rounded-[16px] border border-[var(--rb-line)] bg-white p-3">
@@ -2251,20 +2510,40 @@ function QueueListCard({ clip, onReview }: { clip: Clip; onReview: (id: string) 
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[11.5px] text-[var(--rb-muted)]">{clip.sourceName}</p>
+        <p className="truncate text-[11.5px] text-[var(--rb-muted)]">
+          {clip.sourceName} · {clip.sourceType}{clip.originalPlatform ? ` · ${clip.originalPlatform}` : ""}
+        </p>
         <h3 className="mt-0.5 line-clamp-2 text-[14px] font-black leading-snug text-[var(--rb-text)]">{clip.title}</h3>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <span className="rounded-full bg-[var(--rb-text)] px-2 py-0.5 text-[10.5px] font-black text-white">{Math.round(score)}</span>
           <span className={`rounded-full border px-2 py-0.5 text-[10.5px] font-bold ${rankTone(rankLabel)}`}>
             {formatRankLabel(rankLabel)}
           </span>
+          <span className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[10.5px] font-bold text-[var(--rb-muted)]">
+            {formatUrgencyLabel(urgency)}
+          </span>
           <ClipStatusBadge status={clip.status} />
           {clip.durationSeconds ? (
             <span className="text-[11px] text-[var(--rb-faint)]">{formatDuration(clip.durationSeconds)}</span>
           ) : null}
         </div>
+        <div className="mt-2">
+          <QueueReadinessStrip readiness={clip.packageReadiness} />
+        </div>
         {(clip.intelligence?.whyNow || clip.analysis?.whyNow) ? (
           <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-4 text-[var(--rb-muted)]">{clip.intelligence?.whyNow ?? clip.analysis?.whyNow}</p>
+        ) : null}
+        {(clip.intelligence?.operatorSummary || clip.analysis?.operatorSummary) ? (
+          <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-4 text-[var(--rb-muted)]">{clip.intelligence?.operatorSummary ?? clip.analysis?.operatorSummary}</p>
+        ) : null}
+        <p className="mt-1.5 line-clamp-2 text-[11.5px] font-semibold leading-4 text-[var(--rb-text)]">
+          {clip.intelligence?.hook ?? clip.analysis?.hookLine ?? clip.recommendedHook ?? clip.hook}
+        </p>
+        {captionDraft ? (
+          <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-4 text-[var(--rb-muted)]">{captionDraft}</p>
+        ) : null}
+        {hashtags.length > 0 ? (
+          <p className="mt-1 truncate text-[10.5px] font-bold text-[var(--rb-faint)]">{hashtags.join(" ")}</p>
         ) : null}
         <button
           type="button"

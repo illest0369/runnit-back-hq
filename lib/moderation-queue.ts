@@ -234,6 +234,7 @@ type GetClipsInput = {
   sourceName?: string | null
   status?: ClipModerationStatus
   publishStatus?: ClipPublishStatus
+  minScore?: number | null
 }
 
 type GetClipByIdInput = {
@@ -1024,6 +1025,10 @@ export async function getClips(input: GetClipsInput = {}): Promise<ModerationCli
 
   if (input.publishStatus) {
     query = query.eq('publish_status', input.publishStatus)
+  }
+
+  if (typeof input.minScore === 'number' && Number.isFinite(input.minScore) && input.minScore > 0) {
+    query = query.gte('ai_score', input.minScore)
   }
 
   const { data, error } = await query
