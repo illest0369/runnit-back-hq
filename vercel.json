@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/rss-poll",
-      "schedule": "0 * * * *"
+      "schedule": "0 13 * * *"
     }
   ]
 }
