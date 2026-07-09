@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto'
 
 import { buildRBHQIntelligenceV1 } from './intelligence-v1'
-import { supabaseAdmin } from './supabase'
-import { fetchYouTubeRss } from './youtube-rss'
+import { supabaseAdminClient } from './supabase-admin'
+import { fetchYouTubeRss, type YouTubeRssEntry } from './youtube-rss'
 
 const MAX_CHANNELS_PER_RUN = 20
 const MAX_VIDEOS_PER_CHANNEL = 15
 
-type SourceChannelRow = {
+export type SourceChannelRow = {
   id: string
   channel_key: string
   display_name: string
@@ -15,11 +15,42 @@ type SourceChannelRow = {
   target_rbhq_channel_id: string | null
 }
 
-type IngestedVideoRow = {
+export type IngestedVideoRow = {
   id: string
   title: string
   description: string | null
   published_at: string | null
+}
+
+export type ClipCandidateInsertRow = {
+  id: string
+  ingested_video_id: string
+  target_channel_id: string | null
+  title: string
+  summary: string
+  hook_text: string
+  caption: string
+  hashtags: string[]
+  score: number
+  score_breakdown: {
+    model: 'rbhq_intelligence_v1'
+    rankLabel: string
+    urgency: string
+    reasons: string[]
+    whyNow: string
+    operatorSummary: string
+  }
+  status: 'candidate'
+  created_at: string
+  updated_at: string
+}
+
+type PollSourceChannelOptions = {
+  supabase?: Pick<typeof supabaseAdminClient, 'from'>
+  fetchEntries?: (url: string) => Promise<YouTubeRssEntry[]>
+  now?: () => Date
+  randomId?: () => string
+  maxVideosPerChannel?: number
 }
 
 export type PollChannelResult = {
@@ -37,7 +68,7 @@ export type PollResult = {
 }
 
 export async function pollAllSourceChannels(): Promise<PollResult> {
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabaseAdminClient
     .from('source_channels')
     .select('id, channel_key, display_name, rss_url, target_rbhq_channel_id')
     .eq('enabled', true)
@@ -54,7 +85,7 @@ export async function pollAllSourceChannels(): Promise<PollResult> {
   }
 
   for (const channel of channels) {
-    const channelResult = await pollOneChannel(channel)
+    const channelResult = await pollSourceChannel(channel)
     result.videos_ingested += channelResult.ingested
     result.candidates_created += channelResult.candidates
     result.channel_results.push(channelResult)
@@ -63,25 +94,33 @@ export async function pollAllSourceChannels(): Promise<PollResult> {
   return result
 }
 
-async function pollOneChannel(channel: SourceChannelRow): Promise<PollChannelResult> {
+export async function pollSourceChannel(
+  channel: SourceChannelRow,
+  options: PollSourceChannelOptions = {},
+): Promise<PollChannelResult> {
+  const supabase = options.supabase ?? supabaseAdminClient
+  const fetchEntries = options.fetchEntries ?? fetchYouTubeRss
+  const maxVideosPerChannel = options.maxVideosPerChannel ?? MAX_VIDEOS_PER_CHANNEL
+
   try {
-    const entries = await fetchYouTubeRss(channel.rss_url)
-    const limited = entries.slice(0, MAX_VIDEOS_PER_CHANNEL)
+    const entries = await fetchEntries(channel.rss_url)
+    const limited = entries.slice(0, maxVideosPerChannel)
 
     if (limited.length === 0) {
       return { channel_key: channel.channel_key, ingested: 0, candidates: 0, error: null }
     }
 
-    const existingIds = await getExistingVideoIds(limited.map((e) => e.externalVideoId))
+    const existingIds = await getExistingVideoIds(supabase, limited.map((e) => e.externalVideoId))
     const newEntries = limited.filter((e) => !existingIds.has(e.externalVideoId))
 
     if (newEntries.length === 0) {
       return { channel_key: channel.channel_key, ingested: 0, candidates: 0, error: null }
     }
 
-    const now = new Date().toISOString()
+    const now = (options.now ?? (() => new Date()))().toISOString()
+    const randomId = options.randomId ?? randomUUID
     const videoRows = newEntries.map((entry) => ({
-      id: randomUUID(),
+      id: randomId(),
       source_channel_id: channel.id,
       external_video_id: entry.externalVideoId,
       platform: 'youtube',
@@ -97,7 +136,7 @@ async function pollOneChannel(channel: SourceChannelRow): Promise<PollChannelRes
       updated_at: now,
     }))
 
-    const { data: inserted, error: insertError } = await supabaseAdmin
+    const { data: inserted, error: insertError } = await supabase
       .from('ingested_videos')
       .insert(videoRows)
       .select('id, title, description, published_at')
@@ -110,42 +149,22 @@ async function pollOneChannel(channel: SourceChannelRow): Promise<PollChannelRes
     }
 
     const candidateRows = newVideos.map((video) => {
-      const intel = buildRBHQIntelligenceV1({
-        title: video.title,
-        description: video.description,
-        source_name: channel.display_name,
-        published_at: video.published_at,
+      return buildClipCandidateInsertRow({
+        channel,
+        video,
+        now,
+        id: randomId(),
       })
-      return {
-        id: randomUUID(),
-        ingested_video_id: video.id,
-        target_channel_id: channel.target_rbhq_channel_id,
-        title: video.title,
-        summary: intel.operatorSummary,
-        hook_text: intel.hook,
-        caption: intel.suggestedCaption,
-        hashtags: intel.suggestedHashtags,
-        score: intel.score,
-        score_breakdown: {
-          rankLabel: intel.rankLabel,
-          urgency: intel.urgency,
-          reasons: intel.reasons,
-          whyNow: intel.whyNow,
-        },
-        status: 'candidate',
-        created_at: now,
-        updated_at: now,
-      }
     })
 
-    const { error: candidateError } = await supabaseAdmin
+    const { error: candidateError } = await supabase
       .from('clip_candidates')
       .insert(candidateRows)
 
     if (candidateError) throw new Error(candidateError.message)
 
     const videoIds = newVideos.map((v) => v.id)
-    await supabaseAdmin
+    await supabase
       .from('ingested_videos')
       .update({ ingest_status: 'scored', updated_at: now })
       .in('id', videoIds)
@@ -166,10 +185,52 @@ async function pollOneChannel(channel: SourceChannelRow): Promise<PollChannelRes
   }
 }
 
-async function getExistingVideoIds(externalIds: string[]): Promise<Set<string>> {
+export function buildClipCandidateInsertRow(input: {
+  channel: SourceChannelRow
+  video: IngestedVideoRow
+  now: string
+  id: string
+}): ClipCandidateInsertRow {
+  const intel = buildRBHQIntelligenceV1({
+    channel_id: input.channel.target_rbhq_channel_id,
+    title: input.video.title,
+    description: input.video.description,
+    source_name: input.channel.display_name,
+    source_type: 'youtube_rss',
+    published_at: input.video.published_at,
+  })
+
+  return {
+    id: input.id,
+    ingested_video_id: input.video.id,
+    target_channel_id: input.channel.target_rbhq_channel_id,
+    title: input.video.title,
+    summary: intel.operatorSummary,
+    hook_text: intel.hook,
+    caption: intel.suggestedCaption,
+    hashtags: intel.suggestedHashtags,
+    score: intel.score,
+    score_breakdown: {
+      model: 'rbhq_intelligence_v1',
+      rankLabel: intel.rankLabel,
+      urgency: intel.urgency,
+      reasons: intel.reasons,
+      whyNow: intel.whyNow,
+      operatorSummary: intel.operatorSummary,
+    },
+    status: 'candidate',
+    created_at: input.now,
+    updated_at: input.now,
+  }
+}
+
+async function getExistingVideoIds(
+  supabase: Pick<typeof supabaseAdminClient, 'from'>,
+  externalIds: string[],
+): Promise<Set<string>> {
   if (externalIds.length === 0) return new Set()
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await supabase
     .from('ingested_videos')
     .select('external_video_id')
     .eq('platform', 'youtube')

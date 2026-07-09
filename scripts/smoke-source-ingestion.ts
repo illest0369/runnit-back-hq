@@ -5,6 +5,12 @@ import { randomUUID } from 'node:crypto'
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 
+import { buildRBHQIntelligenceV1 } from '../lib/intelligence-v1'
+import {
+  buildClipCandidateInsertRow,
+  pollSourceChannel,
+  type SourceChannelRow,
+} from '../lib/rss-poll'
 import { parseYouTubeRssXml, type YouTubeRssEntry } from '../lib/youtube-rss'
 
 config({ path: '.env.local', quiet: true })
@@ -24,8 +30,19 @@ type SmokeResult = {
     videoInserted: boolean
     duplicateSkipped: boolean
     candidateInserted: boolean
+    candidateIntelligenceScored: boolean
     cleanup: 'complete' | 'not_needed' | 'best_effort'
     note?: string
+  }
+  intelligence: {
+    candidateHasRank: boolean
+    candidateHasUrgency: boolean
+    candidateHasWhyNow: boolean
+    candidateHasOperatorSummary: boolean
+    editorialCaptionPrecedence: boolean
+    editorialHashtagPrecedence: boolean
+    analyzerCaptionFallback: boolean
+    analyzerHashtagFallback: boolean
   }
   safety: {
     n8nRequired: false
@@ -67,7 +84,7 @@ async function hasSourceSchema(supabase: NonNullable<ReturnType<typeof createSup
 async function runMemorySmoke(entries: YouTubeRssEntry[]): Promise<SmokeResult['database']> {
   const sourceChannels = new Map<string, { id: string; channelKey: string }>()
   const videos = new Map<string, { id: string; sourceChannelId: string }>()
-  const candidates: Array<{ id: string; ingestedVideoId: string; status: string; startSeconds: null; endSeconds: null }> = []
+  const candidates: Array<ReturnType<typeof buildClipCandidateInsertRow>> = []
 
   const channelKey = `smoke-source-${randomUUID()}`
   const source = { id: randomUUID(), channelKey }
@@ -82,13 +99,24 @@ async function runMemorySmoke(entries: YouTubeRssEntry[]): Promise<SmokeResult['
   const video = videos.get(videoKey)
   assert(video, 'Memory smoke video insert failed.')
 
-  candidates.push({
+  candidates.push(buildClipCandidateInsertRow({
+    channel: {
+      id: source.id,
+      channel_key: channelKey,
+      display_name: 'Smoke Source Ingestion',
+      rss_url: 'mock://youtube-rss',
+      target_rbhq_channel_id: null,
+    },
+    video: {
+      id: video.id,
+      title: first.title,
+      description: first.description,
+      published_at: first.publishedAt,
+    },
+    now: new Date().toISOString(),
     id: randomUUID(),
-    ingestedVideoId: video.id,
-    status: 'candidate',
-    startSeconds: null,
-    endSeconds: null,
-  })
+  }))
+  const candidate = candidates[0]
 
   return {
     mode: 'memory',
@@ -97,7 +125,16 @@ async function runMemorySmoke(entries: YouTubeRssEntry[]): Promise<SmokeResult['
     sourceReused: reusedSource?.id === source.id,
     videoInserted: videos.has(videoKey),
     duplicateSkipped,
-    candidateInserted: candidates.length === 1 && candidates[0].status === 'candidate',
+    candidateInserted: candidates.length === 1 && candidate?.status === 'candidate',
+    candidateIntelligenceScored: Boolean(
+      candidate?.score &&
+        candidate.score_breakdown.rankLabel &&
+        candidate.score_breakdown.urgency &&
+        candidate.score_breakdown.whyNow &&
+        candidate.score_breakdown.operatorSummary &&
+        candidate.caption &&
+        candidate.hashtags.length > 0,
+    ),
     cleanup: 'not_needed',
     note: 'Supabase source ingestion tables are not present yet; apply migration 202607040003 before real DB ingest.',
   }
@@ -113,20 +150,28 @@ async function runSupabaseSmoke(
   const insertedIds = {
     sourceId: null as string | null,
     videoId: null as string | null,
-    candidateId: null as string | null,
+    candidateIds: [] as string[],
   }
 
   try {
     const first = entries[0]
     assert(first, 'Fixture did not produce a first entry.')
-    const externalVideoId = `${first.externalVideoId}-${smokeId.slice(0, 8)}`
+    const mockEntries = entries.map((entry) => ({
+      ...entry,
+      externalVideoId: `${entry.externalVideoId}-${smokeId.slice(0, 8)}`,
+      videoUrl: `${entry.videoUrl}&rbhq_smoke=${smokeId}`,
+      rawEntry: {
+        ...entry.rawEntry,
+        smokeId,
+      },
+    }))
 
     const sourcePayload = {
       channel_key: channelKey,
       display_name: 'Smoke Source Ingestion',
       platform: 'youtube',
       source_url: 'https://www.youtube.com/channel/UC_RBHQ_SAMPLE',
-      rss_url: 'https://www.youtube.com/feeds/videos.xml?channel_id=UC_RBHQ_SAMPLE',
+      rss_url: 'mock://youtube-rss',
       enabled: true,
       updated_at: now,
     }
@@ -142,84 +187,139 @@ async function runSupabaseSmoke(
     const sourceReuse = await supabase
       .from('source_channels')
       .upsert({ ...sourcePayload, display_name: 'Smoke Source Ingestion Reused' }, { onConflict: 'channel_key' })
-      .select('id, channel_key')
+      .select('id, channel_key, display_name, rss_url, target_rbhq_channel_id')
       .single()
     if (sourceReuse.error) throw new Error(sourceReuse.error.message)
 
-    const videoInsert = await supabase
-      .from('ingested_videos')
-      .insert({
-        source_channel_id: insertedIds.sourceId,
-        external_video_id: externalVideoId,
-        platform: 'youtube',
-        title: first.title,
-        description: first.description,
-        video_url: first.videoUrl,
-        thumbnail_url: first.thumbnailUrl,
-        published_at: first.publishedAt,
-        ingest_status: 'ingested',
-        raw_feed_entry: first.rawEntry,
-        created_at: now,
-        updated_at: now,
-      })
-      .select('id')
-      .single()
-    if (videoInsert.error) throw new Error(videoInsert.error.message)
-    insertedIds.videoId = (videoInsert.data as { id: string }).id
+    const sourceChannel = sourceReuse.data as SourceChannelRow
+    const pollResult = await pollSourceChannel(sourceChannel, {
+      supabase,
+      fetchEntries: async () => mockEntries,
+      now: () => new Date(now),
+    })
+    assert(!pollResult.error, `RSS poll failed: ${pollResult.error}`)
+    assert(pollResult.ingested === mockEntries.length, `Expected ${mockEntries.length} ingested videos, got ${pollResult.ingested}.`)
+    assert(pollResult.candidates === mockEntries.length, `Expected ${mockEntries.length} candidates, got ${pollResult.candidates}.`)
 
-    const duplicateCheck = await supabase
+    const videoCheck = await supabase
       .from('ingested_videos')
       .select('id')
       .eq('platform', 'youtube')
-      .eq('external_video_id', externalVideoId)
-    if (duplicateCheck.error) throw new Error(duplicateCheck.error.message)
+      .in('external_video_id', mockEntries.map((entry) => entry.externalVideoId))
+    if (videoCheck.error) throw new Error(videoCheck.error.message)
+    insertedIds.videoId = ((videoCheck.data ?? [])[0] as { id: string } | undefined)?.id ?? null
 
-    const candidateInsert = await supabase
+    const candidateCheck = await supabase
       .from('clip_candidates')
-      .insert({
-        ingested_video_id: insertedIds.videoId,
-        title: first.title,
-        summary: first.description,
-        hook_text: first.title,
-        caption: first.title,
-        hashtags: ['RBHQ', 'Sports'],
-        score: 38,
-        score_breakdown: {
-          model: 'smoke-source-ingestion',
-          transcriptAvailable: false,
-          limitations: ['No transcript in RSS fixture; timestamps intentionally null.'],
-        },
-        status: 'candidate',
-        start_seconds: null,
-        end_seconds: null,
-        created_at: now,
-        updated_at: now,
-      })
-      .select('id, status, start_seconds, end_seconds')
-      .single()
-    if (candidateInsert.error) throw new Error(candidateInsert.error.message)
-    insertedIds.candidateId = (candidateInsert.data as { id: string }).id
+      .select('id, caption, hashtags, score, score_breakdown, status')
+      .in('ingested_video_id', (videoCheck.data ?? []).map((row) => (row as { id: string }).id))
+    if (candidateCheck.error) throw new Error(candidateCheck.error.message)
+    insertedIds.candidateIds = (candidateCheck.data ?? []).map((row) => (row as { id: string }).id)
+
+    const duplicatePoll = await pollSourceChannel(sourceChannel, {
+      supabase,
+      fetchEntries: async () => mockEntries,
+      now: () => new Date(now),
+    })
+    assert(!duplicatePoll.error, `Duplicate RSS poll failed: ${duplicatePoll.error}`)
+
+    const firstCandidate = (candidateCheck.data ?? [])[0] as {
+      caption?: string | null
+      hashtags?: string[] | null
+      score?: number | null
+      score_breakdown?: {
+        rankLabel?: string
+        urgency?: string
+        whyNow?: string
+        operatorSummary?: string
+      } | null
+    } | undefined
 
     return {
       mode: 'supabase',
       schemaAvailable: true,
       sourceCreated: Boolean(insertedIds.sourceId),
       sourceReused: (sourceReuse.data as { id: string }).id === insertedIds.sourceId,
-      videoInserted: Boolean(insertedIds.videoId),
-      duplicateSkipped: (duplicateCheck.data ?? []).length === 1,
-      candidateInserted: Boolean(insertedIds.candidateId),
+      videoInserted: (videoCheck.data ?? []).length === mockEntries.length,
+      duplicateSkipped: duplicatePoll.ingested === 0 && duplicatePoll.candidates === 0,
+      candidateInserted: insertedIds.candidateIds.length === mockEntries.length,
+      candidateIntelligenceScored: Boolean(
+        firstCandidate?.score &&
+          firstCandidate.caption &&
+          firstCandidate.hashtags?.length &&
+          firstCandidate.score_breakdown?.rankLabel &&
+          firstCandidate.score_breakdown?.urgency &&
+          firstCandidate.score_breakdown?.whyNow &&
+          firstCandidate.score_breakdown?.operatorSummary,
+      ),
       cleanup: 'complete',
     }
   } finally {
-    if (insertedIds.candidateId) {
-      await supabase.from('clip_candidates').delete().eq('id', insertedIds.candidateId)
+    if (insertedIds.candidateIds.length > 0) {
+      await supabase.from('clip_candidates').delete().in('id', insertedIds.candidateIds)
     }
     if (insertedIds.videoId) {
-      await supabase.from('ingested_videos').delete().eq('id', insertedIds.videoId)
+      await supabase.from('ingested_videos').delete().eq('source_channel_id', insertedIds.sourceId)
     }
     if (insertedIds.sourceId) {
       await supabase.from('source_channels').delete().eq('id', insertedIds.sourceId)
     }
+  }
+}
+
+function verifyIntelligencePrecedence(): SmokeResult['intelligence'] {
+  const analyzer = {
+    priorityScore: 91,
+    rankLabel: 'Hot' as const,
+    reasonTags: ['breaking' as const],
+    whyNow: 'Analyzer why now.',
+    operatorSummary: 'Analyzer operator summary.',
+    confidence: 'high' as const,
+    captionDraft: 'Analyzer caption draft.',
+    hashtagPack: ['#AnalyzerTag'],
+    hookLine: 'Analyzer hook line.',
+    provider: 'heuristic' as const,
+    analyzedAt: new Date().toISOString(),
+  }
+  const analyzerFallback = buildRBHQIntelligenceV1({
+    title: 'Breaking rivalry reaction',
+    analyzer,
+  })
+  const editorial = buildRBHQIntelligenceV1({
+    title: 'Breaking rivalry reaction',
+    analyzer,
+    moderation_notes: [
+      `editorial_caption:${JSON.stringify('Editorial caption wins.')}`,
+      `editorial_hashtags:${JSON.stringify(['#EditorialTag'])}`,
+    ],
+  })
+  const candidate = buildClipCandidateInsertRow({
+    channel: {
+      id: randomUUID(),
+      channel_key: 'smoke-intelligence',
+      display_name: 'Smoke Intelligence',
+      rss_url: 'mock://youtube-rss',
+      target_rbhq_channel_id: null,
+    },
+    video: {
+      id: randomUUID(),
+      title: 'Breaking rivalry reaction sends fans wild',
+      description: 'A heated reaction clip with a clear fan angle.',
+      published_at: new Date().toISOString(),
+    },
+    now: new Date().toISOString(),
+    id: randomUUID(),
+  })
+
+  return {
+    candidateHasRank: Boolean(candidate.score_breakdown.rankLabel),
+    candidateHasUrgency: Boolean(candidate.score_breakdown.urgency),
+    candidateHasWhyNow: Boolean(candidate.score_breakdown.whyNow),
+    candidateHasOperatorSummary: Boolean(candidate.score_breakdown.operatorSummary),
+    editorialCaptionPrecedence: editorial.suggestedCaption === 'Editorial caption wins.',
+    editorialHashtagPrecedence: editorial.suggestedHashtags[0] === '#EditorialTag',
+    analyzerCaptionFallback: analyzerFallback.suggestedCaption === analyzer.captionDraft,
+    analyzerHashtagFallback: analyzerFallback.suggestedHashtags[0] === '#AnalyzerTag',
   }
 }
 
@@ -239,6 +339,10 @@ async function main() {
   assert(database.videoInserted, 'Ingested video was not created.')
   assert(database.duplicateSkipped, 'Duplicate video was not skipped.')
   assert(database.candidateInserted, 'Clip candidate was not created.')
+  assert(database.candidateIntelligenceScored, 'Clip candidate did not include Intelligence V1 fields.')
+
+  const intelligence = verifyIntelligencePrecedence()
+  assert(Object.values(intelligence).every(Boolean), 'Intelligence V1 precedence or candidate field smoke failed.')
 
   const result: SmokeResult = {
     result: 'PASS',
@@ -247,6 +351,7 @@ async function main() {
       dedupedDuplicate: true,
     },
     database,
+    intelligence,
     safety: {
       n8nRequired: false,
       livePublishStateSet: false,

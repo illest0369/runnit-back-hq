@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 
-import { fetchYouTubeRss, type YouTubeRssEntry } from '../lib/youtube-rss'
+import { pollSourceChannel } from '../lib/rss-poll'
 
 config({ path: '.env.local', quiet: true })
 config({ quiet: true })
@@ -18,6 +18,7 @@ type SourceChannelRow = {
   channel_key: string
   display_name: string
   rss_url: string
+  target_rbhq_channel_id: string | null
 }
 
 function readArg(name: string): string | null {
@@ -82,7 +83,7 @@ async function upsertSourceChannel(
       },
       { onConflict: 'channel_key' },
     )
-    .select('id, channel_key, display_name, rss_url')
+    .select('id, channel_key, display_name, rss_url, target_rbhq_channel_id')
     .single()
 
   if (error) {
@@ -92,102 +93,29 @@ async function upsertSourceChannel(
   return data as SourceChannelRow
 }
 
-async function existingVideoIds(
-  supabase: ReturnType<typeof createSupabase>,
-  entries: YouTubeRssEntry[],
-): Promise<Set<string>> {
-  const ids = [...new Set(entries.map((entry) => entry.externalVideoId))]
-  if (ids.length === 0) return new Set()
-
-  const existing = new Set<string>()
-  for (let index = 0; index < ids.length; index += 100) {
-    const batch = ids.slice(index, index + 100)
-    const { data, error } = await supabase
-      .from('ingested_videos')
-      .select('external_video_id')
-      .eq('platform', 'youtube')
-      .in('external_video_id', batch)
-
-    if (error) {
-      throw new Error(error.message)
-    }
-
-    for (const row of data ?? []) {
-      const externalVideoId = String((row as { external_video_id?: string }).external_video_id ?? '')
-      if (externalVideoId) existing.add(externalVideoId)
-    }
-  }
-
-  return existing
-}
-
-async function insertVideos(
-  supabase: ReturnType<typeof createSupabase>,
-  sourceChannel: SourceChannelRow,
-  entries: YouTubeRssEntry[],
-) {
-  const existing = await existingVideoIds(supabase, entries)
-  const now = new Date().toISOString()
-  const rows = entries
-    .filter((entry) => !existing.has(entry.externalVideoId))
-    .map((entry) => ({
-      source_channel_id: sourceChannel.id,
-      external_video_id: entry.externalVideoId,
-      platform: 'youtube',
-      title: entry.title,
-      description: entry.description,
-      video_url: entry.videoUrl,
-      thumbnail_url: entry.thumbnailUrl,
-      published_at: entry.publishedAt,
-      duration_seconds: null,
-      ingest_status: 'ingested',
-      raw_feed_entry: entry.rawEntry,
-      created_at: now,
-      updated_at: now,
-    }))
-
-  if (rows.length === 0) {
-    return { inserted: 0, skipped: entries.length }
-  }
-
-  const { data, error } = await supabase
-    .from('ingested_videos')
-    .insert(rows)
-    .select('id')
-
-  if (error) {
-    throw new Error(error.message)
-  }
-
-  return {
-    inserted: data?.length ?? 0,
-    skipped: entries.length - (data?.length ?? 0),
-  }
-}
-
 async function main() {
   try {
     const args = readArgs()
     const supabase = createSupabase()
-    const entries = await fetchYouTubeRss(args.url)
     const sourceChannel = await upsertSourceChannel(supabase, args)
-    const result = await insertVideos(supabase, sourceChannel, entries)
+    const result = await pollSourceChannel(sourceChannel, { supabase })
 
     console.log(JSON.stringify(
       {
-        result: 'PASS',
+        result: result.error ? 'FAIL' : 'PASS',
         sourceChannel: {
           id: sourceChannel.id,
           channelKey: sourceChannel.channel_key,
           displayName: sourceChannel.display_name,
         },
-        totalEntries: entries.length,
-        inserted: result.inserted,
-        skipped: result.skipped,
+        videosIngested: result.ingested,
+        candidatesCreated: result.candidates,
+        error: result.error,
       },
       null,
       2,
     ))
+    if (result.error) process.exitCode = 1
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error)
     const migrationHint = isMissingSourceSchemaError(error instanceof Error ? error : null)

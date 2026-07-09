@@ -2,7 +2,6 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import { createClient } from '@supabase/supabase-js'
-import ws from 'ws'
 
 import { CHANNEL_META } from '../lib/channel-meta'
 
@@ -45,7 +44,6 @@ async function main() {
 
   const db = createClient(url, serviceKey, {
     auth: { persistSession: false },
-    realtime: { transport: ws } as object,
   })
 
   const seedPath = resolve(__dirname, '../sources/source_channels_seed.json')
