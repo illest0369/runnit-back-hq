@@ -10,6 +10,7 @@ type SeedEntry = {
   display_name: string
   rss_url: string
   lane_key: string
+  enabled?: boolean
   notes?: string
 }
 
@@ -74,7 +75,7 @@ async function main() {
       platform: 'youtube',
       rss_url: entry.rss_url,
       target_rbhq_channel_id: targetChannelId,
-      enabled: true,
+      enabled: entry.enabled ?? true,
     }
 
     const { error } = await db

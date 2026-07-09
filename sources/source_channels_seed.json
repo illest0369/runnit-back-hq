@@ -37,9 +37,30 @@
   {
     "channel_key": "one_championship",
     "display_name": "ONE Championship",
-    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC-UM_pS0bD4Z0HuVOqZpgXQ",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiormkBf3jm6mfb7k0yPbKA",
     "lane_key": "combat",
     "notes": "ONE Championship — MMA and Muay Thai, high-emotion moments"
+  },
+  {
+    "channel_key": "pfl_mma",
+    "display_name": "PFL MMA",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCPrONRG9hO1f-OrxW-WH-xg",
+    "lane_key": "combat",
+    "notes": "PFL MMA — fight highlights, playoff moments, contender stories"
+  },
+  {
+    "channel_key": "bellator_mma",
+    "display_name": "BellatorMMA",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCnkMTsKYqhHm6l6GQzg4szg",
+    "lane_key": "combat",
+    "notes": "Bellator MMA — fight highlights, faceoffs, post-fight emotion"
+  },
+  {
+    "channel_key": "dazn_boxing",
+    "display_name": "DAZN Boxing",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCurvRE5fGcdUgCYWgh-BDsg",
+    "lane_key": "combat",
+    "notes": "DAZN Boxing — boxing highlights, press events, fighter reaction"
   },
   {
     "channel_key": "vct_official",
@@ -79,14 +100,14 @@
   {
     "channel_key": "wnba_official",
     "display_name": "WNBA",
-    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCNf_8Ss-MCSwV75YO5LKA",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCO9a_ryN_l7DIDS-VIt-zmw",
     "lane_key": "women",
     "notes": "Official WNBA — game emotion, locker room, press, swagger"
   },
   {
     "channel_key": "nwsl_official",
     "display_name": "NWSL",
-    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCQyHFhx0Q4QnfOFxbT_ZWOQ",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCL4xu08EDu0ZFZsBJUB0chw",
     "lane_key": "women",
     "notes": "Official NWSL — goals, reactions, player moments"
   },
@@ -95,6 +116,106 @@
     "display_name": "espnW",
     "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC6-BLFLFTbrVHCdxRz6G9KA",
     "lane_key": "women",
-    "notes": "espnW — women's sports coverage, profiles, interviews"
+    "enabled": false,
+    "notes": "Disabled: previous espnW channel feed returns 404"
+  },
+  {
+    "channel_key": "ncaa_womens_basketball",
+    "display_name": "NCAA Women's Basketball",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCPiVl-IXW2S2FlkR9eJp37g",
+    "lane_key": "women",
+    "enabled": false,
+    "notes": "Disabled: valid feed, but latest entries are stale and low-quality for Daily Plan"
+  },
+  {
+    "channel_key": "the_womens_game",
+    "display_name": "The Women's Game",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCbhLeBd783Nmk0XNV_bMt3A",
+    "lane_key": "women",
+    "notes": "The Women's Game — women's soccer interviews, analysis, and player stories"
+  },
+  {
+    "channel_key": "just_womens_sports",
+    "display_name": "Just Women's Sports",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCv5306tE1yjLn1D31PL7kFA",
+    "lane_key": "women",
+    "notes": "Just Women's Sports — WNBA, NWSL, college hoops, and athlete-led coverage"
+  },
+  {
+    "channel_key": "cbs_sports_w_golazo",
+    "display_name": "CBS Sports W Golazo",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCX_tjI6Q_4JD1E3234CwemA",
+    "lane_key": "women",
+    "notes": "CBS Sports W Golazo — women's soccer, NWSL, USWNT, and Attacking Third coverage"
+  },
+  {
+    "channel_key": "espn_cfb",
+    "display_name": "ESPN College Football",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCzRWWsFjqHk1an4OnVPsl9g",
+    "lane_key": "runnitbackcfb",
+    "notes": "ESPN College Football — highlights, rankings, rivalry and playoff coverage"
+  },
+  {
+    "channel_key": "cfb_on_fox",
+    "display_name": "CFB ON FOX",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCpwix-O6ceqMgdxhqIynzFA",
+    "lane_key": "runnitbackcfb",
+    "notes": "CFB ON FOX — game highlights, reactions, Big Noon coverage"
+  },
+  {
+    "channel_key": "sec_official",
+    "display_name": "SEC",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC60q_WUDde_NK-ze3frvtiA",
+    "lane_key": "runnitbackcfb",
+    "notes": "SEC — conference football highlights, media days, coach/player moments"
+  },
+  {
+    "channel_key": "acc_digital_network",
+    "display_name": "ACC Digital Network",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC0hy7TcR1gGD8nQBqrF2FaA",
+    "lane_key": "runnitbackcfb",
+    "notes": "ACC Digital Network — college football highlights, interviews, recaps"
+  },
+  {
+    "channel_key": "cfp_official",
+    "display_name": "CFP",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCZs6shNfgpoeOM6Tacawo-g",
+    "lane_key": "runnitbackcfb",
+    "notes": "College Football Playoff — rankings, playoff moments, championship coverage"
+  },
+  {
+    "channel_key": "mls_official",
+    "display_name": "Major League Soccer",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCSZbXT5TLLW_i-5W8FZpFsg",
+    "lane_key": "futbol",
+    "notes": "MLS — goals, player moments, match highlights, rivalry content"
+  },
+  {
+    "channel_key": "espn_fc",
+    "display_name": "ESPN FC",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC6c1z7bA__85CIWZ_jpCK-Q",
+    "lane_key": "futbol",
+    "notes": "ESPN FC — soccer analysis, reactions, transfer and match-day coverage"
+  },
+  {
+    "channel_key": "cbs_sports_golazo",
+    "display_name": "CBS Sports Golazo",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCET00YnetHT7tOpu12v8jxg",
+    "lane_key": "futbol",
+    "notes": "CBS Sports Golazo — soccer highlights, Champions League and studio reaction"
+  },
+  {
+    "channel_key": "fifa_official",
+    "display_name": "FIFA",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCpcTrCXblq78GZrTUTLWeBw",
+    "lane_key": "futbol",
+    "notes": "FIFA — global soccer highlights, tournament clips, player features"
+  },
+  {
+    "channel_key": "uefa_official",
+    "display_name": "UEFA",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCyGa1YEx9ST66rYrJTGIKOw",
+    "lane_key": "futbol",
+    "notes": "UEFA — European tournament highlights, player moments, match reaction"
   }
 ]

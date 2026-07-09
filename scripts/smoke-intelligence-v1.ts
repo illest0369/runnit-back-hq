@@ -52,6 +52,20 @@ const neutralSourceCandidate = buildRBHQIntelligenceV1({
   source_type: 'youtube_rss',
   created_at: new Date().toISOString(),
 })
+const womenTournamentCandidate = buildRBHQIntelligenceV1({
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'NCAA tournament reveal sets up a rivalry rematch',
+  source_name: 'NCAA Women\'s Basketball',
+  source_type: 'youtube_rss',
+  published_at: new Date().toISOString(),
+})
+const futbolTournamentCandidate = buildRBHQIntelligenceV1({
+  channel_id: 'a1000000-0000-0000-0000-000000000005',
+  title: 'UEFA tournament reveal sends fans into heated reaction',
+  source_name: 'UEFA',
+  source_type: 'youtube_rss',
+  published_at: new Date().toISOString(),
+})
 const storedNotes = withStoredRBHQIntelligenceV1([], sports)
 const stored = getStoredRBHQIntelligenceV1(storedNotes)
 const fallback = getRBHQIntelligenceV1({ ...sportsClip, moderation_notes: storedNotes })
@@ -75,6 +89,12 @@ assert.ok(!arena.suggestedCaption.includes('timeline has a take'))
 assert.ok(arena.whyNow.includes('clutch/upset'))
 assert.ok(neutralSourceCandidate.suggestedCaption.includes('Test the strongest moment'))
 assert.ok(!neutralSourceCandidate.suggestedCaption.includes('This clip is the angle'))
+assert.ok(!womenTournamentCandidate.whyNow.includes('gaming update'))
+assert.ok(!womenTournamentCandidate.operatorSummary.includes('gaming update'))
+assert.ok(!womenTournamentCandidate.suggestedHashtags.some((tag) => tag.toLowerCase().includes('gaming')))
+assert.ok(!futbolTournamentCandidate.whyNow.includes('gaming update'))
+assert.ok(!futbolTournamentCandidate.operatorSummary.includes('gaming update'))
+assert.ok(!futbolTournamentCandidate.suggestedHashtags.some((tag) => tag.toLowerCase().includes('gaming')))
 assert.ok(plan.suggestedPostingOrder.length >= 1)
 assert.ok(plan.topClipsToPostNow.length + plan.strongAlternates.length >= 1)
 
@@ -82,5 +102,7 @@ console.log(JSON.stringify({
   sports,
   arena,
   neutralSourceCandidate,
+  womenTournamentCandidate,
+  futbolTournamentCandidate,
   dailyPlan: plan,
 }, null, 2))

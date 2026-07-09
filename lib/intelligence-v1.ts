@@ -324,17 +324,20 @@ function countPatternHits(text: string, patterns: string[]): number {
   return patterns.filter((pattern) => text.includes(pattern)).length
 }
 
-function detectedSignals(text: string) {
-  return SIGNAL_CATEGORIES.filter((category) => countPatternHits(text, category.patterns) > 0)
+function detectedSignals(text: string, lane: string) {
+  return SIGNAL_CATEGORIES.filter((category) => {
+    if (category.label === 'gaming update' && lane !== 'arena') return false
+    return countPatternHits(text, category.patterns) > 0
+  })
 }
 
-function signalSummary(text: string): string {
-  const labels = detectedSignals(text).map((signal) => signal.label)
+function signalSummary(text: string, lane: string): string {
+  const labels = detectedSignals(text, lane).map((signal) => signal.label)
   return labels.length > 0 ? labels.slice(0, 2).join(' + ') : 'story'
 }
 
-function signalHashtags(text: string): string[] {
-  return detectedSignals(text)
+function signalHashtags(text: string, lane: string): string[] {
+  return detectedSignals(text, lane)
     .map((signal) => signal.hashtags[0])
     .filter((tag): tag is string => Boolean(tag))
     .slice(0, 2)
@@ -432,9 +435,9 @@ function buildCaption(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutp
 
   const text = textForSignals(input)
   const context = compact(input.league || input.sport)
-  const signal = detectedSignals(text)[0]
-  const topic = compact([context, signal?.caption].filter(Boolean).join(' '))
   const lane = laneSlug(input)
+  const signal = detectedSignals(text, lane)[0]
+  const topic = compact([context, signal?.caption].filter(Boolean).join(' '))
   const angle = topic
     ? `${sentenceCase(topic)} is the angle to test`
     : 'Test the strongest moment'
@@ -468,7 +471,7 @@ function buildHashtags(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOut
   return uniqueHashtags([
     input.league ? `#${input.league}` : '',
     input.sport ? `#${input.sport}` : '',
-    ...signalHashtags(text),
+    ...signalHashtags(text, laneSlug(input)),
     ...(laneTags[laneSlug(input)] ?? laneTags.sports),
   ])
 }
@@ -480,7 +483,7 @@ function reasonLines(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutpu
   const eventHits = countPatternHits(text, EVENT_PATTERNS)
   const emotionalHits = countPatternHits(text, EMOTIONAL_PATTERNS)
 
-  const signals = signalSummary(text)
+  const signals = signalSummary(text, laneSlug(input))
 
   if (eventHits > 0) reasons.push(`Story signal is specific: ${signals}.`)
   if (emotionalHits > 0 || hasAnalyzerTag(analyzer, 'controversy') || hasAnalyzerTag(analyzer, 'rivalry')) {
@@ -509,7 +512,7 @@ function reasonLines(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutpu
 function whyNowForInput(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null, urgency: RBHQIntelligenceUrgency): string {
   if (analyzer?.whyNow && urgency !== 'evergreen') return truncate(analyzer.whyNow, 180)
   const text = textForSignals(input)
-  const signals = signalSummary(text)
+  const signals = signalSummary(text, laneSlug(input))
   const hours = recencyHours(input)
   const recency = hours === null ? '' : hours <= 3 ? ' and the upload is fresh' : hours <= 24 ? ' and the upload is still timely' : ''
   if (urgency === 'post_now') return `${laneLabel(input)} has ${signals} momentum${recency}; post before the conversation cools.`
@@ -526,7 +529,7 @@ function operatorSummaryForInput(
 ): string {
   if (analyzer?.operatorSummary) return truncate(analyzer.operatorSummary, 180)
   const source = compact(input.source_name) || 'source'
-  const signal = signalSummary(textForSignals(input))
+  const signal = signalSummary(textForSignals(input), laneSlug(input))
   return `${laneLabel(input)}: ${source} clip is ${rankLabel.replace(/_/g, ' ')} at ${score}/100 with a ${signal} angle; ${formatUrgency(urgencyForInput(input, analyzer, score))}.`
 }
 
