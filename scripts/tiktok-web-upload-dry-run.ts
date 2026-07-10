@@ -439,6 +439,19 @@ async function firstVisible(page: Page, selector: string, timeout = 1500) {
   return page.locator(selector).first().isVisible({ timeout }).catch(() => false)
 }
 
+async function dismissUnsavedDraftPrompt(page: Page, timeout = 3_000) {
+  const bodyText = await visibleText(page)
+  if (!/video you were editing wasn.t saved|continue editing\?/i.test(bodyText)) return false
+
+  const discardButton = page.getByRole('button', { name: /^discard$/i }).first()
+  const visible = await discardButton.isVisible({ timeout }).catch(() => false)
+  if (!visible) return false
+
+  await discardButton.click({ timeout })
+  await page.waitForTimeout(1_000)
+  return true
+}
+
 async function classifyUploadPage(context: BrowserContext, page: Page) {
   const cookies = await context.cookies('https://www.tiktok.com')
   const sessionCookieNames = cookies
@@ -472,6 +485,7 @@ async function classifyUploadPage(context: BrowserContext, page: Page) {
 }
 
 async function stageUpload(page: Page, mediaPath: string, caption: string, timeoutMs: number) {
+  const staleDraftPromptDiscarded = await dismissUnsavedDraftPrompt(page)
   const fileInput = page.locator('input[type="file"]').first()
   if (await fileInput.count() === 0) {
     throw new Error('TikTok upload page does not expose an input[type=file] control.')
@@ -510,7 +524,7 @@ async function stageUpload(page: Page, mediaPath: string, caption: string, timeo
 
   const captionPresent = captionFilled || await captionAlreadyPresent(page, caption)
   const postButton = await inspectPostButton(page)
-  return { uploadStaged: true, captionFilled, captionPresent, postButtonVisible: postButton.visible, postButtonEnabled: postButton.enabled }
+  return { uploadStaged: true, captionFilled, captionPresent, postButtonVisible: postButton.visible, postButtonEnabled: postButton.enabled, staleDraftPromptDiscarded }
 }
 
 async function captionAlreadyPresent(page: Page, expectedCaption: string) {
@@ -550,6 +564,7 @@ async function detectPostConfirmation(page: Page, timeoutMs: number) {
 }
 
 async function clickFinalPost(page: Page, timeoutMs: number) {
+  const staleDraftPromptDiscarded = await dismissUnsavedDraftPrompt(page)
   const postButton = await inspectPostButton(page)
   if (!postButton.visible) {
     return {
@@ -558,6 +573,7 @@ async function clickFinalPost(page: Page, timeoutMs: number) {
       status: 'blocked',
       confirmation: 'not_clicked',
       blocker: 'TIKTOK_POST_BUTTON_NOT_VISIBLE',
+      staleDraftPromptDiscarded,
     }
   }
   if (!postButton.enabled) {
@@ -567,6 +583,7 @@ async function clickFinalPost(page: Page, timeoutMs: number) {
       status: 'blocked',
       confirmation: 'not_clicked',
       blocker: 'TIKTOK_POST_BUTTON_DISABLED',
+      staleDraftPromptDiscarded,
     }
   }
 
@@ -578,6 +595,7 @@ async function clickFinalPost(page: Page, timeoutMs: number) {
     status: confirmation.publishConfirmed ? 'posted' : 'post_confirmation_needed',
     confirmation: confirmation.publishConfirmed ? 'confirmed' : 'ambiguous',
     blocker: confirmation.publishConfirmed ? null : 'TIKTOK_POST_CONFIRMATION_NEEDED',
+    staleDraftPromptDiscarded,
     ...confirmation,
   }
 }
