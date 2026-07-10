@@ -26,7 +26,7 @@ export type MacMiniWorkerPackage = {
 
 export type MacMiniDryRunWorkerResult = {
   result: 'PASS' | 'FAIL'
-  mode: 'metadata_only' | 'browser_dry_run' | 'no_package'
+  mode: 'metadata_only' | 'browser_dry_run' | 'browser_live_post' | 'no_package'
   packageId: string | null
   channelKey: string | null
   profileDir: string | null
@@ -41,7 +41,7 @@ export type MacMiniDryRunWorkerResult = {
     callsMetricool: false
     callsN8n: false
     schedulesPost: false
-    clicksFinalPost: false
+    clicksFinalPost: boolean
     livePublishStateSet: false
   }
 }
@@ -61,6 +61,8 @@ export type RunMacMiniDryRunWorkerOptions = {
   timeoutMs?: number
   artifactDir?: string
   keepDraft?: boolean
+  livePost?: boolean
+  allowFinalPost?: boolean
 }
 
 type WorkerDeps = {
@@ -215,6 +217,14 @@ async function fetchOneStagingPackage(fetchFn: typeof fetch, input: { baseUrl: s
   return data[0] ? readPayloadPackage(data[0]) : null
 }
 
+async function fetchOneReadyForManualPostPackage(fetchFn: typeof fetch, input: { baseUrl: string; token: string; limit: number }) {
+  const body = await fetchJson(fetchFn, `${input.baseUrl}/api/mac-mini/packages?limit=${input.limit}&staging=ready_for_manual_post`, {
+    headers: { 'x-rbhq-mac-mini-token': input.token },
+  })
+  const data = Array.isArray(body.data) ? body.data : []
+  return data[0] ? readPayloadPackage(data[0]) : null
+}
+
 async function recordDryRun(fetchFn: typeof fetch, input: {
   baseUrl: string
   token: string
@@ -281,6 +291,22 @@ function dryRunSucceeded(uploaderResult: JsonObject): boolean {
   return true
 }
 
+function livePostSucceeded(uploaderResult: JsonObject): boolean {
+  if (uploaderResult.result !== 'POST_CONFIRMED') return false
+  const safety = objectValue(uploaderResult.safety)
+  if (safety.clicksFinalPost !== true) return false
+  const livePost = objectValue(uploaderResult.livePost)
+  return livePost.clickedFinalPost === true && livePost.confirmation === 'confirmed'
+}
+
+function safetyForUploaderResult(baseSafety: MacMiniDryRunWorkerResult['safety'], uploaderResult: JsonObject | null) {
+  const uploaderSafety = objectValue(uploaderResult?.safety)
+  return {
+    ...baseSafety,
+    clicksFinalPost: uploaderSafety.clicksFinalPost === true,
+  }
+}
+
 export async function runMacMiniDryRunWorker(
   options: RunMacMiniDryRunWorkerOptions,
   deps: WorkerDeps = {},
@@ -297,11 +323,22 @@ export async function runMacMiniDryRunWorker(
     callsMetricool: false as const,
     callsN8n: false as const,
     schedulesPost: false as const,
-    clicksFinalPost: false as const,
+    clicksFinalPost: false,
     livePublishStateSet: false as const,
   }
 
-  const pkg = options.stageUpload
+  if (options.livePost) {
+    if (options.allowFinalPost !== true) {
+      throw new Error('Mac mini live posting requires --allow-final-post.')
+    }
+    if (process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED !== 'true') {
+      throw new Error('Mac mini live posting requires RBHQ_TIKTOK_LIVE_POSTING_ALLOWED=true.')
+    }
+  }
+
+  const pkg = options.livePost
+    ? await fetchOneReadyForManualPostPackage(fetchFn, { baseUrl, token, limit: options.limit ?? 1 })
+    : options.stageUpload
     ? await fetchOneStagingPackage(fetchFn, { baseUrl, token, limit: options.limit ?? 1 })
     : await fetchOnePackage(fetchFn, { baseUrl, token, limit: options.limit ?? 1 })
   if (!pkg) {
@@ -340,6 +377,9 @@ export async function runMacMiniDryRunWorker(
     const profileResult = safeJsonParse(profile.stdout)
     profileDir = compact(profileResult.profileDir) || null
     const channelKey = compact(profileResult.channelKey) || pkg.browserChannelKey
+    if (channelKey !== pkg.browserChannelKey) {
+      throw new Error(`Mac mini package ${pkg.id} browser channel ${pkg.browserChannelKey} does not match uploader profile channel ${channelKey}.`)
+    }
     const media = await verifyLocalMp4(mediaPathFromPackage(pkg) ?? options.mediaPath ?? null)
     assetMissing = media.assetMissing
     draftPath = await writeDraftFile(pkg, {
@@ -349,10 +389,10 @@ export async function runMacMiniDryRunWorker(
     })
 
     if (assetMissing) {
-      status = options.stageUpload ? 'failure' : 'success'
-      error = options.stageUpload ? 'ASSET_MISSING' : null
+      status = options.stageUpload || options.livePost ? 'failure' : 'success'
+      error = options.stageUpload || options.livePost ? 'ASSET_MISSING' : null
       uploaderResult = {
-        result: options.stageUpload ? 'BLOCKED' : 'METADATA_ONLY',
+        result: options.stageUpload || options.livePost ? 'BLOCKED' : 'METADATA_ONLY',
         blocker: 'ASSET_MISSING',
         channelKey,
         profileDir,
@@ -367,7 +407,7 @@ export async function runMacMiniDryRunWorker(
           clicksFinalPost: false,
         },
         staging: {
-          requested: Boolean(options.stageUpload),
+          requested: Boolean(options.stageUpload || options.livePost),
           uploadStaged: false,
           captionFilled: false,
           stoppedBeforeFinalPost: true,
@@ -386,7 +426,9 @@ export async function runMacMiniDryRunWorker(
         options.artifactDir ?? path.join(process.cwd(), 'tmp', 'tiktok-web-upload-artifacts'),
       ]
       if (options.headless) args.push('--headless')
-      if (options.stageUpload) args.push('--stage-upload')
+      if (options.stageUpload || options.livePost) args.push('--stage-upload')
+      if (options.livePost) args.push('--live-post')
+      if (options.allowFinalPost) args.push('--allow-final-post')
       if (options.browser) args.push('--browser', options.browser)
       if (options.cdpEndpoint) args.push('--cdp-endpoint', options.cdpEndpoint)
       if (options.cdpPort) args.push('--cdp-port', String(options.cdpPort))
@@ -394,7 +436,9 @@ export async function runMacMiniDryRunWorker(
 
       const dryRun = await runUploader(args)
       uploaderResult = safeJsonParse(dryRun.stdout)
-      status = dryRunSucceeded(uploaderResult) ? 'success' : 'failure'
+      status = options.livePost
+        ? livePostSucceeded(uploaderResult) || uploaderResult.result === 'POST_CONFIRMATION_NEEDED' ? 'success' : 'failure'
+        : dryRunSucceeded(uploaderResult) ? 'success' : 'failure'
       error = status === 'failure'
         ? compact(uploaderResult.blocker) || compact(uploaderResult.error) || 'TikTok browser dry-run did not complete safely.'
         : null
@@ -407,7 +451,7 @@ export async function runMacMiniDryRunWorker(
       status,
       workerId,
       result: {
-        source: 'mac-mini-dry-run-worker',
+        source: options.livePost ? 'mac-mini-live-post-worker' : 'mac-mini-dry-run-worker',
         packageId: pkg.id,
         channelKey: pkg.browserChannelKey,
         profileDir,
@@ -418,14 +462,14 @@ export async function runMacMiniDryRunWorker(
         captionPrepared: Boolean(pkg.caption),
         hashtagsPrepared: pkg.hashtags.length > 0,
         uploaderResult,
-        safety: baseSafety,
+        safety: safetyForUploaderResult(baseSafety, uploaderResult),
       },
       error,
     })
 
     return {
       result: status === 'success' ? 'PASS' : 'FAIL',
-      mode: assetMissing ? 'metadata_only' : 'browser_dry_run',
+      mode: assetMissing ? 'metadata_only' : options.livePost ? 'browser_live_post' : 'browser_dry_run',
       packageId: pkg.id,
       channelKey: pkg.browserChannelKey,
       profileDir,
@@ -434,7 +478,7 @@ export async function runMacMiniDryRunWorker(
       dryRunRecorded: true,
       uploaderResult,
       error,
-      safety: baseSafety,
+      safety: safetyForUploaderResult(baseSafety, uploaderResult),
     }
   } catch (caught) {
     error = caught instanceof Error ? caught.message : String(caught)
@@ -445,7 +489,7 @@ export async function runMacMiniDryRunWorker(
       status: 'failure',
       workerId,
       result: {
-        source: 'mac-mini-dry-run-worker',
+        source: options.livePost ? 'mac-mini-live-post-worker' : 'mac-mini-dry-run-worker',
         packageId: pkg.id,
         channelKey: pkg.browserChannelKey,
         profileDir,
@@ -461,7 +505,7 @@ export async function runMacMiniDryRunWorker(
 
     return {
       result: 'FAIL',
-      mode: assetMissing ? 'metadata_only' : 'browser_dry_run',
+      mode: assetMissing ? 'metadata_only' : options.livePost ? 'browser_live_post' : 'browser_dry_run',
       packageId: pkg.id,
       channelKey: pkg.browserChannelKey,
       profileDir,
@@ -470,7 +514,7 @@ export async function runMacMiniDryRunWorker(
       dryRunRecorded: true,
       uploaderResult,
       error,
-      safety: baseSafety,
+      safety: safetyForUploaderResult(baseSafety, uploaderResult),
     }
   }
 }

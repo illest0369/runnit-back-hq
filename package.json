@@ -43,6 +43,7 @@
     "handoff:mac-mini:attach-asset": "tsx scripts/mac-mini-attach-asset.ts",
     "handoff:mac-mini:dry-run": "tsx scripts/mac-mini-record-dry-run.ts",
     "handoff:mac-mini:run-dry-run": "tsx scripts/mac-mini-run-dry-run.ts",
+    "handoff:mac-mini:run-live-post": "tsx scripts/mac-mini-run-live-post.ts",
     "clip-prep:refresh": "tsx scripts/refresh-clip-prep.ts",
     "clip-prep:render-local": "tsx scripts/render-clip-prep-local.ts",
     "tiktok:web-upload-dry-run": "tsx scripts/tiktok-web-upload-dry-run.ts",

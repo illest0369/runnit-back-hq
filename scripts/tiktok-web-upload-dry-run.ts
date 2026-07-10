@@ -7,7 +7,7 @@ import { chromium, webkit, type Browser, type BrowserContext, type Page } from '
 
 type DraftPackage = Record<string, unknown>
 type ChannelKey = 'rb_sports' | 'rb_arena' | 'rb_women' | 'rb_combat' | 'rb_futbol' | 'rb_cfb'
-type RunMode = 'dry-run' | 'login' | 'session-check' | 'print-profile'
+type RunMode = 'dry-run' | 'live-post' | 'login' | 'session-check' | 'print-profile'
 type BrowserChoice = 'chrome' | 'chromium' | 'webkit' | 'cdp'
 
 type CliOptions = {
@@ -29,6 +29,7 @@ type CliOptions = {
   cdpEndpoint: string
   cdpPort: number
   launchCdpChrome: boolean
+  allowFinalPost: boolean
 }
 
 const DEFAULT_UPLOAD_URL = 'https://www.tiktok.com/upload?lang=en'
@@ -84,11 +85,13 @@ function readOptions(): CliOptions {
   const draftPath = readFlagValue('--draft')
   const mode: RunMode = hasFlag('--login')
     ? 'login'
-    : hasFlag('--session-check')
-      ? 'session-check'
-      : hasFlag('--print-profile')
-        ? 'print-profile'
-        : 'dry-run'
+    : hasFlag('--live-post')
+      ? 'live-post'
+      : hasFlag('--session-check')
+        ? 'session-check'
+        : hasFlag('--print-profile')
+          ? 'print-profile'
+          : 'dry-run'
   const headed = hasFlag('--headed')
   const defaultHeadless = mode === 'session-check'
   const chromeOnly = hasFlag('--chrome-only')
@@ -113,6 +116,7 @@ function readOptions(): CliOptions {
     cdpEndpoint: readFlagValue('--cdp-endpoint') || readFlagValue('--connect-cdp') || `http://127.0.0.1:${cdpPort}`,
     cdpPort,
     launchCdpChrome: hasFlag('--launch-cdp-chrome'),
+    allowFinalPost: hasFlag('--allow-final-post'),
   }
 }
 
@@ -223,6 +227,14 @@ function resolveChannel(input: { channelArg: string | null; draft: DraftPackage 
   if (inferred) return inferred
 
   throw new Error(`TIKTOK_CHANNEL_REQUIRED: pass --channel <channel_key>. Supported channel keys: ${SUPPORTED_CHANNEL_KEYS.join(', ')}`)
+}
+
+function assertDraftChannelMatches(channelKey: ChannelKey, draft: DraftPackage | null) {
+  if (!draft) return
+  const inferred = inferChannelFromDraft(draft)
+  if (inferred && inferred !== channelKey) {
+    throw new Error(`TIKTOK_CHANNEL_MISMATCH: draft channel ${inferred} does not match browser channel ${channelKey}.`)
+  }
 }
 
 function resolveProfileDir(channelKey: ChannelKey, override: string | null, browser: BrowserChoice) {
@@ -496,8 +508,78 @@ async function stageUpload(page: Page, mediaPath: string, caption: string, timeo
     }
   }
 
-  const postButtonVisible = await page.getByRole('button', { name: /post/i }).first().isVisible({ timeout: 2_000 }).catch(() => false)
-  return { uploadStaged: true, captionFilled, postButtonVisible }
+  const captionPresent = captionFilled || await captionAlreadyPresent(page, caption)
+  const postButton = await inspectPostButton(page)
+  return { uploadStaged: true, captionFilled, captionPresent, postButtonVisible: postButton.visible, postButtonEnabled: postButton.enabled }
+}
+
+async function captionAlreadyPresent(page: Page, expectedCaption: string) {
+  const expected = expectedCaption.replace(/\s+/g, ' ').trim()
+  const textareaValue = await page.locator('textarea').first().inputValue({ timeout: 1_000 }).catch(() => '')
+  const editorText = await page.locator('[contenteditable="true"]').first().innerText({ timeout: 1_000 }).catch(() => '')
+  const actual = [textareaValue, editorText].join(' ').replace(/\s+/g, ' ').trim()
+  if (!actual) return false
+  if (!expected) return true
+  const expectedLead = expected.slice(0, 80)
+  return actual.includes(expectedLead) || expected.includes(actual.slice(0, 80))
+}
+
+async function inspectPostButton(page: Page) {
+  const button = page.getByRole('button', { name: /post/i }).first()
+  const visible = await button.isVisible({ timeout: 2_000 }).catch(() => false)
+  const enabled = visible ? await button.isEnabled({ timeout: 2_000 }).catch(() => false) : false
+  return { button, visible, enabled }
+}
+
+async function detectPostConfirmation(page: Page, timeoutMs: number) {
+  await Promise.race([
+    page.waitForURL((url) => !/\/upload/i.test(url.href), { timeout: Math.min(timeoutMs, 20_000) }).catch(() => undefined),
+    page.waitForTimeout(4_000),
+  ])
+  await page.waitForLoadState('networkidle', { timeout: 8_000 }).catch(() => undefined)
+
+  const bodyText = (await visibleText(page)).replace(/\s+/g, ' ')
+  const successTextVisible =
+    /your video (has been )?(uploaded|posted|published)|video (has been )?(uploaded|posted|published)|post (has been )?(uploaded|published)|processing your video|view post|manage posts|upload another/i.test(bodyText)
+  const navigatedToSuccessState = !/\/upload/i.test(page.url()) && /tiktok\.com/i.test(page.url())
+  return {
+    publishConfirmed: successTextVisible || navigatedToSuccessState,
+    currentUrl: page.url(),
+    bodyTextSample: bodyText.slice(0, 280),
+  }
+}
+
+async function clickFinalPost(page: Page, timeoutMs: number) {
+  const postButton = await inspectPostButton(page)
+  if (!postButton.visible) {
+    return {
+      requested: true,
+      clickedFinalPost: false,
+      status: 'blocked',
+      confirmation: 'not_clicked',
+      blocker: 'TIKTOK_POST_BUTTON_NOT_VISIBLE',
+    }
+  }
+  if (!postButton.enabled) {
+    return {
+      requested: true,
+      clickedFinalPost: false,
+      status: 'blocked',
+      confirmation: 'not_clicked',
+      blocker: 'TIKTOK_POST_BUTTON_DISABLED',
+    }
+  }
+
+  await postButton.button.click({ timeout: timeoutMs })
+  const confirmation = await detectPostConfirmation(page, timeoutMs)
+  return {
+    requested: true,
+    clickedFinalPost: true,
+    status: confirmation.publishConfirmed ? 'posted' : 'post_confirmation_needed',
+    confirmation: confirmation.publishConfirmed ? 'confirmed' : 'ambiguous',
+    blocker: confirmation.publishConfirmed ? null : 'TIKTOK_POST_CONFIRMATION_NEEDED',
+    ...confirmation,
+  }
 }
 
 async function screenshot(page: Page, artifactDir: string, name: string) {
@@ -521,12 +603,28 @@ async function main() {
 
   if (options.draftPath) {
     ;({ draft, absoluteDraftPath } = await readDraft(options.draftPath))
-  } else if (options.mode === 'dry-run') {
+  } else if (options.mode === 'dry-run' || options.mode === 'live-post') {
     throw new Error('Missing --draft <draft_json_path>.')
   }
 
   const channelKey = resolveChannel({ channelArg: options.channelArg, draft })
+  assertDraftChannelMatches(channelKey, draft)
   const profileDir = resolveProfileDir(channelKey, options.profileDirOverride, options.browser)
+
+  if (options.allowFinalPost && options.mode !== 'live-post') {
+    throw new Error('--allow-final-post is only accepted with --live-post.')
+  }
+  if (options.mode === 'live-post') {
+    if (!options.allowFinalPost) {
+      throw new Error('Live posting requires --allow-final-post.')
+    }
+    if (process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED !== 'true') {
+      throw new Error('Live posting requires RBHQ_TIKTOK_LIVE_POSTING_ALLOWED=true.')
+    }
+    if (!options.stageUpload) {
+      throw new Error('Live posting requires --stage-upload so the MP4 and caption are verified before clicking Post.')
+    }
+  }
 
   if (options.mode === 'print-profile') {
     console.log(JSON.stringify({
@@ -584,21 +682,70 @@ async function main() {
         : {
             uploadStaged: false,
             captionFilled: false,
+            captionPresent: false,
             postButtonVisible: false,
+            postButtonEnabled: false,
           }
+
+    const livePostGuards = {
+      loggedIn,
+      uploadPageReady: readiness.uploadPageReady,
+      postButtonVisible: staging.postButtonVisible,
+      postButtonEnabled: staging.postButtonEnabled,
+      mediaAttached: Boolean(mediaPath && mediaSizeBytes),
+      captionPresent: staging.captionFilled || staging.captionPresent,
+      channelProfileMatches: true,
+      finalPostFlagAllowed: options.allowFinalPost,
+      finalPostEnvAllowed: process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED === 'true',
+    }
+    const livePostBlocker = options.mode === 'live-post'
+      ? !livePostGuards.loggedIn ? 'TIKTOK_LOGIN_REQUIRED'
+        : !livePostGuards.uploadPageReady ? 'TIKTOK_UPLOAD_PAGE_NOT_READY'
+          : !livePostGuards.mediaAttached ? 'ASSET_MISSING'
+            : !livePostGuards.captionPresent ? 'TIKTOK_CAPTION_NOT_FILLED'
+              : !livePostGuards.postButtonVisible ? 'TIKTOK_POST_BUTTON_NOT_VISIBLE'
+                : !livePostGuards.postButtonEnabled ? 'TIKTOK_POST_BUTTON_DISABLED'
+                  : !livePostGuards.channelProfileMatches ? 'TIKTOK_CHANNEL_MISMATCH'
+                    : !livePostGuards.finalPostFlagAllowed ? 'TIKTOK_FINAL_POST_FLAG_MISSING'
+                      : !livePostGuards.finalPostEnvAllowed ? 'TIKTOK_LIVE_POST_ENV_MISSING'
+                        : null
+      : null
+
+    const livePost = options.mode === 'live-post' && !blocker && !livePostBlocker
+      ? await clickFinalPost(page, options.timeoutMs)
+      : options.mode === 'live-post'
+        ? {
+            requested: true,
+            clickedFinalPost: false,
+            status: 'blocked',
+            confirmation: 'not_clicked',
+            blocker: blocker || livePostBlocker,
+          }
+        : null
 
     const stagedScreenshotPath =
       staging.uploadStaged
         ? await screenshot(page, options.artifactDir, `${clipId}-staged-upload.png`)
         : null
 
+    const finalScreenshotPath =
+      livePost?.clickedFinalPost
+        ? await screenshot(page, options.artifactDir, `${clipId}-post-click-result.png`)
+        : null
+
     result = {
-      result: options.mode === 'login'
+      result: options.mode === 'live-post'
+        ? livePost?.status === 'posted'
+          ? 'POST_CONFIRMED'
+          : livePost?.status === 'post_confirmation_needed'
+            ? 'POST_CONFIRMATION_NEEDED'
+            : 'BLOCKED'
+        : options.mode === 'login'
         ? 'LOGIN_BROWSER_OPEN'
         : options.mode === 'session-check'
           ? 'SESSION_CHECK'
           : blocker ? 'BLOCKED' : 'READY',
-      blocker,
+      blocker: options.mode === 'live-post' ? livePost?.blocker ?? null : blocker,
       channelKey,
       draftPath: absoluteDraftPath,
       clipId,
@@ -615,18 +762,21 @@ async function main() {
       staging: {
         requested: options.stageUpload,
         ...staging,
-        stoppedBeforeFinalPost: true,
-        manualApprovalRequired: true,
+        stoppedBeforeFinalPost: options.mode === 'live-post' ? !livePost?.clickedFinalPost : true,
+        manualApprovalRequired: options.mode === 'live-post' ? livePost?.status !== 'posted' : true,
       },
+      livePost,
+      livePostGuards: options.mode === 'live-post' ? livePostGuards : null,
       artifacts: {
         uploadPageScreenshot: screenshotPath,
         stagedUploadScreenshot: stagedScreenshotPath,
+        finalPostScreenshot: finalScreenshotPath,
       },
       safety: {
         usesTikTokApi: false,
         storesTikTokCredentialsInRbhq: false,
         marksRbhqPublished: false,
-        clicksFinalPost: false,
+        clicksFinalPost: Boolean(livePost?.clickedFinalPost),
       },
     }
 

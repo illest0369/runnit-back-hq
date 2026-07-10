@@ -26,7 +26,9 @@ function readLimit(request: Request): number {
 
 function readStagingStatus(request: Request) {
   const url = new URL(request.url)
-  return url.searchParams.get('staging') === 'requested' ? 'requested' as const : undefined
+  const staging = url.searchParams.get('staging')
+  if (staging === 'requested' || staging === 'ready_for_manual_post') return staging
+  return undefined
 }
 
 export async function GET(request: Request) {

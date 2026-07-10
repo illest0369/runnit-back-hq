@@ -667,8 +667,15 @@ export async function getPendingMacMiniClipPackages(
   let query = supabase
     .from('mac_mini_clip_packages')
     .select(PACKAGE_SELECT)
-    .eq('package_status', 'ready')
-    .eq('handoff_status', 'pending')
+  if (input.stagingStatus === 'ready_for_manual_post') {
+    query = query
+      .in('package_status', ['ready', 'dry_run_complete', 'dry_run_failed'])
+      .in('handoff_status', ['pending', 'dry_run_succeeded', 'dry_run_failed'])
+  } else {
+    query = query
+      .eq('package_status', 'ready')
+      .eq('handoff_status', 'pending')
+  }
   if (input.stagingStatus) {
     query = query.eq('tiktok_staging_status', input.stagingStatus)
   }
@@ -848,7 +855,7 @@ export async function recordMacMiniPackageDryRun(
       updated_at: now,
     })
     .eq('id', packageId)
-    .in('package_status', ['ready', 'fetched', 'dry_run_failed'])
+    .in('package_status', ['ready', 'fetched', 'dry_run_complete', 'dry_run_failed'])
     .select(PACKAGE_SELECT)
     .single()
 

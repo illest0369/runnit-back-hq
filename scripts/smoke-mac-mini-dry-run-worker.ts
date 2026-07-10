@@ -109,9 +109,22 @@ function packageFixture(input: { id: string; mediaPath?: string | null }) {
   }
 }
 
-async function runCase(input: { id: string; mediaPath?: string | null; stageUpload?: boolean }) {
+async function runCase(input: {
+  id: string
+  mediaPath?: string | null
+  stageUpload?: boolean
+  livePost?: boolean
+  allowFinalPost?: boolean
+  envAllowed?: string | undefined
+}) {
   const recordedRequests: RecordedRequest[] = []
   const uploaderCalls: string[][] = []
+  const previousEnv = process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED
+  if (input.envAllowed === undefined) {
+    delete process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED
+  } else {
+    process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED = input.envAllowed
+  }
   const fetchFn = (async (url, init) => {
     const requestUrl = String(url)
     const method = init?.method ?? 'GET'
@@ -151,7 +164,40 @@ async function runCase(input: { id: string; mediaPath?: string | null; stageUplo
     assert.ok(args.includes('--draft'), 'Browser dry-run must receive a draft path.')
     assert.ok(args.includes('--channel'), 'Browser dry-run must receive a channel key.')
     assert.ok(args.includes('rb_sports'), 'Browser dry-run selected the wrong profile key.')
-    assert.ok(args.includes('--stage-upload') === Boolean(input.stageUpload), 'Stage-upload flag mismatch.')
+    assert.ok(args.includes('--stage-upload') === Boolean(input.stageUpload || input.livePost), 'Stage-upload flag mismatch.')
+    assert.ok(args.includes('--allow-final-post') === Boolean(input.allowFinalPost), 'Final-post flag mismatch.')
+    assert.ok(args.includes('--live-post') === Boolean(input.livePost), 'Live-post mode flag mismatch.')
+    if (input.livePost) {
+      return {
+        stdout: JSON.stringify({
+          result: 'POST_CONFIRMED',
+          blocker: null,
+          channelKey: 'rb_sports',
+          mediaExists: true,
+          logged_in: true,
+          staging: {
+            requested: true,
+            uploadStaged: true,
+            captionFilled: true,
+            stoppedBeforeFinalPost: false,
+            manualApprovalRequired: false,
+          },
+          livePost: {
+            requested: true,
+            clickedFinalPost: true,
+            status: 'posted',
+            confirmation: 'confirmed',
+          },
+          safety: {
+            usesTikTokApi: false,
+            storesTikTokCredentialsInRbhq: false,
+            marksRbhqPublished: false,
+            clicksFinalPost: true,
+          },
+        }),
+        stderr: '',
+      }
+    }
     return {
       stdout: JSON.stringify({
         result: 'READY',
@@ -176,18 +222,28 @@ async function runCase(input: { id: string; mediaPath?: string | null; stageUplo
     }
   }
 
-  const result = await runMacMiniDryRunWorker({
-    baseUrl: 'https://rbhq.test',
-    token: 'worker-token',
-    workerId: 'mac-mini-smoke-worker',
-    stageUpload: input.stageUpload,
-    keepDraft: true,
-  }, {
-    fetchFn,
-    runUploader,
-  })
+  try {
+    const result = await runMacMiniDryRunWorker({
+      baseUrl: 'https://rbhq.test',
+      token: 'worker-token',
+      workerId: 'mac-mini-smoke-worker',
+      stageUpload: input.stageUpload,
+      livePost: input.livePost,
+      allowFinalPost: input.allowFinalPost,
+      keepDraft: true,
+    }, {
+      fetchFn,
+      runUploader,
+    })
 
-  return { result, recordedRequests, uploaderCalls }
+    return { result, recordedRequests, uploaderCalls }
+  } finally {
+    if (previousEnv === undefined) {
+      delete process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED
+    } else {
+      process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED = previousEnv
+    }
+  }
 }
 
 async function main() {
@@ -227,6 +283,8 @@ async function main() {
   assert.ok(browserDryRun.uploaderCalls[0]?.includes('--print-profile'))
   assert.ok(browserDryRun.uploaderCalls[1]?.includes('--draft'))
   assert.ok(browserDryRun.uploaderCalls[1]?.includes('--stage-upload'))
+  assert.equal(browserDryRun.uploaderCalls[1]?.includes('--allow-final-post'), false)
+  assert.equal(browserDryRun.uploaderCalls[1]?.includes('--live-post'), false)
   const browserRecord = browserDryRun.recordedRequests.find((request) => request.method === 'POST')
   const browserResult = browserRecord?.body?.result as Record<string, unknown>
   const uploaderResult = browserResult.uploaderResult as Record<string, unknown>
@@ -236,6 +294,41 @@ async function main() {
   assert.equal(browserResult.asset_missing, false)
   assert.equal(staging.stoppedBeforeFinalPost, true)
   assert.equal(safety.clicksFinalPost, false)
+
+  await assert.rejects(
+    () => runCase({ id: 'live-no-env-package', mediaPath, livePost: true, allowFinalPost: true }),
+    /RBHQ_TIKTOK_LIVE_POSTING_ALLOWED=true/,
+  )
+
+  await assert.rejects(
+    () => runCase({ id: 'live-no-flag-package', mediaPath, livePost: true, envAllowed: 'true' }),
+    /--allow-final-post/,
+  )
+
+  const livePost = await runCase({
+    id: 'ready-live-package',
+    mediaPath,
+    livePost: true,
+    allowFinalPost: true,
+    envAllowed: 'true',
+  })
+  assert.equal(livePost.result.result, 'PASS')
+  assert.equal(livePost.result.mode, 'browser_live_post')
+  assert.equal(livePost.result.safety.clicksFinalPost, true)
+  assert.ok(livePost.recordedRequests.some((request) => request.method === 'GET' && request.url.includes('staging=ready_for_manual_post')))
+  assert.equal(livePost.uploaderCalls.length, 2)
+  assert.ok(livePost.uploaderCalls[1]?.includes('--live-post'))
+  assert.ok(livePost.uploaderCalls[1]?.includes('--allow-final-post'))
+  const liveRecord = livePost.recordedRequests.find((request) => request.method === 'POST')
+  const liveResult = liveRecord?.body?.result as Record<string, unknown>
+  const liveUploaderResult = liveResult.uploaderResult as Record<string, unknown>
+  const livePostResult = liveUploaderResult.livePost as Record<string, unknown>
+  const liveSafety = liveResult.safety as Record<string, unknown>
+  assert.equal(liveRecord?.body?.status, 'success')
+  assert.equal(liveResult.source, 'mac-mini-live-post-worker')
+  assert.equal(livePostResult.clickedFinalPost, true)
+  assert.equal(livePostResult.confirmation, 'confirmed')
+  assert.equal(liveSafety.clicksFinalPost, true)
 
   console.log(JSON.stringify({
     result: 'PASS',
@@ -261,6 +354,14 @@ async function main() {
       dryRunRecorded: browserDryRun.result.dryRunRecorded,
       uploaderCalls: browserDryRun.uploaderCalls.length,
       stoppedBeforeFinalPost: staging.stoppedBeforeFinalPost,
+    },
+    livePost: {
+      mode: livePost.result.mode,
+      packageId: livePost.result.packageId,
+      channelKey: livePost.result.channelKey,
+      dryRunRecorded: livePost.result.dryRunRecorded,
+      clickedFinalPost: livePost.result.safety.clicksFinalPost,
+      confirmation: livePostResult.confirmation,
     },
     safety: {
       packageFetchWorks: metadataOnly.recordedRequests.some((request) => request.method === 'GET'),

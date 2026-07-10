@@ -220,6 +220,31 @@ async function main() {
     assert.equal(dryRun.handoffStatus, 'dry_run_succeeded')
     assert.equal(dryRun.workerId, 'mac-mini-smoke-worker')
     assert.equal(dryRun.dryRunError, null)
+
+    const livePostRecord = await recordMacMiniPackageDryRun(db as never, packageId, {
+      status: 'success',
+      workerId: 'mac-mini-live-post-smoke-worker',
+      result: {
+        source: 'mac-mini-live-post-worker',
+        packageId,
+        uploaderResult: {
+          result: 'POST_CONFIRMED',
+          livePost: {
+            requested: true,
+            clickedFinalPost: true,
+            status: 'posted',
+            confirmation: 'confirmed',
+          },
+          safety: {
+            clicksFinalPost: true,
+            marksRbhqPublished: false,
+          },
+        },
+      },
+      now: () => new Date('2026-07-09T12:06:00.000Z'),
+    })
+    assert.equal(livePostRecord.packageStatus, 'dry_run_complete')
+    assert.equal(livePostRecord.workerId, 'mac-mini-live-post-smoke-worker')
     assert.equal(fetchCalls, 0)
 
     console.log(JSON.stringify(
@@ -248,6 +273,7 @@ async function main() {
           handoffStatus: dryRun.handoffStatus,
           workerId: dryRun.workerId,
           dryRunAt: dryRun.dryRunAt,
+          livePostWorkerId: livePostRecord.workerId,
         },
         safety: {
           livePostingRequests: fetchCalls,

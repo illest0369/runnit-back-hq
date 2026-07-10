@@ -106,6 +106,7 @@ export function deriveTikTokStagingStatus(input: {
   error?: string | null
 }): TikTokStagingStatus | null {
   const uploaderResult = readUploaderResult(input.result)
+  if (Object.keys(objectValue(uploaderResult.livePost)).length > 0) return null
   const staging = objectValue(uploaderResult.staging)
   if (!boolValue(staging.requested)) return null
 
