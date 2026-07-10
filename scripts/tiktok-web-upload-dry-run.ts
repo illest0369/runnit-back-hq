@@ -477,7 +477,19 @@ async function stageUpload(page: Page, mediaPath: string, caption: string, timeo
       await textarea.fill(caption, { timeout: 10_000 })
       captionFilled = true
     } else if (await editor.count()) {
-      await editor.click({ timeout: 10_000 })
+      await editor.waitFor({ state: 'visible', timeout: 10_000 })
+      await editor.click({ timeout: 5_000 }).catch(async () => {
+        await editor.evaluate((element) => {
+          const target = element as HTMLElement
+          target.focus()
+          const selection = window.getSelection()
+          const range = document.createRange()
+          range.selectNodeContents(target)
+          range.collapse(false)
+          selection?.removeAllRanges()
+          selection?.addRange(range)
+        })
+      })
       await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A')
       await page.keyboard.insertText(caption)
       captionFilled = true
