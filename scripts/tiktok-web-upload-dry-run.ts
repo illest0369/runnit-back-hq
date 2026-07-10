@@ -1,11 +1,14 @@
+import { execFile } from 'node:child_process'
 import { mkdir, readFile, stat } from 'node:fs/promises'
 import path from 'node:path'
+import { promisify } from 'node:util'
 
-import { chromium, type BrowserContext, type Page } from 'playwright'
+import { chromium, webkit, type Browser, type BrowserContext, type Page } from 'playwright'
 
 type DraftPackage = Record<string, unknown>
 type ChannelKey = 'rb_sports' | 'rb_arena' | 'rb_women' | 'rb_combat' | 'rb_futbol' | 'rb_cfb'
 type RunMode = 'dry-run' | 'login' | 'session-check' | 'print-profile'
+type BrowserChoice = 'chrome' | 'chromium' | 'webkit' | 'cdp'
 
 type CliOptions = {
   draftPath: string | null
@@ -16,16 +19,21 @@ type CliOptions = {
   headed: boolean
   keepOpen: boolean
   chromeOnly: boolean
+  browser: BrowserChoice
   loginFriendly: boolean
   timeoutMs: number
   slowMo: number
   profileDirOverride: string | null
   uploadUrl: string
   artifactDir: string
+  cdpEndpoint: string
+  cdpPort: number
+  launchCdpChrome: boolean
 }
 
 const DEFAULT_UPLOAD_URL = 'https://www.tiktok.com/upload?lang=en'
 const SESSION_COOKIE_PATTERN = /^(sessionid|sessionid_ss|sid_tt|sid_guard|uid_tt|uid_tt_ss)$/i
+const DEFAULT_CDP_PORT = 9333
 const CHANNEL_PROFILE_DIRS: Record<ChannelKey, string> = {
   rb_sports: 'tmp/browser-profiles/tiktok-rb-sports',
   rb_arena: 'tmp/browser-profiles/tiktok-rb-arena',
@@ -56,6 +64,22 @@ function readNumberFlag(name: string, fallback: number) {
   return parsed
 }
 
+function readBrowserChoice(chromeOnly: boolean): BrowserChoice {
+  if (hasFlag('--launch-cdp-chrome') || hasFlag('--connect-cdp') || hasFlag('--cdp-endpoint')) return 'cdp'
+  if (hasFlag('--webkit')) return 'webkit'
+  if (chromeOnly) return 'chrome'
+
+  const value = readFlagValue('--browser')
+  if (!value) return 'chrome'
+
+  const normalized = value.trim().toLowerCase()
+  if (normalized === 'chrome' || normalized === 'chromium' || normalized === 'webkit' || normalized === 'cdp') {
+    return normalized
+  }
+
+  throw new Error('--browser must be one of: chrome, chromium, webkit, cdp.')
+}
+
 function readOptions(): CliOptions {
   const draftPath = readFlagValue('--draft')
   const mode: RunMode = hasFlag('--login')
@@ -67,6 +91,9 @@ function readOptions(): CliOptions {
         : 'dry-run'
   const headed = hasFlag('--headed')
   const defaultHeadless = mode === 'session-check'
+  const chromeOnly = hasFlag('--chrome-only')
+  const browser = readBrowserChoice(chromeOnly)
+  const cdpPort = readNumberFlag('--cdp-port', DEFAULT_CDP_PORT)
   return {
     draftPath,
     channelArg: readFlagValue('--channel'),
@@ -75,13 +102,17 @@ function readOptions(): CliOptions {
     headless: headed ? false : hasFlag('--headless') || defaultHeadless,
     headed,
     keepOpen: hasFlag('--keep-open') || mode === 'login',
-    chromeOnly: hasFlag('--chrome-only'),
+    chromeOnly,
+    browser,
     loginFriendly: hasFlag('--login-friendly'),
     timeoutMs: readNumberFlag('--timeout-ms', 45_000),
     slowMo: readNumberFlag('--slow-mo', 0),
     profileDirOverride: readFlagValue('--profile-dir') || process.env.TIKTOK_PLAYWRIGHT_PROFILE || null,
     uploadUrl: readFlagValue('--upload-url') || DEFAULT_UPLOAD_URL,
     artifactDir: path.resolve(readFlagValue('--artifact-dir') || path.join(process.cwd(), 'tmp', 'tiktok-web-upload-artifacts')),
+    cdpEndpoint: readFlagValue('--cdp-endpoint') || readFlagValue('--connect-cdp') || `http://127.0.0.1:${cdpPort}`,
+    cdpPort,
+    launchCdpChrome: hasFlag('--launch-cdp-chrome'),
   }
 }
 
@@ -194,8 +225,13 @@ function resolveChannel(input: { channelArg: string | null; draft: DraftPackage 
   throw new Error(`TIKTOK_CHANNEL_REQUIRED: pass --channel <channel_key>. Supported channel keys: ${SUPPORTED_CHANNEL_KEYS.join(', ')}`)
 }
 
-function resolveProfileDir(channelKey: ChannelKey, override: string | null) {
-  return path.resolve(override || path.join(process.cwd(), CHANNEL_PROFILE_DIRS[channelKey]))
+function resolveProfileDir(channelKey: ChannelKey, override: string | null, browser: BrowserChoice) {
+  if (override) return path.resolve(override)
+
+  const baseProfileDir = path.join(process.cwd(), CHANNEL_PROFILE_DIRS[channelKey])
+  if (browser === 'webkit') return path.resolve(`${baseProfileDir}-webkit`)
+  if (browser === 'cdp') return path.resolve(`${baseProfileDir}-manual-chrome`)
+  return path.resolve(baseProfileDir)
 }
 
 async function readDraft(draftPath: string) {
@@ -270,32 +306,116 @@ function buildCaption(draft: DraftPackage) {
   return [caption.trim(), missingTags.join(' ')].filter(Boolean).join('\n')
 }
 
-async function launchLocalBrowser(options: CliOptions, profileDir: string) {
+const execFileAsync = promisify(execFile)
+
+async function waitForCdpEndpoint(endpoint: string, timeoutMs: number) {
+  const startedAt = Date.now()
+  const versionUrl = new URL('/json/version', endpoint).toString()
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      const response = await fetch(versionUrl)
+      if (response.ok) return
+    } catch {
+      // Chrome may still be starting.
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500))
+  }
+
+  throw new Error(`CDP endpoint was not reachable at ${endpoint}. Is Chrome open with --remote-debugging-port?`)
+}
+
+async function launchManualChromeForCdp(options: CliOptions, profileDir: string) {
+  if (process.platform !== 'darwin') {
+    throw new Error('--launch-cdp-chrome is currently implemented for macOS only. Start Chrome manually with --remote-debugging-port and pass --cdp-endpoint instead.')
+  }
+
+  await execFileAsync('open', [
+    '-na',
+    'Google Chrome',
+    '--args',
+    `--user-data-dir=${profileDir}`,
+    `--remote-debugging-port=${options.cdpPort}`,
+    '--no-first-run',
+    options.uploadUrl,
+  ])
+}
+
+async function launchLocalBrowser(options: CliOptions, profileDir: string): Promise<{
+  context: BrowserContext
+  close: () => Promise<void>
+  connection: BrowserChoice
+}> {
   await mkdir(profileDir, { recursive: true })
   if (options.loginFriendly && options.mode === 'dry-run') {
     throw new Error('--login-friendly is only supported for --login, --session-check, or --print-profile validation.')
   }
+  if (options.loginFriendly && options.browser !== 'chrome' && options.browser !== 'chromium') {
+    throw new Error('--login-friendly only applies to Chrome/Chromium launches.')
+  }
+
+  if (options.browser === 'cdp') {
+    if (options.launchCdpChrome) {
+      await launchManualChromeForCdp(options, profileDir)
+    }
+    await waitForCdpEndpoint(options.cdpEndpoint, options.timeoutMs)
+    const browser: Browser = await chromium.connectOverCDP(options.cdpEndpoint, {
+      noDefaults: true,
+      timeout: options.timeoutMs,
+      slowMo: options.slowMo,
+    })
+    const context = browser.contexts()[0] || await browser.newContext({ acceptDownloads: false })
+    return {
+      context,
+      close: () => browser.close(),
+      connection: 'cdp',
+    }
+  }
+
+  if (options.browser === 'webkit') {
+    const context = await webkit.launchPersistentContext(profileDir, {
+      headless: options.headless,
+      slowMo: options.slowMo,
+      viewport: { width: 1440, height: 1000 },
+      acceptDownloads: false,
+    })
+    return {
+      context,
+      close: () => context.close(),
+      connection: 'webkit',
+    }
+  }
 
   const launchOptions = {
-    channel: 'chrome',
+    channel: options.browser === 'chrome' ? 'chrome' : undefined,
     headless: options.headless,
     slowMo: options.slowMo,
     viewport: { width: 1440, height: 1000 },
     acceptDownloads: false,
     ignoreDefaultArgs: options.loginFriendly ? LOGIN_FRIENDLY_IGNORE_DEFAULT_ARGS : undefined,
-  } as const
+  }
 
   try {
-    return await chromium.launchPersistentContext(profileDir, launchOptions)
+    const context = await chromium.launchPersistentContext(profileDir, launchOptions)
+    return {
+      context,
+      close: () => context.close(),
+      connection: options.browser,
+    }
   } catch (error) {
     if (options.chromeOnly) throw error
-    return chromium.launchPersistentContext(profileDir, {
+    const context = await chromium.launchPersistentContext(profileDir, {
       headless: options.headless,
       slowMo: options.slowMo,
       viewport: { width: 1440, height: 1000 },
       acceptDownloads: false,
       ignoreDefaultArgs: options.loginFriendly ? LOGIN_FRIENDLY_IGNORE_DEFAULT_ARGS : undefined,
     })
+    return {
+      context,
+      close: () => context.close(),
+      connection: 'chromium',
+    }
   }
 }
 
@@ -394,13 +514,15 @@ async function main() {
   }
 
   const channelKey = resolveChannel({ channelArg: options.channelArg, draft })
-  const profileDir = resolveProfileDir(channelKey, options.profileDirOverride)
+  const profileDir = resolveProfileDir(channelKey, options.profileDirOverride, options.browser)
 
   if (options.mode === 'print-profile') {
     console.log(JSON.stringify({
       result: 'PASS',
       channelKey,
       profileDir,
+      browser: options.browser,
+      cdpEndpoint: options.browser === 'cdp' ? options.cdpEndpoint : null,
       supportedChannelKeys: SUPPORTED_CHANNEL_KEYS,
       safety: {
         usesTikTokApi: false,
@@ -429,7 +551,8 @@ async function main() {
     ? readDraftText(draft, 'clipId') || readDraftText(draft, 'clip_id') || path.basename(mediaPath, '.mp4')
     : channelKey
 
-  const context = await launchLocalBrowser(options, profileDir)
+  const browserSession = await launchLocalBrowser(options, profileDir)
+  const context = browserSession.context
   const page = context.pages()[0] || await context.newPage()
   page.setDefaultTimeout(options.timeoutMs)
 
@@ -473,6 +596,8 @@ async function main() {
       uploadUrl: options.uploadUrl,
       profileDir,
       browser: options.headless ? 'headless' : 'headed',
+      browserEngine: browserSession.connection,
+      cdpEndpoint: options.browser === 'cdp' ? options.cdpEndpoint : null,
       logged_in: loggedIn,
       readiness,
       staging: {
@@ -501,7 +626,7 @@ async function main() {
     }
   } finally {
     if (!options.keepOpen) {
-      await context.close()
+      await browserSession.close()
     }
   }
 }

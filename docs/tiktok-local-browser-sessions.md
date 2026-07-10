@@ -24,6 +24,79 @@ These are not your normal Chrome profile. The RB Sports profile resolves to:
 
 Normal Chrome profile data lives under `~/Library/Application Support/Google/Chrome/` on macOS. Do not point RBHQ at that directory; keep each operator account in its own project-local ignored profile.
 
+## Safari / WebKit Feasibility
+
+Safari is not a drop-in replacement for the current Playwright browser worker. Playwright can run a patched WebKit browser that is close to Safari, but it does not control your normal branded Safari app or reuse your signed-in Safari profile.
+
+That means logging into TikTok in Safari will not make RBHQ's automated session-check or dry-run worker logged in. WebKit can still be tested with an isolated project-local profile:
+
+```bash
+npm run tiktok:web-upload-dry-run -- \
+  --login \
+  --channel rb_sports \
+  --browser webkit \
+  --headed \
+  --timeout-ms 120000 \
+  --artifact-dir ./tmp/tiktok-login-artifacts
+```
+
+Use WebKit only as an experiment if Chrome remains blocked. It is a separate browser profile, not your real Safari session.
+
+## Manual Chrome CDP Fallback
+
+If TikTok blocks login in the Playwright-launched Chrome window, use the manual Chrome CDP fallback. This opens installed Chrome with a project-local profile and only the debugging port needed for RBHQ to validate the upload page after login.
+
+RB Sports manual Chrome profile:
+
+```text
+/Users/malyhernandez/Dev/rbhq/tmp/browser-profiles/tiktok-rb-sports-manual-chrome
+```
+
+This is still separate from your normal Chrome profile. It avoids using `~/Library/Application Support/Google/Chrome/`, and it keeps TikTok credentials out of RBHQ code, env vars, and logs.
+
+Open the manual Chrome login window:
+
+```bash
+npm run tiktok:web-upload-dry-run -- \
+  --login \
+  --channel rb_sports \
+  --browser cdp \
+  --launch-cdp-chrome \
+  --headed \
+  --timeout-ms 120000 \
+  --artifact-dir ./tmp/tiktok-login-artifacts
+```
+
+Log into `@runnitbacksports` in the Chrome window that opens. When login is complete, stop the terminal command with `Ctrl+C`.
+
+Then validate the same profile reaches the upload page:
+
+```bash
+npm run tiktok:web-upload-dry-run -- \
+  --session-check \
+  --channel rb_sports \
+  --browser cdp \
+  --launch-cdp-chrome \
+  --headed \
+  --timeout-ms 120000 \
+  --artifact-dir ./tmp/tiktok-login-artifacts
+```
+
+If Chrome is already open from the login command, you can also validate from a second terminal by attaching to the running browser:
+
+```bash
+npm run tiktok:web-upload-dry-run -- \
+  --session-check \
+  --channel rb_sports \
+  --browser cdp \
+  --cdp-endpoint http://127.0.0.1:9333 \
+  --headed \
+  --timeout-ms 120000 \
+  --artifact-dir ./tmp/tiktok-login-artifacts
+```
+
+The CDP fallback does not provide a draft, stage an upload, fill a caption, click Post, call Metricool, call n8n, or mark anything published.
+
 ## Manual Login
 
 Open the TikTok upload/login page for each account and log in manually:

@@ -33,6 +33,21 @@ async function resolveProfile(channelKey: string) {
   }
 }
 
+async function resolveCdpProfile(channelKey: string) {
+  const result = await execFileAsync(
+    './node_modules/.bin/tsx',
+    ['scripts/tiktok-web-upload-dry-run.ts', '--print-profile', '--channel', channelKey, '--browser', 'cdp'],
+    { cwd: process.cwd(), maxBuffer: 1024 * 1024 },
+  )
+  return JSON.parse(result.stdout) as {
+    result?: string
+    channelKey?: string
+    profileDir?: string
+    browser?: string
+    cdpEndpoint?: string | null
+  }
+}
+
 async function expectMissingChannelFailure() {
   try {
     await execFileAsync(
@@ -52,6 +67,7 @@ async function expectMissingChannelFailure() {
 
 async function main() {
   const profiles: Record<string, string> = {}
+  const cdpProfiles: Record<string, string> = {}
   const channelArgIndex = process.argv.indexOf('--channel')
   const onlyChannel = channelArgIndex >= 0 ? process.argv[channelArgIndex + 1] : null
   const expectedEntries = onlyChannel && !onlyChannel.startsWith('--')
@@ -69,6 +85,14 @@ async function main() {
     profiles[channelKey] = result.profileDir
   }
 
+  const cdpResult = await resolveCdpProfile('rb_sports')
+  assert(cdpResult.result === 'PASS', 'rb_sports CDP profile resolution did not pass.')
+  assert(cdpResult.channelKey === 'rb_sports', `rb_sports CDP resolved to ${String(cdpResult.channelKey)}.`)
+  assert(cdpResult.browser === 'cdp', `rb_sports CDP browser mismatch: ${String(cdpResult.browser)}.`)
+  assert(cdpResult.profileDir === path.resolve('tmp/browser-profiles/tiktok-rb-sports-manual-chrome'), 'rb_sports CDP profile dir mismatch.')
+  assert(cdpResult.cdpEndpoint === 'http://127.0.0.1:9333', `rb_sports CDP endpoint mismatch: ${String(cdpResult.cdpEndpoint)}.`)
+  cdpProfiles.rb_sports = cdpResult.profileDir
+
   if (!onlyChannel) {
     await expectMissingChannelFailure()
   }
@@ -77,6 +101,7 @@ async function main() {
     {
       result: 'PASS',
       profiles,
+      cdpProfiles,
       missingChannelFailure: onlyChannel ? 'skipped' : 'TIKTOK_CHANNEL_REQUIRED',
       safety: {
         opensTikTok: false,
