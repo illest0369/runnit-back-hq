@@ -24,13 +24,21 @@ function readLimit(request: Request): number {
   return Math.min(50, Math.trunc(parsed))
 }
 
+function readStagingStatus(request: Request) {
+  const url = new URL(request.url)
+  return url.searchParams.get('staging') === 'requested' ? 'requested' as const : undefined
+}
+
 export async function GET(request: Request) {
   const worker = requireMacMiniWorkerRequest(request)
   if (!worker.ok) {
     return NextResponse.json({ ok: false, error: worker.error }, { status: worker.status })
   }
 
-  const packages = await getPendingMacMiniClipPackages(supabaseAdmin, { limit: readLimit(request) })
+  const packages = await getPendingMacMiniClipPackages(supabaseAdmin, {
+    limit: readLimit(request),
+    stagingStatus: readStagingStatus(request),
+  })
   return NextResponse.json(
     {
       ok: true,

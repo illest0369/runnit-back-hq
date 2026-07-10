@@ -53,6 +53,10 @@ export type RunMacMiniDryRunWorkerOptions = {
   limit?: number
   mediaPath?: string | null
   stageUpload?: boolean
+  browser?: 'chrome' | 'chromium' | 'webkit' | 'cdp'
+  cdpEndpoint?: string | null
+  cdpPort?: number | null
+  launchCdpChrome?: boolean
   headless?: boolean
   timeoutMs?: number
   artifactDir?: string
@@ -203,6 +207,14 @@ async function fetchOnePackage(fetchFn: typeof fetch, input: { baseUrl: string; 
   return data[0] ? readPayloadPackage(data[0]) : null
 }
 
+async function fetchOneStagingPackage(fetchFn: typeof fetch, input: { baseUrl: string; token: string; limit: number }) {
+  const body = await fetchJson(fetchFn, `${input.baseUrl}/api/mac-mini/packages?limit=${input.limit}&staging=requested`, {
+    headers: { 'x-rbhq-mac-mini-token': input.token },
+  })
+  const data = Array.isArray(body.data) ? body.data : []
+  return data[0] ? readPayloadPackage(data[0]) : null
+}
+
 async function recordDryRun(fetchFn: typeof fetch, input: {
   baseUrl: string
   token: string
@@ -289,7 +301,9 @@ export async function runMacMiniDryRunWorker(
     livePublishStateSet: false as const,
   }
 
-  const pkg = await fetchOnePackage(fetchFn, { baseUrl, token, limit: options.limit ?? 1 })
+  const pkg = options.stageUpload
+    ? await fetchOneStagingPackage(fetchFn, { baseUrl, token, limit: options.limit ?? 1 })
+    : await fetchOnePackage(fetchFn, { baseUrl, token, limit: options.limit ?? 1 })
   if (!pkg) {
     return {
       result: 'PASS',
@@ -316,7 +330,13 @@ export async function runMacMiniDryRunWorker(
 
   try {
     assertSafePackage(pkg)
-    const profile = await runUploader(['--print-profile', '--channel', pkg.browserChannelKey])
+    const profileArgs = ['--print-profile', '--channel', pkg.browserChannelKey]
+    if (options.browser) profileArgs.push('--browser', options.browser)
+    if (options.cdpEndpoint) profileArgs.push('--cdp-endpoint', options.cdpEndpoint)
+    if (options.cdpPort) profileArgs.push('--cdp-port', String(options.cdpPort))
+    if (options.launchCdpChrome) profileArgs.push('--launch-cdp-chrome')
+
+    const profile = await runUploader(profileArgs)
     const profileResult = safeJsonParse(profile.stdout)
     profileDir = compact(profileResult.profileDir) || null
     const channelKey = compact(profileResult.channelKey) || pkg.browserChannelKey
@@ -329,8 +349,10 @@ export async function runMacMiniDryRunWorker(
     })
 
     if (assetMissing) {
+      status = options.stageUpload ? 'failure' : 'success'
+      error = options.stageUpload ? 'ASSET_MISSING' : null
       uploaderResult = {
-        result: 'METADATA_ONLY',
+        result: options.stageUpload ? 'BLOCKED' : 'METADATA_ONLY',
         blocker: 'ASSET_MISSING',
         channelKey,
         profileDir,
@@ -345,7 +367,7 @@ export async function runMacMiniDryRunWorker(
           clicksFinalPost: false,
         },
         staging: {
-          requested: false,
+          requested: Boolean(options.stageUpload),
           uploadStaged: false,
           captionFilled: false,
           stoppedBeforeFinalPost: true,
@@ -365,6 +387,10 @@ export async function runMacMiniDryRunWorker(
       ]
       if (options.headless) args.push('--headless')
       if (options.stageUpload) args.push('--stage-upload')
+      if (options.browser) args.push('--browser', options.browser)
+      if (options.cdpEndpoint) args.push('--cdp-endpoint', options.cdpEndpoint)
+      if (options.cdpPort) args.push('--cdp-port', String(options.cdpPort))
+      if (options.launchCdpChrome) args.push('--launch-cdp-chrome')
 
       const dryRun = await runUploader(args)
       uploaderResult = safeJsonParse(dryRun.stdout)

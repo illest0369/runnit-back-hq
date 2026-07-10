@@ -44,7 +44,7 @@ type PublishStatus =
   | "metricool_published"
   | "metricool_failed"
   | "manually_published";
-type QueueAction = "approve" | "reject" | "hold" | "needs_clip_prep" | "create_mac_mini_package";
+type QueueAction = "approve" | "reject" | "hold" | "needs_clip_prep" | "create_mac_mini_package" | "stage_in_tiktok";
 
 type RankLabel = "Hot" | "Solid" | "Hold" | "Reject";
 type IntelligenceRankLabel = "must_post" | "strong" | "solid" | "low_priority";
@@ -115,6 +115,25 @@ type PackageReadiness = {
   localRenderStatus: string | null;
   localRenderAttached: boolean;
   localAssetPath: string | null;
+  tiktokStaging: TikTokStagingReadiness;
+};
+
+type TikTokStagingReadiness = {
+  laneLabel: string | null;
+  channelKey: string | null;
+  packageId: string | null;
+  status: "not_requested" | "requested" | "ready_for_manual_post" | "blocked" | "failed";
+  eligible: boolean;
+  readyForManualPost: boolean;
+  blocker: string | null;
+  requestedAt: string | null;
+  stagedAt: string | null;
+  attachedAssetStatus: string | null;
+  tikTokSession: "ready" | "missing" | "unknown";
+  videoStaged: boolean;
+  captionFilled: boolean;
+  screenshotPath: string | null;
+  error: string | null;
 };
 
 type User = {
@@ -296,6 +315,23 @@ const DEFAULT_PACKAGE_READINESS: PackageReadiness = {
   localRenderStatus: null,
   localRenderAttached: false,
   localAssetPath: null,
+  tiktokStaging: {
+    laneLabel: null,
+    channelKey: null,
+    packageId: null,
+    status: "not_requested",
+    eligible: false,
+    readyForManualPost: false,
+    blocker: "Mac mini package is missing.",
+    requestedAt: null,
+    stagedAt: null,
+    attachedAssetStatus: null,
+    tikTokSession: "unknown",
+    videoStaged: false,
+    captionFilled: false,
+    screenshotPath: null,
+    error: null,
+  },
 };
 
 const SOURCE_CODES: Record<string, string> = {
@@ -442,6 +478,18 @@ async function readApiJson(response: Response, fallbackMessage: string) {
   }
 }
 
+function normalizePackageReadiness(readiness: PackageReadiness | null | undefined): PackageReadiness {
+  if (!readiness) return DEFAULT_PACKAGE_READINESS;
+  return {
+    ...DEFAULT_PACKAGE_READINESS,
+    ...readiness,
+    tiktokStaging: {
+      ...DEFAULT_PACKAGE_READINESS.tiktokStaging,
+      ...(readiness.tiktokStaging ?? {}),
+    },
+  };
+}
+
 function mapApiClip(item: ReviewClipApi): Clip | null {
   const id = typeof item.id === "string" ? item.id.trim() : "";
   const title = typeof item.title === "string" ? item.title : "";
@@ -482,7 +530,7 @@ function mapApiClip(item: ReviewClipApi): Clip | null {
     analysis,
     intelligence,
     verticalReadiness: item.vertical_readiness ?? DEFAULT_VERTICAL_READINESS,
-    packageReadiness: item.package_readiness ?? DEFAULT_PACKAGE_READINESS,
+    packageReadiness: normalizePackageReadiness(item.package_readiness),
     approvedAt: item.approved_at ?? null,
   };
 }
@@ -522,7 +570,7 @@ function mapPublishItem(item: ReviewClipApi & { export_package: PublishExportPac
         readTikTokAnalysis(item.moderation_notes, item.tiktok_analysis),
       ),
       verticalReadiness: item.vertical_readiness ?? DEFAULT_VERTICAL_READINESS,
-      packageReadiness: item.package_readiness ?? DEFAULT_PACKAGE_READINESS,
+      packageReadiness: normalizePackageReadiness(item.package_readiness),
       approvedAt: item.approved_at ?? null,
     }),
     status: "approved",
@@ -780,18 +828,23 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
   }
 
   async function moderateClip(id: string, action: DecisionAction) {
-    if (action === "needs_clip_prep" || action === "create_mac_mini_package") {
-      setToast(action === "needs_clip_prep" ? "clip prep queued" : "package requested");
+    if (action === "needs_clip_prep" || action === "create_mac_mini_package" || action === "stage_in_tiktok") {
+      const clip = clips.find((item) => item.id === id);
+      setToast(action === "needs_clip_prep" ? "clip prep queued" : action === "stage_in_tiktok" ? "staging requested" : "package requested");
       try {
         const csrfHeaders = await getCsrfHeaders();
         const response = await fetch(`/api/posts/${id}/decision`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...csrfHeaders },
-          body: JSON.stringify({ action, time_to_decision: 1.2 }),
+          body: JSON.stringify({
+            action,
+            time_to_decision: 1.2,
+            package_id: action === "stage_in_tiktok" ? clip?.packageReadiness.macMiniPackageId : undefined,
+          }),
         });
         const json = await readApiJson(response, "action failed");
         if (!response.ok || !json.ok) throw new Error(json.error || "action failed");
-        setToast(action === "needs_clip_prep" ? "clip prep refreshed" : "package ready");
+        setToast(action === "needs_clip_prep" ? "clip prep refreshed" : action === "stage_in_tiktok" ? "staging queued for Mac mini" : "package ready");
         if (selectedChannelId) await fetchQueue(selectedChannelId, source, queueMode, urgencyFilter, scoreThreshold);
         await fetchPublishQueue();
         void fetchDailyPlan();
@@ -1321,6 +1374,14 @@ function QueueClipCard({
   }, [active, paused, clip.status]);
 
   const canModerate = clip.status === "pending" || clip.status === "held";
+  const staging = clip.packageReadiness.tiktokStaging;
+  const canRetryStaging = (staging.status === "blocked" || staging.status === "failed") &&
+    clip.packageReadiness.clipPrepReady &&
+    clip.packageReadiness.localRenderAttached &&
+    !staging.readyForManualPost;
+  const canStageInTikTok = Boolean(clip.packageReadiness.macMiniPackageId) &&
+    staging.status !== "requested" &&
+    (staging.eligible || canRetryStaging);
 
   return (
     <div>
@@ -1440,7 +1501,7 @@ function QueueClipCard({
       {canModerate && (
         <p className="mt-3 text-center text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--rb-faint)]">swipe or tap to decide</p>
       )}
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="mt-3 grid grid-cols-3 gap-2">
         <button
           type="button"
           onClick={() => onModerate(clip.id, "needs_clip_prep")}
@@ -1458,6 +1519,16 @@ function QueueClipCard({
         >
           <Download className="h-4 w-4" strokeWidth={1.8} />
           Mac mini
+        </button>
+        <button
+          type="button"
+          onClick={() => onModerate(clip.id, "stage_in_tiktok")}
+          disabled={!canStageInTikTok}
+          title={canStageInTikTok ? "Stage in TikTok" : staging.blocker ?? "Staging unavailable"}
+          className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-2 text-[10.5px] font-black text-[var(--rb-text)] active:scale-[0.98] disabled:opacity-45"
+        >
+          <Send className="h-4 w-4" strokeWidth={1.8} />
+          Stage
         </button>
       </div>
       <ClipIntelligencePanel clip={clip} onRefreshAnalysis={onRefreshAnalysis} />
@@ -1545,6 +1616,22 @@ function localRenderLabel(readiness: PackageReadiness) {
   return "Render missing";
 }
 
+function tiktokStagingLabel(staging: TikTokStagingReadiness) {
+  if (staging.readyForManualPost) return "Ready for manual Post";
+  if (staging.status === "requested") return "Staging requested";
+  if (staging.status === "blocked") return "Staging blocked";
+  if (staging.status === "failed") return "Staging failed";
+  if (staging.eligible) return "Ready to stage";
+  return "Staging unavailable";
+}
+
+function stagingTone(staging: TikTokStagingReadiness) {
+  if (staging.readyForManualPost) return "bg-[#ECFDF5] text-[#128A49] border-[#128A49]/20";
+  if (staging.status === "blocked" || staging.status === "failed") return "bg-[#FFF1F2] text-[#DC2626] border-[#DC2626]/20";
+  if (staging.eligible || staging.status === "requested") return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
+  return "bg-[#F5F5F5] text-[#6F6A60] border-[var(--rb-line)]";
+}
+
 function QueueReadinessStrip({ readiness }: { readiness: PackageReadiness }) {
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -1557,6 +1644,60 @@ function QueueReadinessStrip({ readiness }: { readiness: PackageReadiness }) {
       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${readinessTone(readiness.localRenderAttached, readiness.localRenderStatus === "invalid")}`}>
         {localRenderLabel(readiness)}
       </span>
+      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${stagingTone(readiness.tiktokStaging)}`}>
+        {tiktokStagingLabel(readiness.tiktokStaging)}
+      </span>
+    </div>
+  );
+}
+
+function stagingDetailValue(value: string | null | undefined) {
+  return value && value.trim() ? value : "not available";
+}
+
+function formatStagingTimestamp(value: string | null) {
+  if (!value) return "not staged";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+function OperatorStagingPanel({ readiness }: { readiness: PackageReadiness }) {
+  const staging = readiness.tiktokStaging;
+  const rows = [
+    ["lane/channel", [staging.laneLabel, staging.channelKey].filter(Boolean).join(" · ")],
+    ["package ID", staging.packageId],
+    ["attached asset", staging.attachedAssetStatus ?? readiness.localRenderStatus ?? "missing"],
+    ["TikTok session", staging.tikTokSession],
+    ["video staged", staging.videoStaged ? "yes" : "no"],
+    ["caption filled", staging.captionFilled ? "yes" : "no"],
+    ["staged at", formatStagingTimestamp(staging.stagedAt)],
+    ["artifact", staging.screenshotPath],
+  ] as const;
+
+  return (
+    <div className="mt-3 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">TikTok staging</p>
+        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${stagingTone(staging)}`}>
+          {tiktokStagingLabel(staging)}
+        </span>
+      </div>
+      {staging.readyForManualPost ? (
+        <p className="mt-2 text-[13px] font-black text-[#128A49]">Ready for manual Post</p>
+      ) : staging.blocker ? (
+        <p className="mt-2 text-[11.5px] font-semibold leading-4 text-[#B45309]">{staging.blocker}</p>
+      ) : null}
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="min-w-0 rounded-[10px] border border-[var(--rb-line)] bg-white px-2.5 py-2">
+            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--rb-faint)]">{label}</p>
+            <p className="mt-1 truncate text-[11px] font-bold text-[var(--rb-text)]">{stagingDetailValue(value)}</p>
+          </div>
+        ))}
+      </div>
+      <p className="mt-2 text-[10.5px] font-semibold leading-4 text-[var(--rb-faint)]">
+        Dry-run only. The final TikTok Post button remains manual and unavailable to RBHQ automation.
+      </p>
     </div>
   );
 }
@@ -1622,6 +1763,8 @@ function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefr
       <div className="mt-3">
         <QueueReadinessStrip readiness={clip.packageReadiness} />
       </div>
+
+      <OperatorStagingPanel readiness={clip.packageReadiness} />
 
       <div className="mt-3 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 py-2">
         <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">Source</p>

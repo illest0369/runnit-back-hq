@@ -1,5 +1,10 @@
 import type { RBHQIntelligenceRankLabel, RBHQIntelligenceUrgency, RBHQIntelligenceV1 } from './intelligence-v1'
 import type { MacMiniAssetStatus, MacMiniHandoffStatus, MacMiniPackageStatus } from './mac-mini-handoff'
+import {
+  buildTikTokStagingReadiness,
+  type TikTokStagingReadiness,
+  type TikTokStagingStatus,
+} from './operator-staging'
 
 export type QueueCandidateReadiness = {
   candidateId: string | null
@@ -14,6 +19,7 @@ export type QueueCandidateReadiness = {
   localRenderStatus: MacMiniAssetStatus | null
   localRenderAttached: boolean
   localAssetPath: string | null
+  tiktokStaging: TikTokStagingReadiness
 }
 
 export type QueueCandidateForReadiness = {
@@ -30,10 +36,19 @@ export type QueueCandidateForReadiness = {
 
 export type QueuePackageForReadiness = {
   id: string
+  lane_label?: string | null
+  browser_channel_key?: string | null
   package_status?: MacMiniPackageStatus | null
   handoff_status?: MacMiniHandoffStatus | null
   asset_status?: MacMiniAssetStatus | null
   local_asset_path?: string | null
+  dry_run_at?: string | null
+  dry_run_result?: Record<string, unknown> | null
+  dry_run_error?: string | null
+  tiktok_staging_status?: TikTokStagingStatus | null
+  tiktok_staging_requested_at?: string | null
+  tiktok_staging_at?: string | null
+  tiktok_staging_error?: string | null
 }
 
 const CANDIDATE_ID_PATTERNS = [
@@ -132,5 +147,9 @@ export function buildQueueReadiness(
     localRenderStatus: assetStatus,
     localRenderAttached: assetStatus === 'attached' && Boolean(localAssetPath),
     localAssetPath,
+    tiktokStaging: buildTikTokStagingReadiness(candidateId, {
+      candidateStatus: candidate?.status ?? null,
+      clipPrepStatus,
+    }, pkg),
   }
 }

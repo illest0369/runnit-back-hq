@@ -25,6 +25,25 @@ function readNumberArg(name: string, fallback: number): number {
   return Math.trunc(parsed)
 }
 
+function readBrowserArg() {
+  const value = readArg('--browser') ?? process.env.MAC_MINI_TIKTOK_BROWSER ?? ''
+  if (!value) return undefined
+  if (value === 'chrome' || value === 'chromium' || value === 'webkit' || value === 'cdp') return value
+  throw new Error('--browser/MAC_MINI_TIKTOK_BROWSER must be one of chrome, chromium, webkit, or cdp.')
+}
+
+function readOptionalNumberArg(name: string, envName: string): number | null {
+  const argValue = readArg(name)
+  const envValue = process.env[envName]
+  const value = argValue ?? envValue ?? ''
+  if (!value) return null
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${name}/${envName} must be a positive number.`)
+  }
+  return Math.trunc(parsed)
+}
+
 function apiBaseUrl(): string {
   const value = readArg('--base-url') ?? process.env.MAC_MINI_API_BASE_URL ?? process.env.RBHQ_BASE_URL ?? ''
   if (!value.trim()) {
@@ -49,6 +68,10 @@ async function main() {
     limit: readNumberArg('--limit', 1),
     mediaPath: readArg('--media-path') ?? process.env.MAC_MINI_MEDIA_PATH ?? null,
     stageUpload: hasFlag('--stage-upload'),
+    browser: readBrowserArg(),
+    cdpEndpoint: readArg('--cdp-endpoint') ?? process.env.MAC_MINI_TIKTOK_CDP_ENDPOINT ?? null,
+    cdpPort: readOptionalNumberArg('--cdp-port', 'MAC_MINI_TIKTOK_CDP_PORT'),
+    launchCdpChrome: hasFlag('--launch-cdp-chrome') || process.env.MAC_MINI_TIKTOK_LAUNCH_CDP_CHROME === 'true',
     headless: hasFlag('--headless'),
     timeoutMs: readNumberArg('--timeout-ms', 45_000),
     artifactDir: readArg('--artifact-dir') ?? undefined,

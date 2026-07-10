@@ -203,6 +203,15 @@ async function main() {
   assert.equal(metadataRecord?.body?.status, 'success')
   assert.equal((metadataRecord?.body?.result as Record<string, unknown>)?.asset_missing, true)
 
+  const missingRequestedStage = await runCase({ id: 'missing-stage-package', stageUpload: true })
+  assert.equal(missingRequestedStage.result.result, 'FAIL')
+  assert.equal(missingRequestedStage.result.mode, 'metadata_only')
+  assert.equal(missingRequestedStage.result.assetMissing, true)
+  assert.ok(missingRequestedStage.recordedRequests.some((request) => request.method === 'GET' && request.url.includes('staging=requested')))
+  const missingStageRecord = missingRequestedStage.recordedRequests.find((request) => request.method === 'POST')
+  assert.equal(missingStageRecord?.body?.status, 'failure')
+  assert.equal((missingStageRecord?.body?.result as Record<string, unknown>)?.asset_missing, true)
+
   const assetDir = path.join(process.cwd(), 'tmp', 'smoke-mac-mini-dry-run-worker')
   await mkdir(assetDir, { recursive: true })
   const mediaPath = path.join(assetDir, 'candidate.mp4')
@@ -213,6 +222,7 @@ async function main() {
   assert.equal(browserDryRun.result.mode, 'browser_dry_run')
   assert.equal(browserDryRun.result.assetMissing, false)
   assert.equal(browserDryRun.result.channelKey, 'rb_sports')
+  assert.ok(browserDryRun.recordedRequests.some((request) => request.method === 'GET' && request.url.includes('staging=requested')))
   assert.equal(browserDryRun.uploaderCalls.length, 2)
   assert.ok(browserDryRun.uploaderCalls[0]?.includes('--print-profile'))
   assert.ok(browserDryRun.uploaderCalls[1]?.includes('--draft'))
@@ -236,6 +246,12 @@ async function main() {
       assetMissing: metadataOnly.result.assetMissing,
       dryRunRecorded: metadataOnly.result.dryRunRecorded,
       uploaderCalls: metadataOnly.uploaderCalls.length,
+    },
+    missingRequestedStage: {
+      mode: missingRequestedStage.result.mode,
+      packageId: missingRequestedStage.result.packageId,
+      assetMissing: missingRequestedStage.result.assetMissing,
+      dryRunRecorded: missingRequestedStage.result.dryRunRecorded,
     },
     browserDryRun: {
       mode: browserDryRun.result.mode,

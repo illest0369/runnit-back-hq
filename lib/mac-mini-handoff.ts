@@ -11,6 +11,7 @@ import {
 } from './clip-prep'
 import { syncLoadedCandidateIntelligenceV1 } from './candidate-intelligence'
 import { getChannelMeta } from './channel-meta'
+import { deriveTikTokStagingStatus, type TikTokStagingStatus } from './operator-staging'
 
 export type MacMiniPackageStatus = 'ready' | 'fetched' | 'dry_run_complete' | 'dry_run_failed' | 'cancelled'
 export type MacMiniHandoffStatus = 'pending' | 'fetched' | 'dry_run_succeeded' | 'dry_run_failed' | 'cancelled'
@@ -90,11 +91,17 @@ export type MacMiniClipPackage = {
   workerId: string | null
   fetchedAt: string | null
   dryRunAt: string | null
+  dryRunResult: Record<string, unknown> | null
   dryRunError: string | null
   localAssetPath: string | null
   assetStatus: MacMiniAssetStatus
   assetError: string | null
   assetAttachedAt: string | null
+  tikTokStagingStatus: TikTokStagingStatus
+  tikTokStagingRequestedAt: string | null
+  tikTokStagingRequestedBy: string | null
+  tikTokStagingAt: string | null
+  tikTokStagingError: string | null
   createdAt: string
   updatedAt: string
 }
@@ -168,11 +175,17 @@ type MacMiniClipPackageRow = {
   worker_id: string | null
   fetched_at: string | null
   dry_run_at: string | null
+  dry_run_result: Record<string, unknown> | null
   dry_run_error: string | null
   local_asset_path: string | null
   asset_status: MacMiniAssetStatus | null
   asset_error: string | null
   asset_attached_at: string | null
+  tiktok_staging_status: TikTokStagingStatus | null
+  tiktok_staging_requested_at: string | null
+  tiktok_staging_requested_by: string | null
+  tiktok_staging_at: string | null
+  tiktok_staging_error: string | null
   created_at: string
   updated_at: string
 }
@@ -201,11 +214,17 @@ const PACKAGE_SELECT = [
   'worker_id',
   'fetched_at',
   'dry_run_at',
+  'dry_run_result',
   'dry_run_error',
   'local_asset_path',
   'asset_status',
   'asset_error',
   'asset_attached_at',
+  'tiktok_staging_status',
+  'tiktok_staging_requested_at',
+  'tiktok_staging_requested_by',
+  'tiktok_staging_at',
+  'tiktok_staging_error',
   'created_at',
   'updated_at',
 ].join(', ')
@@ -306,11 +325,17 @@ function normalizePackageRow(row: MacMiniClipPackageRow): MacMiniClipPackage {
     workerId: row.worker_id,
     fetchedAt: row.fetched_at,
     dryRunAt: row.dry_run_at,
+    dryRunResult: row.dry_run_result ?? null,
     dryRunError: row.dry_run_error,
     localAssetPath: row.local_asset_path,
     assetStatus: row.asset_status ?? 'missing',
     assetError: row.asset_error,
     assetAttachedAt: row.asset_attached_at,
+    tikTokStagingStatus: row.tiktok_staging_status ?? 'not_requested',
+    tikTokStagingRequestedAt: row.tiktok_staging_requested_at,
+    tikTokStagingRequestedBy: row.tiktok_staging_requested_by,
+    tikTokStagingAt: row.tiktok_staging_at,
+    tikTokStagingError: row.tiktok_staging_error,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -617,6 +642,11 @@ export async function createMacMiniClipPackageFromCandidate(
       asset_status: 'missing',
       asset_error: null,
       asset_attached_at: null,
+      tiktok_staging_status: 'not_requested',
+      tiktok_staging_requested_at: null,
+      tiktok_staging_requested_by: null,
+      tiktok_staging_at: null,
+      tiktok_staging_error: null,
       created_at: now,
       updated_at: now,
     })
@@ -632,13 +662,17 @@ export async function createMacMiniClipPackageFromCandidate(
 
 export async function getPendingMacMiniClipPackages(
   supabase: MacMiniDb,
-  input: { limit?: number } = {},
+  input: { limit?: number; stagingStatus?: TikTokStagingStatus } = {},
 ): Promise<MacMiniClipPackage[]> {
-  const { data, error } = await supabase
+  let query = supabase
     .from('mac_mini_clip_packages')
     .select(PACKAGE_SELECT)
     .eq('package_status', 'ready')
     .eq('handoff_status', 'pending')
+  if (input.stagingStatus) {
+    query = query.eq('tiktok_staging_status', input.stagingStatus)
+  }
+  const { data, error } = await query
     .order('created_at', { ascending: true })
     .limit(input.limit ?? 10)
 
@@ -658,6 +692,47 @@ export async function getMacMiniClipPackageById(
 
   if (error) throw new Error(error.message)
   return data ? normalizePackageRow(data as unknown as MacMiniClipPackageRow) : null
+}
+
+export async function requestTikTokStagingForPackage(
+  supabase: MacMiniDb,
+  packageId: string,
+  input: { requestedBy?: string | null; now?: () => Date } = {},
+): Promise<MacMiniClipPackage> {
+  const current = await getMacMiniClipPackageById(supabase, packageId)
+  if (!current) {
+    throw new Error('Mac mini clip package not found.')
+  }
+  assertDryRunPayload(current.payload)
+  if (current.tikTokStagingStatus === 'ready_for_manual_post') {
+    throw new Error('Package is already Ready for manual Post.')
+  }
+  if (current.assetStatus !== 'attached' || !current.localAssetPath) {
+    throw new Error('Stage in TikTok requires an attached local MP4 render.')
+  }
+
+  const now = (input.now ?? (() => new Date()))().toISOString()
+  const { data, error } = await supabase
+    .from('mac_mini_clip_packages')
+    .update({
+      package_status: 'ready',
+      handoff_status: 'pending',
+      tiktok_staging_status: 'requested',
+      tiktok_staging_requested_at: now,
+      tiktok_staging_requested_by: compact(input.requestedBy) || null,
+      tiktok_staging_error: null,
+      dry_run_error: null,
+      updated_at: now,
+    })
+    .eq('id', packageId)
+    .in('package_status', ['ready', 'fetched', 'dry_run_failed', 'dry_run_complete'])
+    .select(PACKAGE_SELECT)
+    .single()
+
+  if (error || !data) {
+    throw new Error(error?.message || 'TikTok staging request could not be recorded.')
+  }
+  return normalizePackageRow(data as unknown as MacMiniClipPackageRow)
 }
 
 export async function attachMacMiniLocalAsset(
@@ -747,6 +822,18 @@ export async function recordMacMiniPackageDryRun(
 ): Promise<MacMiniClipPackage> {
   const now = (input.now ?? (() => new Date()))().toISOString()
   const success = input.status === 'success'
+  const stagingStatus = deriveTikTokStagingStatus({
+    status: input.status,
+    result: input.result,
+    error: input.error,
+  })
+  const stagingUpdate = stagingStatus
+    ? {
+        tiktok_staging_status: stagingStatus,
+        tiktok_staging_at: stagingStatus === 'ready_for_manual_post' ? now : null,
+        tiktok_staging_error: stagingStatus === 'ready_for_manual_post' ? null : compact(input.error) || 'TikTok staging did not complete.',
+      }
+    : {}
   const { data, error } = await supabase
     .from('mac_mini_clip_packages')
     .update({
@@ -757,6 +844,7 @@ export async function recordMacMiniPackageDryRun(
       dry_run_at: now,
       dry_run_result: input.result ?? null,
       dry_run_error: success ? null : compact(input.error) || 'Mac mini dry-run failed.',
+      ...stagingUpdate,
       updated_at: now,
     })
     .eq('id', packageId)

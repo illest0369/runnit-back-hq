@@ -84,7 +84,10 @@ async function loadCandidateState(clips: ReviewClip[]): Promise<{
       .in('id', candidateIds),
     supabaseAdmin
       .from('mac_mini_clip_packages')
-      .select('id, clip_candidate_id, package_status, handoff_status, asset_status, local_asset_path')
+      .select(
+        `id, clip_candidate_id, lane_label, browser_channel_key, package_status, handoff_status, asset_status, local_asset_path,
+         dry_run_at, dry_run_result, dry_run_error, tiktok_staging_status, tiktok_staging_requested_at, tiktok_staging_at, tiktok_staging_error`,
+      )
       .in('clip_candidate_id', candidateIds),
   ])
 
