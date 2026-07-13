@@ -1,5 +1,6 @@
 import { execFile } from 'node:child_process'
 import { mkdir, readFile, stat } from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
@@ -35,13 +36,14 @@ type CliOptions = {
 const DEFAULT_UPLOAD_URL = 'https://www.tiktok.com/upload?lang=en'
 const SESSION_COOKIE_PATTERN = /^(sessionid|sessionid_ss|sid_tt|sid_guard|uid_tt|uid_tt_ss)$/i
 const DEFAULT_CDP_PORT = 9333
+const DEFAULT_PROFILE_ROOT = path.join(os.homedir(), 'rbhq-browser-profiles')
 const CHANNEL_PROFILE_DIRS: Record<ChannelKey, string> = {
-  rb_sports: 'tmp/browser-profiles/tiktok-rb-sports',
-  rb_arena: 'tmp/browser-profiles/tiktok-rb-arena',
-  rb_women: 'tmp/browser-profiles/tiktok-rb-women',
-  rb_combat: 'tmp/browser-profiles/tiktok-rb-combat',
-  rb_futbol: 'tmp/browser-profiles/tiktok-rb-futbol',
-  rb_cfb: 'tmp/browser-profiles/tiktok-rb-cfb',
+  rb_sports: 'tiktok-rb-sports',
+  rb_arena: 'tiktok-rb-arena',
+  rb_women: 'tiktok-rb-women',
+  rb_combat: 'tiktok-rb-combat',
+  rb_futbol: 'tiktok-rb-futbol',
+  rb_cfb: 'tiktok-rb-cfb',
 }
 const SUPPORTED_CHANNEL_KEYS = Object.keys(CHANNEL_PROFILE_DIRS) as ChannelKey[]
 
@@ -237,13 +239,30 @@ function assertDraftChannelMatches(channelKey: ChannelKey, draft: DraftPackage |
   }
 }
 
-function resolveProfileDir(channelKey: ChannelKey, override: string | null, browser: BrowserChoice) {
-  if (override) return path.resolve(override)
+function resolveProfileRoot() {
+  return path.resolve(process.env.TIKTOK_BROWSER_PROFILE_ROOT?.trim() || DEFAULT_PROFILE_ROOT)
+}
 
-  const baseProfileDir = path.join(process.cwd(), CHANNEL_PROFILE_DIRS[channelKey])
-  if (browser === 'webkit') return path.resolve(`${baseProfileDir}-webkit`)
-  if (browser === 'cdp') return path.resolve(`${baseProfileDir}-manual-chrome`)
-  return path.resolve(baseProfileDir)
+function resolveProfilePaths(channelKey: ChannelKey, override: string | null, browser: BrowserChoice) {
+  const profileRoot = resolveProfileRoot()
+  if (override) {
+    return {
+      profileRoot,
+      profileDir: path.resolve(override),
+      profileOverride: true,
+    }
+  }
+
+  const baseProfileDir = path.join(profileRoot, CHANNEL_PROFILE_DIRS[channelKey])
+  return {
+    profileRoot,
+    profileDir: browser === 'webkit'
+      ? path.resolve(`${baseProfileDir}-webkit`)
+      : browser === 'cdp'
+        ? path.resolve(`${baseProfileDir}-manual-chrome`)
+        : path.resolve(baseProfileDir),
+    profileOverride: false,
+  }
 }
 
 async function readDraft(draftPath: string) {
@@ -627,7 +646,8 @@ async function main() {
 
   const channelKey = resolveChannel({ channelArg: options.channelArg, draft })
   assertDraftChannelMatches(channelKey, draft)
-  const profileDir = resolveProfileDir(channelKey, options.profileDirOverride, options.browser)
+  const profilePaths = resolveProfilePaths(channelKey, options.profileDirOverride, options.browser)
+  const profileDir = profilePaths.profileDir
 
   if (options.allowFinalPost && options.mode !== 'live-post') {
     throw new Error('--allow-final-post is only accepted with --live-post.')
@@ -648,8 +668,11 @@ async function main() {
     console.log(JSON.stringify({
       result: 'PASS',
       channelKey,
+      profileRoot: profilePaths.profileRoot,
       profileDir,
+      profileOverride: profilePaths.profileOverride,
       browser: options.browser,
+      browserMode: options.headless ? 'headless' : 'headed',
       cdpEndpoint: options.browser === 'cdp' ? options.cdpEndpoint : null,
       supportedChannelKeys: SUPPORTED_CHANNEL_KEYS,
       safety: {
@@ -771,7 +794,9 @@ async function main() {
       mediaExists: Boolean(mediaPath),
       mediaSizeBytes,
       uploadUrl: options.uploadUrl,
+      profileRoot: profilePaths.profileRoot,
       profileDir,
+      profileOverride: profilePaths.profileOverride,
       browser: options.headless ? 'headless' : 'headed',
       browserEngine: browserSession.connection,
       cdpEndpoint: options.browser === 'cdp' ? options.cdpEndpoint : null,
