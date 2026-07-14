@@ -12,6 +12,7 @@ export type TikTokSessionReadiness = 'ready' | 'missing' | 'unknown'
 export type TikTokStagingOperatorState =
   | 'not_ready'
   | 'ready_to_stage'
+  | 'ready_for_tiktok_retry'
   | 'staging_requested'
   | 'tiktok_login_blocked'
   | 'dry_run_failed'
@@ -25,6 +26,7 @@ export type TikTokStagingReadiness = {
   operatorState: TikTokStagingOperatorState
   eligible: boolean
   readyForManualPost: boolean
+  readyForTikTokRetry: boolean
   loginBlocked: boolean
   prepCanContinue: boolean
   retryAfterAccessRestored: boolean
@@ -114,11 +116,13 @@ function normalizeStatus(value: unknown): TikTokStagingStatus {
 
 function operatorStateFor(input: {
   readyForManualPost: boolean
+  readyForTikTokRetry: boolean
   loginBlocked: boolean
   status: TikTokStagingStatus
   eligible: boolean
 }): TikTokStagingOperatorState {
   if (input.readyForManualPost) return 'ready_for_manual_post'
+  if (input.readyForTikTokRetry) return 'ready_for_tiktok_retry'
   if (input.loginBlocked) return 'tiktok_login_blocked'
   if (input.status === 'requested') return 'staging_requested'
   if (input.status === 'failed' || input.status === 'blocked') return 'dry_run_failed'
@@ -166,21 +170,27 @@ export function buildTikTokStagingReadiness(
     ? 'ready_for_manual_post'
     : normalizeStatus(pkg?.tiktok_staging_status)
   const readyForManualPost = status === 'ready_for_manual_post'
+  const candidateApproved = APPROVED_CANDIDATE_STATUSES.has(candidate?.candidateStatus ?? '')
+  const clipPrepReady = candidate?.clipPrepStatus === 'ready'
+  const localRenderAttached = Boolean(pkg?.id) && pkg?.asset_status === 'attached' && Boolean(pkg?.local_asset_path)
+  const readyForTikTokRetry = candidateApproved &&
+    clipPrepReady &&
+    localRenderAttached &&
+    !readyForManualPost &&
+    status !== 'requested'
   const tikTokSession = readSessionReadiness(uploaderResult, blocker)
   const loginBlocked = status === 'blocked' && tikTokSession === 'missing'
   const prepCanContinue = loginBlocked
   const retryAfterAccessRestored = loginBlocked &&
-    candidate?.clipPrepStatus === 'ready' &&
-    Boolean(pkg?.id) &&
-    pkg?.asset_status === 'attached' &&
-    Boolean(pkg?.local_asset_path)
+    clipPrepReady &&
+    localRenderAttached
 
   let missing: string | null = null
   if (!candidateId) missing = 'Missing Intelligence V1 candidate link.'
-  else if (!APPROVED_CANDIDATE_STATUSES.has(candidate?.candidateStatus ?? '')) missing = 'Candidate must be approved first.'
-  else if (candidate?.clipPrepStatus !== 'ready') missing = 'Clip Prep is not ready.'
+  else if (!candidateApproved) missing = 'Candidate must be approved first.'
+  else if (!clipPrepReady) missing = 'Clip Prep is not ready.'
   else if (!pkg?.id) missing = 'Mac mini package is missing.'
-  else if (pkg.asset_status !== 'attached' || !pkg.local_asset_path) missing = 'Local render attachment is missing.'
+  else if (!localRenderAttached) missing = 'Local render attachment is missing.'
   else if (readyForManualPost) missing = 'Ready for manual Post.'
   else if (status === 'requested') missing = 'Staging is already requested.'
   else if (tikTokSession === 'missing') missing = 'TikTok session needs local login.'
@@ -191,9 +201,10 @@ export function buildTikTokStagingReadiness(
     channelKey: pkg?.browser_channel_key ?? null,
     packageId: pkg?.id ?? null,
     status,
-    operatorState: operatorStateFor({ readyForManualPost, loginBlocked, status, eligible }),
+    operatorState: operatorStateFor({ readyForManualPost, readyForTikTokRetry, loginBlocked, status, eligible }),
     eligible,
     readyForManualPost,
+    readyForTikTokRetry,
     loginBlocked,
     prepCanContinue,
     retryAfterAccessRestored,

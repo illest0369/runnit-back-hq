@@ -138,9 +138,10 @@ type TikTokStagingReadiness = {
   channelKey: string | null;
   packageId: string | null;
   status: "not_requested" | "requested" | "ready_for_manual_post" | "blocked" | "failed";
-  operatorState: "not_ready" | "ready_to_stage" | "staging_requested" | "tiktok_login_blocked" | "dry_run_failed" | "ready_for_manual_post";
+  operatorState: "not_ready" | "ready_to_stage" | "ready_for_tiktok_retry" | "staging_requested" | "tiktok_login_blocked" | "dry_run_failed" | "ready_for_manual_post";
   eligible: boolean;
   readyForManualPost: boolean;
+  readyForTikTokRetry: boolean;
   loginBlocked: boolean;
   prepCanContinue: boolean;
   retryAfterAccessRestored: boolean;
@@ -344,6 +345,7 @@ const DEFAULT_PACKAGE_READINESS: PackageReadiness = {
     operatorState: "not_ready",
     eligible: false,
     readyForManualPost: false,
+    readyForTikTokRetry: false,
     loginBlocked: false,
     prepCanContinue: false,
     retryAfterAccessRestored: false,
@@ -1673,6 +1675,7 @@ function isTikTokLoginBlocked(staging: TikTokStagingReadiness) {
 
 function tiktokStagingLabel(staging: TikTokStagingReadiness) {
   if (staging.readyForManualPost) return "Ready for manual Post";
+  if (staging.readyForTikTokRetry) return "Ready for TikTok retry";
   if (isTikTokLoginBlocked(staging)) return "Login blocked · prep continues";
   if (staging.tikTokSession === "missing") return "TikTok login required";
   if (staging.status === "requested") return "Staging requested";
@@ -1684,6 +1687,7 @@ function tiktokStagingLabel(staging: TikTokStagingReadiness) {
 
 function stagingTone(staging: TikTokStagingReadiness) {
   if (staging.readyForManualPost) return "bg-[#ECFDF5] text-[#128A49] border-[#128A49]/20";
+  if (staging.readyForTikTokRetry) return "bg-[#ECFDF5] text-[#128A49] border-[#128A49]/20";
   if (isTikTokLoginBlocked(staging)) return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
   if (staging.status === "blocked" || staging.status === "failed") return "bg-[#FFF1F2] text-[#DC2626] border-[#DC2626]/20";
   if (staging.eligible || staging.status === "requested") return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
@@ -1752,6 +1756,14 @@ function OperatorStagingPanel({ readiness }: { readiness: PackageReadiness }) {
       </div>
       {staging.readyForManualPost ? (
         <p className="mt-2 text-[13px] font-black text-[#128A49]">Ready for manual Post</p>
+      ) : staging.readyForTikTokRetry ? (
+        <div className="mt-3 rounded-[12px] border border-[#128A49]/20 bg-[#ECFDF5] px-3 py-2">
+          <p className="text-[12px] font-black leading-4 text-[#128A49]">Ready for TikTok retry</p>
+          <p className="mt-1 text-[10.5px] font-semibold leading-4 text-[#166534]">Clip Prep, caption, and local MP4 are ready. Retry only after account access is trusted.</p>
+          {loginBlocked ? (
+            <p className="mt-1 text-[10.5px] font-semibold leading-4 text-[#B45309]">TikTok login remains blocked; do not retry login repeatedly.</p>
+          ) : null}
+        </div>
       ) : loginBlocked ? (
         <div className="mt-3 rounded-[12px] border border-[#B45309]/20 bg-[#FFFBEB] px-3 py-2">
           <p className="text-[12px] font-black leading-4 text-[#92400E]">TikTok login required — clip prep can continue</p>

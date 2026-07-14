@@ -182,6 +182,23 @@ async function main() {
     assert.equal(packagedReadiness.macMiniPackageReady, true)
     assert.equal(packagedReadiness.localRenderAttached, false)
 
+    const retryReadyReadiness = buildQueueReadiness(candidateId, candidate, {
+      id: String(packageRow?.id),
+      lane_label: String(packageRow?.lane_label),
+      browser_channel_key: String(packageRow?.browser_channel_key),
+      package_status: 'dry_run_failed',
+      handoff_status: 'dry_run_failed',
+      asset_status: 'attached',
+      local_asset_path: '/tmp/mac-mini-assets/rbhq-smoke.mp4',
+      dry_run_error: 'TIKTOK_UPLOAD_PROCESSING_TIMEOUT',
+      tiktok_staging_status: 'blocked',
+      tiktok_staging_error: 'TIKTOK_UPLOAD_PROCESSING_TIMEOUT',
+    })
+    assert.equal(retryReadyReadiness.tiktokStaging.readyForTikTokRetry, true)
+    assert.equal(retryReadyReadiness.tiktokStaging.operatorState, 'ready_for_tiktok_retry')
+    assert.equal(retryReadyReadiness.tiktokStaging.readyForManualPost, false)
+    assert.equal(retryReadyReadiness.localRenderAttached, true)
+
     const loginBlockedReadiness = buildQueueReadiness(candidateId, candidate, {
       id: String(packageRow?.id),
       lane_label: String(packageRow?.lane_label),
@@ -212,8 +229,10 @@ async function main() {
       tiktok_staging_status: 'blocked',
       tiktok_staging_error: 'TIKTOK_LOGIN_REQUIRED',
     })
-    assert.equal(loginBlockedReadiness.tiktokStaging.operatorState, 'tiktok_login_blocked')
+    assert.equal(loginBlockedReadiness.tiktokStaging.operatorState, 'ready_for_tiktok_retry')
     assert.equal(loginBlockedReadiness.tiktokStaging.loginBlocked, true)
+    assert.equal(loginBlockedReadiness.tiktokStaging.readyForTikTokRetry, true)
+    assert.equal(loginBlockedReadiness.tiktokStaging.operatorState, 'ready_for_tiktok_retry')
     assert.equal(loginBlockedReadiness.tiktokStaging.prepCanContinue, true)
     assert.equal(loginBlockedReadiness.tiktokStaging.retryAfterAccessRestored, true)
     assert.equal(loginBlockedReadiness.tiktokStaging.tikTokSession, 'missing')
@@ -234,6 +253,8 @@ async function main() {
         macMiniPackageReady: packagedReadiness.macMiniPackageReady,
         localRenderAttached: packagedReadiness.localRenderAttached,
         packageId: packagedReadiness.macMiniPackageId,
+        readyForTikTokRetry: retryReadyReadiness.tiktokStaging.readyForTikTokRetry,
+        retryOperatorState: retryReadyReadiness.tiktokStaging.operatorState,
         tiktokLoginBlocked: loginBlockedReadiness.tiktokStaging.loginBlocked,
         prepCanContinue: loginBlockedReadiness.tiktokStaging.prepCanContinue,
         retryAfterAccessRestored: loginBlockedReadiness.tiktokStaging.retryAfterAccessRestored,

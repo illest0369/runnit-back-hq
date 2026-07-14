@@ -49,6 +49,7 @@
     "clip-prep:source-local": "tsx scripts/acquire-clip-prep-source-local.ts",
     "clip-prep:render-local": "tsx scripts/render-clip-prep-local.ts",
     "moment:select": "tsx scripts/select-moment.ts",
+    "operator:tiktok-retry-ready": "tsx scripts/list-tiktok-retry-ready-packages.ts",
     "tiktok:web-upload-dry-run": "tsx scripts/tiktok-web-upload-dry-run.ts",
     "tiktok:profile-diagnose": "tsx scripts/diagnose-tiktok-profile.ts",
     "tiktok:login": "tsx scripts/tiktok-web-upload-dry-run.ts --login",

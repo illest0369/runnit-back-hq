@@ -221,8 +221,9 @@ async function main() {
 
   const loginBlocked = buildQueueReadiness(candidate.id, candidate, db.rows('mac_mini_clip_packages')[0] as never)
   assert.equal(loginBlocked.tiktokStaging.status, 'blocked')
-  assert.equal(loginBlocked.tiktokStaging.operatorState, 'tiktok_login_blocked')
+  assert.equal(loginBlocked.tiktokStaging.operatorState, 'ready_for_tiktok_retry')
   assert.equal(loginBlocked.tiktokStaging.loginBlocked, true)
+  assert.equal(loginBlocked.tiktokStaging.readyForTikTokRetry, true)
   assert.equal(loginBlocked.tiktokStaging.prepCanContinue, true)
   assert.equal(loginBlocked.tiktokStaging.retryAfterAccessRestored, true)
   assert.equal(loginBlocked.tiktokStaging.tikTokSession, 'missing')
