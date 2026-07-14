@@ -72,7 +72,7 @@ function readBrowserChoice(chromeOnly: boolean): BrowserChoice {
   if (hasFlag('--webkit')) return 'webkit'
   if (chromeOnly) return 'chrome'
 
-  const value = readFlagValue('--browser')
+  const value = readFlagValue('--browser') ?? process.env.TIKTOK_BROWSER_ENGINE?.trim() ?? process.env.MAC_MINI_TIKTOK_BROWSER?.trim()
   if (!value) return 'chrome'
 
   const normalized = value.trim().toLowerCase()
@@ -95,9 +95,9 @@ function readOptions(): CliOptions {
           ? 'print-profile'
           : 'dry-run'
   const headed = hasFlag('--headed')
-  const defaultHeadless = mode === 'session-check'
   const chromeOnly = hasFlag('--chrome-only')
   const browser = readBrowserChoice(chromeOnly)
+  const defaultHeadless = mode === 'session-check' && browser !== 'chrome'
   const cdpPort = readNumberFlag('--cdp-port', DEFAULT_CDP_PORT)
   return {
     draftPath,
@@ -263,6 +263,10 @@ function resolveProfilePaths(channelKey: ChannelKey, override: string | null, br
         : path.resolve(baseProfileDir),
     profileOverride: false,
   }
+}
+
+function browserMode(options: CliOptions) {
+  return options.headless ? 'headless' : 'headed'
 }
 
 async function readDraft(draftPath: string) {
@@ -434,7 +438,7 @@ async function launchLocalBrowser(options: CliOptions, profileDir: string): Prom
       connection: options.browser,
     }
   } catch (error) {
-    if (options.chromeOnly) throw error
+    if (options.chromeOnly || options.browser === 'chrome') throw error
     const context = await chromium.launchPersistentContext(profileDir, {
       headless: options.headless,
       slowMo: options.slowMo,
@@ -672,7 +676,8 @@ async function main() {
       profileDir,
       profileOverride: profilePaths.profileOverride,
       browser: options.browser,
-      browserMode: options.headless ? 'headless' : 'headed',
+      browserMode: browserMode(options),
+      headless: options.headless,
       cdpEndpoint: options.browser === 'cdp' ? options.cdpEndpoint : null,
       supportedChannelKeys: SUPPORTED_CHANNEL_KEYS,
       safety: {
@@ -797,7 +802,9 @@ async function main() {
       profileRoot: profilePaths.profileRoot,
       profileDir,
       profileOverride: profilePaths.profileOverride,
-      browser: options.headless ? 'headless' : 'headed',
+      browserMode: browserMode(options),
+      headless: options.headless,
+      browser: browserMode(options),
       browserEngine: browserSession.connection,
       cdpEndpoint: options.browser === 'cdp' ? options.cdpEndpoint : null,
       logged_in: loggedIn,
@@ -836,19 +843,57 @@ async function main() {
   }
 }
 
-void main().catch((error) => {
-  console.error(JSON.stringify(
-    {
-      result: 'FAIL',
-      blocker: 'SCRIPT_ERROR',
-      error: error instanceof Error ? error.message : String(error),
-      safety: {
-        usesTikTokApi: false,
-        storesTikTokCredentialsInRbhq: false,
-        marksRbhqPublished: false,
-        clicksFinalPost: false,
-      },
+function messageFromError(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function blockerFromScriptError(message: string) {
+  if (/Opening in existing browser session/i.test(message)) return 'CHROME_PROFILE_IN_USE'
+  return 'SCRIPT_ERROR'
+}
+
+async function buildFailureResult(error: unknown) {
+  const message = messageFromError(error)
+  const result: Record<string, unknown> = {
+    result: 'FAIL',
+    blocker: blockerFromScriptError(message),
+    error: message,
+    currentUrl: null,
+    logged_in: null,
+    safety: {
+      usesTikTokApi: false,
+      storesTikTokCredentialsInRbhq: false,
+      marksRbhqPublished: false,
+      clicksFinalPost: false,
     },
+  }
+
+  try {
+    const options = readOptions()
+    const draft = options.draftPath ? await readDraft(options.draftPath).catch(() => null) : null
+    const channelKey = resolveChannel({ channelArg: options.channelArg, draft })
+    const profilePaths = resolveProfilePaths(channelKey, options.profileDirOverride, options.browser)
+
+    return {
+      ...result,
+      channelKey,
+      uploadUrl: options.uploadUrl,
+      profileRoot: profilePaths.profileRoot,
+      profileDir: profilePaths.profileDir,
+      profileOverride: profilePaths.profileOverride,
+      browserMode: browserMode(options),
+      headless: options.headless,
+      browserEngine: options.browser,
+      cdpEndpoint: options.browser === 'cdp' ? options.cdpEndpoint : null,
+    }
+  } catch {
+    return result
+  }
+}
+
+void main().catch(async (error) => {
+  console.error(JSON.stringify(
+    await buildFailureResult(error),
     null,
     2,
   ))

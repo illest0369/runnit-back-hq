@@ -110,10 +110,16 @@ async function main() {
   const sportsDefault = await resolveProfile(['--channel', 'rb_sports'])
   const sportsSessionCheckShape = await resolveProfile(['--channel', 'rb_sports'])
   const sportsLoginShape = await resolveProfile(['--channel', 'rb_sports', '--browser', 'chrome'])
+  const sportsEnvChromeShape = await resolveProfile(['--channel', 'rb_sports'], { TIKTOK_BROWSER_ENGINE: 'chrome' })
+  const sportsEnvChromiumShape = await resolveProfile(['--channel', 'rb_sports'], { TIKTOK_BROWSER_ENGINE: 'chromium' })
   const sportsDraftPath = await writeDraftFixture('rb_sports')
   const sportsDraftShape = await resolveProfile(['--draft', sportsDraftPath])
   assert(sportsDefault.profileDir === sportsSessionCheckShape.profileDir, 'session-check profile path shape diverged from default channel profile.')
   assert(sportsDefault.profileDir === sportsLoginShape.profileDir, 'login profile path shape diverged from default channel profile.')
+  assert(sportsDefault.profileDir === sportsEnvChromeShape.profileDir, 'env Chrome profile path shape diverged from channel profile.')
+  assert(sportsEnvChromeShape.browser === 'chrome', `TIKTOK_BROWSER_ENGINE=chrome resolved to ${String(sportsEnvChromeShape.browser)}.`)
+  assert(sportsEnvChromeShape.browserMode === 'headed', `TIKTOK_BROWSER_ENGINE=chrome should resolve headed for persistent Chrome profiles; got ${String(sportsEnvChromeShape.browserMode)}.`)
+  assert(sportsEnvChromiumShape.browser === 'chromium', `TIKTOK_BROWSER_ENGINE=chromium resolved to ${String(sportsEnvChromiumShape.browser)}.`)
   assert(sportsDefault.profileDir === sportsDraftShape.profileDir, 'dry-run draft profile path shape diverged from channel profile.')
 
   const cdpResult = await resolveProfile(['--channel', 'rb_sports', '--browser', 'cdp'])
@@ -148,6 +154,10 @@ async function main() {
       },
       samePathAcrossModes: {
         rb_sports: sportsDefault.profileDir,
+      },
+      envBrowserEngine: {
+        chrome: sportsEnvChromeShape.browser,
+        chromium: sportsEnvChromiumShape.browser,
       },
       overrideRoot: overrideResult.profileRoot,
       explicitProfile: explicitResult.profileDir,
