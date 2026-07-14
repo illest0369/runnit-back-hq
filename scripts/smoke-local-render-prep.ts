@@ -5,6 +5,7 @@ import { promisify } from 'node:util'
 import assert from 'node:assert/strict'
 
 import {
+  acquireLocalSourceForClipPrep,
   renderLocalClipPrepForCandidateOrPackage,
   validateLocalSourceMp4,
 } from '../lib/local-render-prep'
@@ -268,6 +269,28 @@ async function main() {
       mac_mini_clip_packages: [packageRow(packageId, candidateId)],
     })
 
+    const localSource = await acquireLocalSourceForClipPrep(db as never, {
+      packageId,
+      sourcePath,
+      assetRoot: root,
+    })
+    assert.equal(localSource.status, 'render_ready')
+    assert.equal(localSource.sourcePath, sourcePath)
+    assert.equal(localSource.sourceDownloaded, false)
+    assert.ok(localSource.tools.some((tool) => tool.name === 'yt-dlp'))
+    assert.ok(localSource.tools.some((tool) => tool.name === 'ffmpeg'))
+    assert.ok(localSource.tools.some((tool) => tool.name === 'ffprobe'))
+
+    const urlSource = await acquireLocalSourceForClipPrep(db as never, {
+      packageId,
+      sourceUrl: 'https://example.com/source.mp4',
+      assetRoot: root,
+    })
+    assert.equal(urlSource.status, 'source_missing')
+    assert.equal(urlSource.sourcePath, null)
+    assert.equal(urlSource.sourceDownloaded, false)
+    assert.match(urlSource.error ?? '', /download is manual-only/)
+
     const rendered = await renderLocalClipPrepForCandidateOrPackage(db as never, {
       packageId,
       sourcePath,
@@ -293,6 +316,14 @@ async function main() {
     await assert.rejects(
       () => validateLocalSourceMp4('https://example.com/source.mp4'),
       /refuses URL sources/,
+    )
+    await assert.rejects(
+      () => renderLocalClipPrepForCandidateOrPackage(db as never, {
+        packageId,
+        sourceUrl: 'https://example.com/source.mp4',
+        assetRoot: root,
+      }),
+      /source_missing/,
     )
     await assert.rejects(
       () => renderLocalClipPrepForCandidateOrPackage(db as never, {
@@ -328,7 +359,10 @@ async function main() {
         attachedAssetStatus: rendered.attachedPackage?.assetStatus ?? null,
       },
       validations: {
+        localSourceStatus: localSource.status,
+        urlSourceStatus: urlSource.status,
         rejectsUrlSource: true,
+        rejectsUrlRenderWithoutDownloadFlag: true,
         rejectsMissingTiming: true,
         rejectsOutsideOutputDir: true,
         outputInsideAssetRoot: rendered.outputPath.startsWith(root),

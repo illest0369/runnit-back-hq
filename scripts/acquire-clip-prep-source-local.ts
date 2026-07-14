@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 
-import { renderLocalClipPrepForCandidateOrPackage } from '../lib/local-render-prep'
+import { acquireLocalSourceForClipPrep } from '../lib/local-render-prep'
 
 config({ path: '.env.local', quiet: true })
 config({ quiet: true })
@@ -32,64 +32,54 @@ async function main() {
   const sourceUrl = readArg('--source-url') ?? process.env.CLIP_PREP_SOURCE_URL?.trim() ?? null
   const assetRoot = readArg('--asset-root') ?? process.env.MAC_MINI_ASSET_ROOT?.trim() ?? null
   const sourceDir = readArg('--source-dir') ?? process.env.CLIP_PREP_LOCAL_SOURCE_DIR?.trim() ?? null
-  const outputDir = readArg('--output-dir') ?? null
   const downloadSource = hasFlag('--download-source')
-  const attach = hasFlag('--attach')
 
   if (!sourcePath && !sourceUrl && !packageId && !candidateId) {
     throw new Error('Missing source input. Use --source-path <local_source.mp4>, --source-url <url>, --package-id <id>, or --candidate-id <id> with package source metadata.')
   }
 
-  const result = await renderLocalClipPrepForCandidateOrPackage(createSupabase(), {
+  const source = await acquireLocalSourceForClipPrep(createSupabase(), {
     packageId,
     candidateId,
     sourcePath,
     sourceUrl,
     assetRoot,
     sourceDir,
-    outputDir,
     downloadSource,
-    attach,
   })
 
   console.log(JSON.stringify({
-    result: 'PASS',
-    render: {
-      status: result.status,
-      packageId: result.packageId,
-      candidateId: result.candidateId,
-      sourcePath: result.sourcePath,
-      sourceDownloaded: result.sourceDownloaded,
-      outputPath: result.outputPath,
-      assetRoot: result.assetRoot,
-      sourceDir: result.sourceDir,
-      startSeconds: result.startSeconds,
-      endSeconds: result.endSeconds,
-      durationSeconds: result.durationSeconds,
-      sizeBytes: result.sizeBytes,
-      attached: result.attached,
-      attachedPackageId: result.attachedPackage?.id ?? null,
-      attachedAssetStatus: result.attachedPackage?.assetStatus ?? null,
+    result: source.status === 'download_failed' ? 'FAIL' : 'PASS',
+    source: {
+      status: source.status,
+      packageId: source.packageId,
+      candidateId: source.candidateId,
+      sourceUrl: source.sourceUrl,
+      sourcePath: source.sourcePath,
+      sourceDownloaded: source.sourceDownloaded,
+      assetRoot: source.assetRoot,
+      sourceDir: source.sourceDir,
+      error: source.error,
     },
+    tools: source.tools,
     safety: {
-      downloadsVideo: result.safety.downloadsVideo,
-      uploadsVideo: result.safety.uploadsVideo,
-      postsVideo: result.safety.postsVideo,
-      clicksFinalPost: result.safety.clicksFinalPost,
-      livePublish: result.safety.livePublish,
+      downloadsVideo: source.safety.downloadsVideo,
+      uploadsVideo: source.safety.uploadsVideo,
+      postsVideo: source.safety.postsVideo,
+      clicksFinalPost: source.safety.clicksFinalPost,
+      livePublish: source.safety.livePublish,
+      callsTikTok: false,
       callsMetricool: false,
       callsN8n: false,
     },
   }, null, 2))
+
+  if (source.status === 'download_failed') {
+    process.exitCode = 1
+  }
 }
 
 void main().catch((error) => {
-  const message = error instanceof Error ? error.message : String(error)
-  const status = message.startsWith('source_missing:')
-    ? 'source_missing'
-    : message.startsWith('download_failed:')
-      ? 'download_failed'
-      : null
-  console.error(JSON.stringify({ result: 'FAIL', status, error: message }, null, 2))
+  console.error(JSON.stringify({ result: 'FAIL', error: error instanceof Error ? error.message : String(error) }, null, 2))
   process.exitCode = 1
 })

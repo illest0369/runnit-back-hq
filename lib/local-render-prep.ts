@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdir, stat } from 'node:fs/promises'
+import { mkdir, readdir, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
@@ -37,6 +37,7 @@ export type LocalRenderPrepResult = {
   candidateId: string
   sourcePath: string
   sourceDownloaded: boolean
+  sourceDir: string
   outputPath: string
   assetRoot: string
   startSeconds: number
@@ -45,6 +46,36 @@ export type LocalRenderPrepResult = {
   sizeBytes: number
   attached: boolean
   attachedPackage: MacMiniClipPackage | null
+  safety: {
+    downloadsVideo: boolean
+    uploadsVideo: false
+    postsVideo: false
+    clicksFinalPost: false
+    livePublish: false
+  }
+}
+
+export type LocalSourceAcquisitionStatus = 'source_missing' | 'download_failed' | 'render_ready'
+export type LocalSourceToolName = 'yt-dlp' | 'ffmpeg' | 'ffprobe'
+
+export type LocalSourceToolStatus = {
+  name: LocalSourceToolName
+  available: boolean
+  version: string | null
+  error: string | null
+}
+
+export type LocalSourceAcquisitionResult = {
+  status: LocalSourceAcquisitionStatus
+  packageId: string | null
+  candidateId: string
+  sourceUrl: string | null
+  sourcePath: string | null
+  sourceDownloaded: boolean
+  assetRoot: string
+  sourceDir: string
+  error: string | null
+  tools: LocalSourceToolStatus[]
   safety: {
     downloadsVideo: boolean
     uploadsVideo: false
@@ -64,6 +95,12 @@ type ResolvedPrep = {
   endSeconds: number
 }
 
+type ResolvedSourceTarget = {
+  packageId: string | null
+  candidateId: string
+  sourceUrl: string | null
+}
+
 function readNumber(value: number | string | null | undefined): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string' && value.trim()) {
@@ -75,6 +112,15 @@ function readNumber(value: number | string | null | undefined): number | null {
 
 function assetRoot(input: { assetRoot?: string | null } = {}): string {
   return path.resolve(input.assetRoot?.trim() || process.env.MAC_MINI_ASSET_ROOT?.trim() || DEFAULT_MAC_MINI_ASSET_ROOT)
+}
+
+function localSourceDir(input: { assetRoot: string; sourceDir?: string | null }): string {
+  const root = path.resolve(input.assetRoot)
+  const sourceDir = path.resolve(input.sourceDir?.trim() || process.env.CLIP_PREP_LOCAL_SOURCE_DIR?.trim() || path.join(root, 'source-assets'))
+  if (!isPathInside(root, sourceDir)) {
+    throw new Error(`Local source directory must stay inside ${root}.`)
+  }
+  return sourceDir
 }
 
 function isPathInside(parent: string, child: string): boolean {
@@ -98,11 +144,45 @@ function sanitizeFileStem(value: string): string {
     .slice(0, 120) || 'clip-prep'
 }
 
-async function requireBinary(binary: 'ffmpeg' | 'yt-dlp'): Promise<void> {
+function firstVersionLine(stdout: string, stderr: string): string | null {
+  const text = `${stdout}\n${stderr}`
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .find(Boolean)
+  return text ?? null
+}
+
+async function readToolStatus(binary: LocalSourceToolName): Promise<LocalSourceToolStatus> {
   try {
-    await execFileAsync(binary, binary === 'yt-dlp' ? ['--version'] : ['-version'], { maxBuffer: 1024 * 1024 })
-  } catch {
-    throw new Error(`${binary} is required for local Clip Prep rendering.`)
+    const { stdout, stderr } = await execFileAsync(binary, binary === 'yt-dlp' ? ['--version'] : ['-version'], { maxBuffer: 1024 * 1024 })
+    return {
+      name: binary,
+      available: true,
+      version: firstVersionLine(String(stdout), String(stderr)),
+      error: null,
+    }
+  } catch (error) {
+    return {
+      name: binary,
+      available: false,
+      version: null,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  }
+}
+
+export async function validateLocalSourceTools(): Promise<LocalSourceToolStatus[]> {
+  return Promise.all([
+    readToolStatus('yt-dlp'),
+    readToolStatus('ffmpeg'),
+    readToolStatus('ffprobe'),
+  ])
+}
+
+async function requireBinary(binary: LocalSourceToolName): Promise<void> {
+  const status = await readToolStatus(binary)
+  if (!status.available) {
+    throw new Error(`${binary} is required for local Clip Prep source acquisition/rendering.`)
   }
 }
 
@@ -150,23 +230,50 @@ export function validateOutputPathInsideAssetRoot(outputPath: string, root: stri
   return absoluteOutput
 }
 
+async function newestMp4File(sourceDir: string, stem: string): Promise<string | null> {
+  const entries = await readdir(sourceDir, { withFileTypes: true }).catch(() => [])
+  const matches: Array<{ path: string; mtimeMs: number }> = []
+  for (const entry of entries) {
+    if (!entry.isFile()) continue
+    if (!entry.name.toLowerCase().endsWith('.mp4')) continue
+    if (!entry.name.startsWith(stem)) continue
+    const filePath = path.join(sourceDir, entry.name)
+    const fileStat = await stat(filePath).catch(() => null)
+    if (fileStat?.isFile()) {
+      matches.push({ path: filePath, mtimeMs: fileStat.mtimeMs })
+    }
+  }
+  matches.sort((left, right) => right.mtimeMs - left.mtimeMs)
+  return matches[0]?.path ?? null
+}
+
 async function resolveSourceMp4(input: {
   source: string
   assetRoot: string
+  sourceDir?: string | null
   packageId: string | null
   candidateId: string
-}): Promise<{ sourcePath: string; downloaded: boolean }> {
+  downloadSource?: boolean
+}): Promise<{ sourcePath: string; downloaded: boolean; sourceDir: string }> {
   const clean = input.source.trim()
   if (!clean) {
     throw new Error('Local source MP4 path or source URL is required.')
   }
 
   if (!isHttpUrl(clean)) {
-    return { sourcePath: await validateLocalSourceMp4(clean), downloaded: false }
+    return {
+      sourcePath: await validateLocalSourceMp4(clean),
+      downloaded: false,
+      sourceDir: localSourceDir({ assetRoot: input.assetRoot, sourceDir: input.sourceDir }),
+    }
+  }
+
+  if (!input.downloadSource) {
+    throw new Error('source_missing: Source URL requires explicit --download-source before local Clip Prep render.')
   }
 
   await requireBinary('yt-dlp')
-  const sourceDir = path.join(input.assetRoot, 'source-assets')
+  const sourceDir = localSourceDir({ assetRoot: input.assetRoot, sourceDir: input.sourceDir })
   await mkdir(sourceDir, { recursive: true })
   const stem = sanitizeFileStem([
     input.packageId ? `pkg-${input.packageId}` : null,
@@ -175,24 +282,31 @@ async function resolveSourceMp4(input: {
   ].filter(Boolean).join('-'))
   const outputTemplate = path.join(sourceDir, `${stem}.%(ext)s`)
 
-  await execFileAsync(
-    'yt-dlp',
-    [
-      '--no-playlist',
-      '-f',
-      'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best',
-      '--merge-output-format',
-      'mp4',
-      '-o',
-      outputTemplate,
-      clean,
-    ],
-    { maxBuffer: 1024 * 1024 * 20 },
-  )
+  try {
+    await execFileAsync(
+      'yt-dlp',
+      [
+        '--no-playlist',
+        '-f',
+        'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best',
+        '--merge-output-format',
+        'mp4',
+        '-o',
+        outputTemplate,
+        clean,
+      ],
+      { maxBuffer: 1024 * 1024 * 20 },
+    )
 
-  return {
-    sourcePath: await validateLocalSourceMp4(path.join(sourceDir, `${stem}.mp4`)),
-    downloaded: true,
+    const downloadedPath = await newestMp4File(sourceDir, stem)
+    return {
+      sourcePath: await validateLocalSourceMp4(downloadedPath ?? path.join(sourceDir, `${stem}.mp4`)),
+      downloaded: true,
+      sourceDir,
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    throw new Error(message.startsWith('download_failed:') ? message : `download_failed: ${message}`)
   }
 }
 
@@ -292,6 +406,33 @@ export async function resolveClipPrepForLocalRender(
   }
 }
 
+async function resolveSourceTargetForLocalAcquisition(
+  supabase: LocalRenderPrepDb,
+  input: { packageId?: string | null; candidateId?: string | null },
+): Promise<ResolvedSourceTarget> {
+  const requestedPackageId = input.packageId?.trim() || null
+  const requestedCandidateId = input.candidateId?.trim() || null
+  if (!requestedPackageId && !requestedCandidateId) {
+    throw new Error('Use --package-id <id> or --candidate-id <id>.')
+  }
+
+  const pkg = requestedPackageId
+    ? await resolvePackageById(supabase, requestedPackageId)
+    : requestedCandidateId
+      ? await resolvePackageByCandidateId(supabase, requestedCandidateId)
+      : null
+  const candidateId = requestedCandidateId || pkg?.clip_candidate_id
+  if (!candidateId) {
+    throw new Error('Clip candidate could not be resolved from input.')
+  }
+
+  return {
+    packageId: pkg?.id ?? null,
+    candidateId,
+    sourceUrl: pkg?.source_url ?? readNestedString(pkg?.package_payload, ['source', 'url']),
+  }
+}
+
 export function localRenderOutputPath(input: {
   candidateId: string
   packageId?: string | null
@@ -317,6 +458,110 @@ export function localRenderOutputPath(input: {
   }
 }
 
+export async function acquireLocalSourceForClipPrep(
+  supabase: LocalRenderPrepDb,
+  input: {
+    packageId?: string | null
+    candidateId?: string | null
+    sourcePath?: string | null
+    sourceUrl?: string | null
+    assetRoot?: string | null
+    sourceDir?: string | null
+    downloadSource?: boolean
+  },
+): Promise<LocalSourceAcquisitionResult> {
+  const target = await resolveSourceTargetForLocalAcquisition(supabase, {
+    packageId: input.packageId,
+    candidateId: input.candidateId,
+  })
+  const root = assetRoot({ assetRoot: input.assetRoot })
+  const sourceDir = localSourceDir({ assetRoot: root, sourceDir: input.sourceDir })
+  const tools = await validateLocalSourceTools()
+  const sourceUrl = input.sourceUrl?.trim() || target.sourceUrl || null
+  const sourceInput = input.sourcePath?.trim() || sourceUrl || ''
+
+  const missing = (message: string): LocalSourceAcquisitionResult => ({
+    status: 'source_missing',
+    packageId: target.packageId,
+    candidateId: target.candidateId,
+    sourceUrl,
+    sourcePath: null,
+    sourceDownloaded: false,
+    assetRoot: root,
+    sourceDir,
+    error: message,
+    tools,
+    safety: {
+      downloadsVideo: false,
+      uploadsVideo: false,
+      postsVideo: false,
+      clicksFinalPost: false,
+      livePublish: false,
+    },
+  })
+
+  if (!sourceInput) {
+    return missing('source_missing: Package/candidate does not include a source URL and no --source-path was provided.')
+  }
+
+  if (isHttpUrl(sourceInput) && !input.downloadSource) {
+    return missing('source_missing: Source URL is available, but download is manual-only. Re-run with --download-source to fetch it locally.')
+  }
+
+  try {
+    const source = await resolveSourceMp4({
+      source: sourceInput,
+      assetRoot: root,
+      sourceDir,
+      packageId: target.packageId,
+      candidateId: target.candidateId,
+      downloadSource: input.downloadSource,
+    })
+    return {
+      status: 'render_ready',
+      packageId: target.packageId,
+      candidateId: target.candidateId,
+      sourceUrl,
+      sourcePath: source.sourcePath,
+      sourceDownloaded: source.downloaded,
+      assetRoot: root,
+      sourceDir,
+      error: null,
+      tools,
+      safety: {
+        downloadsVideo: source.downloaded,
+        uploadsVideo: false,
+        postsVideo: false,
+        clicksFinalPost: false,
+        livePublish: false,
+      },
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
+    const status = isHttpUrl(sourceInput) ? 'download_failed' : 'source_missing'
+    const errorMessage = message.startsWith(`${status}:`) ? message : `${status}: ${message}`
+    return {
+      status,
+      packageId: target.packageId,
+      candidateId: target.candidateId,
+      sourceUrl,
+      sourcePath: null,
+      sourceDownloaded: false,
+      assetRoot: root,
+      sourceDir,
+      error: errorMessage,
+      tools,
+      safety: {
+        downloadsVideo: Boolean(isHttpUrl(sourceInput) && input.downloadSource),
+        uploadsVideo: false,
+        postsVideo: false,
+        clicksFinalPost: false,
+        livePublish: false,
+      },
+    }
+  }
+}
+
 export async function renderLocalClipPrepMp4(input: {
   sourcePath: string
   outputPath: string
@@ -325,6 +570,7 @@ export async function renderLocalClipPrepMp4(input: {
   endSeconds: number
 }): Promise<{ outputPath: string; sizeBytes: number; durationSeconds: number }> {
   await requireBinary('ffmpeg')
+  await requireBinary('ffprobe')
   const sourcePath = await validateLocalSourceMp4(input.sourcePath)
   const outputPath = validateOutputPathInsideAssetRoot(input.outputPath, input.assetRoot)
   const durationSeconds = Number((input.endSeconds - input.startSeconds).toFixed(3))
@@ -384,7 +630,9 @@ export async function renderLocalClipPrepForCandidateOrPackage(
     sourcePath?: string | null
     sourceUrl?: string | null
     assetRoot?: string | null
+    sourceDir?: string | null
     outputDir?: string | null
+    downloadSource?: boolean
     attach?: boolean
     now?: () => Date
   },
@@ -403,8 +651,10 @@ export async function renderLocalClipPrepForCandidateOrPackage(
   const source = await resolveSourceMp4({
     source: input.sourcePath?.trim() || input.sourceUrl?.trim() || prep.sourceUrl || '',
     assetRoot: output.assetRoot,
+    sourceDir: input.sourceDir,
     packageId: prep.packageId,
     candidateId: prep.candidateId,
+    downloadSource: input.downloadSource,
   })
   const rendered = await renderLocalClipPrepMp4({
     sourcePath: source.sourcePath,
@@ -430,6 +680,7 @@ export async function renderLocalClipPrepForCandidateOrPackage(
     candidateId: prep.candidateId,
     sourcePath: source.sourcePath,
     sourceDownloaded: source.downloaded,
+    sourceDir: source.sourceDir,
     outputPath: rendered.outputPath,
     assetRoot: output.assetRoot,
     startSeconds: prep.startSeconds,
