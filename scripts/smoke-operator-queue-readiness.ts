@@ -234,6 +234,24 @@ async function main() {
     assert.equal(packagedReadiness.macMiniPackageReady, true)
     assert.equal(packagedReadiness.localRenderAttached, false)
 
+    const notYetStagedReadiness = buildQueueReadiness(candidateId, candidate, {
+      id: String(packageRow?.id),
+      lane_label: String(packageRow?.lane_label),
+      browser_channel_key: String(packageRow?.browser_channel_key),
+      package_status: 'ready',
+      handoff_status: 'pending',
+      asset_status: 'attached',
+      local_asset_path: verifiedAssetPath,
+      tiktok_staging_status: 'not_requested',
+    })
+    assert.equal(notYetStagedReadiness.clipPrepReady, true)
+    assert.equal(notYetStagedReadiness.localRenderAttached, true)
+    assert.equal(notYetStagedReadiness.tiktokStaging.status, 'not_requested')
+    assert.equal(notYetStagedReadiness.tiktokStaging.readyForTikTokRetry, true)
+    assert.equal(notYetStagedReadiness.tiktokStaging.operatorState, 'ready_for_tiktok_retry')
+    assert.equal(notYetStagedReadiness.tiktokStaging.eligible, true)
+    assert.equal(notYetStagedReadiness.tiktokStaging.readyForManualPost, false)
+
     const retryReadyReadiness = buildQueueReadiness(candidateId, candidate, {
       id: String(packageRow?.id),
       lane_label: String(packageRow?.lane_label),
@@ -305,6 +323,8 @@ async function main() {
         macMiniPackageReady: packagedReadiness.macMiniPackageReady,
         localRenderAttached: packagedReadiness.localRenderAttached,
         packageId: packagedReadiness.macMiniPackageId,
+        notYetStagedReadyForTikTokRetry: notYetStagedReadiness.tiktokStaging.readyForTikTokRetry,
+        notYetStagedOperatorState: notYetStagedReadiness.tiktokStaging.operatorState,
         readyForTikTokRetry: retryReadyReadiness.tiktokStaging.readyForTikTokRetry,
         retryOperatorState: retryReadyReadiness.tiktokStaging.operatorState,
         tiktokLoginBlocked: loginBlockedReadiness.tiktokStaging.loginBlocked,
