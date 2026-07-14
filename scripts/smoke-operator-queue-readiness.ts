@@ -181,6 +181,43 @@ async function main() {
     })
     assert.equal(packagedReadiness.macMiniPackageReady, true)
     assert.equal(packagedReadiness.localRenderAttached, false)
+
+    const loginBlockedReadiness = buildQueueReadiness(candidateId, candidate, {
+      id: String(packageRow?.id),
+      lane_label: String(packageRow?.lane_label),
+      browser_channel_key: String(packageRow?.browser_channel_key),
+      package_status: 'dry_run_failed',
+      handoff_status: 'dry_run_failed',
+      asset_status: 'attached',
+      local_asset_path: '/tmp/mac-mini-assets/rbhq-smoke.mp4',
+      dry_run_error: 'TIKTOK_LOGIN_REQUIRED',
+      dry_run_result: {
+        uploaderResult: {
+          blocker: 'TIKTOK_LOGIN_REQUIRED',
+          logged_in: false,
+          staging: {
+            requested: true,
+            uploadStaged: false,
+            captionFilled: false,
+            stoppedBeforeFinalPost: true,
+            manualApprovalRequired: true,
+          },
+          safety: {
+            usesTikTokApi: false,
+            marksRbhqPublished: false,
+            clicksFinalPost: false,
+          },
+        },
+      },
+      tiktok_staging_status: 'blocked',
+      tiktok_staging_error: 'TIKTOK_LOGIN_REQUIRED',
+    })
+    assert.equal(loginBlockedReadiness.tiktokStaging.operatorState, 'tiktok_login_blocked')
+    assert.equal(loginBlockedReadiness.tiktokStaging.loginBlocked, true)
+    assert.equal(loginBlockedReadiness.tiktokStaging.prepCanContinue, true)
+    assert.equal(loginBlockedReadiness.tiktokStaging.retryAfterAccessRestored, true)
+    assert.equal(loginBlockedReadiness.tiktokStaging.tikTokSession, 'missing')
+    assert.equal(loginBlockedReadiness.localRenderAttached, true)
     assert.equal(fetchCalls, 0)
 
     console.log(JSON.stringify({
@@ -197,6 +234,9 @@ async function main() {
         macMiniPackageReady: packagedReadiness.macMiniPackageReady,
         localRenderAttached: packagedReadiness.localRenderAttached,
         packageId: packagedReadiness.macMiniPackageId,
+        tiktokLoginBlocked: loginBlockedReadiness.tiktokStaging.loginBlocked,
+        prepCanContinue: loginBlockedReadiness.tiktokStaging.prepCanContinue,
+        retryAfterAccessRestored: loginBlockedReadiness.tiktokStaging.retryAfterAccessRestored,
       },
       safety: {
         networkCalls: fetchCalls,

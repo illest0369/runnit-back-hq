@@ -221,6 +221,10 @@ async function main() {
 
   const loginBlocked = buildQueueReadiness(candidate.id, candidate, db.rows('mac_mini_clip_packages')[0] as never)
   assert.equal(loginBlocked.tiktokStaging.status, 'blocked')
+  assert.equal(loginBlocked.tiktokStaging.operatorState, 'tiktok_login_blocked')
+  assert.equal(loginBlocked.tiktokStaging.loginBlocked, true)
+  assert.equal(loginBlocked.tiktokStaging.prepCanContinue, true)
+  assert.equal(loginBlocked.tiktokStaging.retryAfterAccessRestored, true)
   assert.equal(loginBlocked.tiktokStaging.tikTokSession, 'missing')
   assert.equal(loginBlocked.tiktokStaging.blocker, 'TikTok session needs local login.')
 
@@ -286,6 +290,9 @@ async function main() {
     readiness: {
       missingAssetBlocker: missingAsset.tiktokStaging.blocker,
       missingSession: loginBlocked.tiktokStaging.tikTokSession,
+      loginBlocked: loginBlocked.tiktokStaging.loginBlocked,
+      prepCanContinue: loginBlocked.tiktokStaging.prepCanContinue,
+      retryAfterAccessRestored: loginBlocked.tiktokStaging.retryAfterAccessRestored,
       readyForManualPost: ready.tiktokStaging.readyForManualPost,
       videoStaged: ready.tiktokStaging.videoStaged,
       captionFilled: ready.tiktokStaging.captionFilled,

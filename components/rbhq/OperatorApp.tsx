@@ -138,8 +138,12 @@ type TikTokStagingReadiness = {
   channelKey: string | null;
   packageId: string | null;
   status: "not_requested" | "requested" | "ready_for_manual_post" | "blocked" | "failed";
+  operatorState: "not_ready" | "ready_to_stage" | "staging_requested" | "tiktok_login_blocked" | "dry_run_failed" | "ready_for_manual_post";
   eligible: boolean;
   readyForManualPost: boolean;
+  loginBlocked: boolean;
+  prepCanContinue: boolean;
+  retryAfterAccessRestored: boolean;
   blocker: string | null;
   requestedAt: string | null;
   stagedAt: string | null;
@@ -337,8 +341,12 @@ const DEFAULT_PACKAGE_READINESS: PackageReadiness = {
     channelKey: null,
     packageId: null,
     status: "not_requested",
+    operatorState: "not_ready",
     eligible: false,
     readyForManualPost: false,
+    loginBlocked: false,
+    prepCanContinue: false,
+    retryAfterAccessRestored: false,
     blocker: "Mac mini package is missing.",
     requestedAt: null,
     stagedAt: null,
@@ -1403,6 +1411,11 @@ function QueueClipCard({
   const canStageInTikTok = Boolean(clip.packageReadiness.macMiniPackageId) &&
     staging.status !== "requested" &&
     (staging.eligible || canRetryStaging);
+  const stagingTitle = isTikTokLoginBlocked(staging)
+    ? "Retry dry-run after account access is restored"
+    : canStageInTikTok
+    ? "Stage in TikTok"
+    : staging.blocker ?? "Staging unavailable";
 
   return (
     <div>
@@ -1545,7 +1558,7 @@ function QueueClipCard({
           type="button"
           onClick={() => onModerate(clip.id, "stage_in_tiktok")}
           disabled={!canStageInTikTok}
-          title={canStageInTikTok ? "Stage in TikTok" : staging.blocker ?? "Staging unavailable"}
+          title={stagingTitle}
           className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-2 text-[10.5px] font-black text-[var(--rb-text)] active:scale-[0.98] disabled:opacity-45"
         >
           <Send className="h-4 w-4" strokeWidth={1.8} />
@@ -1654,8 +1667,13 @@ function formatBlockerMessage(value: string | null | undefined) {
   return value.replace(/_/g, " ");
 }
 
+function isTikTokLoginBlocked(staging: TikTokStagingReadiness) {
+  return staging.loginBlocked || staging.operatorState === "tiktok_login_blocked" || (staging.status === "blocked" && staging.tikTokSession === "missing");
+}
+
 function tiktokStagingLabel(staging: TikTokStagingReadiness) {
   if (staging.readyForManualPost) return "Ready for manual Post";
+  if (isTikTokLoginBlocked(staging)) return "Login blocked · prep continues";
   if (staging.tikTokSession === "missing") return "TikTok login required";
   if (staging.status === "requested") return "Staging requested";
   if (staging.status === "blocked") return "Staging blocked";
@@ -1666,6 +1684,7 @@ function tiktokStagingLabel(staging: TikTokStagingReadiness) {
 
 function stagingTone(staging: TikTokStagingReadiness) {
   if (staging.readyForManualPost) return "bg-[#ECFDF5] text-[#128A49] border-[#128A49]/20";
+  if (isTikTokLoginBlocked(staging)) return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
   if (staging.status === "blocked" || staging.status === "failed") return "bg-[#FFF1F2] text-[#DC2626] border-[#DC2626]/20";
   if (staging.eligible || staging.status === "requested") return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
   return "bg-[#F5F5F5] text-[#6F6A60] border-[var(--rb-line)]";
@@ -1709,6 +1728,7 @@ function OperatorStagingPanel({ readiness }: { readiness: PackageReadiness }) {
   const staging = readiness.tiktokStaging;
   const blocker = formatBlockerMessage(staging.blocker || staging.error);
   const assetMissing = Boolean(readiness.macMiniPackageId) && !readiness.localRenderAttached;
+  const loginBlocked = isTikTokLoginBlocked(staging);
   const rows = [
     ["lane/channel", [staging.laneLabel, staging.channelKey].filter(Boolean).join(" · ")],
     ["package ID", staging.packageId],
@@ -1732,16 +1752,27 @@ function OperatorStagingPanel({ readiness }: { readiness: PackageReadiness }) {
       </div>
       {staging.readyForManualPost ? (
         <p className="mt-2 text-[13px] font-black text-[#128A49]">Ready for manual Post</p>
+      ) : loginBlocked ? (
+        <div className="mt-3 rounded-[12px] border border-[#B45309]/20 bg-[#FFFBEB] px-3 py-2">
+          <p className="text-[12px] font-black leading-4 text-[#92400E]">TikTok login required — clip prep can continue</p>
+          <p className="mt-1 text-[11px] font-bold leading-4 text-[#B45309]">Do not retry login repeatedly.</p>
+          <p className="mt-1 text-[11px] font-bold leading-4 text-[#B45309]">Retry dry-run after account access is restored.</p>
+          {staging.retryAfterAccessRestored ? (
+            <p className="mt-1 text-[10.5px] font-semibold leading-4 text-[#6F6A60]">Package, caption, and local MP4 remain ready for TikTok retry later.</p>
+          ) : null}
+        </div>
       ) : blocker ? (
         <p className={`mt-2 text-[11.5px] font-semibold leading-4 ${staging.status === "failed" || staging.tikTokSession === "missing" || assetMissing ? "text-[#DC2626]" : "text-[#B45309]"}`}>
           {blocker}
         </p>
       ) : null}
-      {(readiness.clipPrepStatus === "metadata_only" || assetMissing || staging.status === "failed" || staging.tikTokSession === "missing") && (
+      {(readiness.clipPrepStatus === "metadata_only" || assetMissing || staging.status === "failed" || loginBlocked || staging.tikTokSession === "missing") && (
         <div className="mt-3 flex items-start gap-2 rounded-[12px] border border-[#DC2626]/15 bg-[#FFF1F2] px-3 py-2 text-[#DC2626]">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.8} />
           <p className="text-[11px] font-bold leading-4">
-            {staging.tikTokSession === "missing"
+            {loginBlocked
+              ? "Keep reviewing Daily Plan, selecting moments, refreshing Clip Prep, rendering local MP4s, and attaching assets while TikTok access cools down."
+              : staging.tikTokSession === "missing"
               ? "TikTok login required locally before staging can continue."
               : staging.status === "failed"
               ? "Dry-run failed; review the Mac mini dry-run error before retrying."

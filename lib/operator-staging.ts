@@ -9,13 +9,25 @@ export type TikTokStagingStatus =
 
 export type TikTokSessionReadiness = 'ready' | 'missing' | 'unknown'
 
+export type TikTokStagingOperatorState =
+  | 'not_ready'
+  | 'ready_to_stage'
+  | 'staging_requested'
+  | 'tiktok_login_blocked'
+  | 'dry_run_failed'
+  | 'ready_for_manual_post'
+
 export type TikTokStagingReadiness = {
   laneLabel: string | null
   channelKey: string | null
   packageId: string | null
   status: TikTokStagingStatus
+  operatorState: TikTokStagingOperatorState
   eligible: boolean
   readyForManualPost: boolean
+  loginBlocked: boolean
+  prepCanContinue: boolean
+  retryAfterAccessRestored: boolean
   blocker: string | null
   requestedAt: string | null
   stagedAt: string | null
@@ -100,6 +112,20 @@ function normalizeStatus(value: unknown): TikTokStagingStatus {
   return 'not_requested'
 }
 
+function operatorStateFor(input: {
+  readyForManualPost: boolean
+  loginBlocked: boolean
+  status: TikTokStagingStatus
+  eligible: boolean
+}): TikTokStagingOperatorState {
+  if (input.readyForManualPost) return 'ready_for_manual_post'
+  if (input.loginBlocked) return 'tiktok_login_blocked'
+  if (input.status === 'requested') return 'staging_requested'
+  if (input.status === 'failed' || input.status === 'blocked') return 'dry_run_failed'
+  if (input.eligible) return 'ready_to_stage'
+  return 'not_ready'
+}
+
 export function deriveTikTokStagingStatus(input: {
   status: 'success' | 'failure'
   result?: Record<string, unknown> | null
@@ -140,6 +166,14 @@ export function buildTikTokStagingReadiness(
     ? 'ready_for_manual_post'
     : normalizeStatus(pkg?.tiktok_staging_status)
   const readyForManualPost = status === 'ready_for_manual_post'
+  const tikTokSession = readSessionReadiness(uploaderResult, blocker)
+  const loginBlocked = status === 'blocked' && tikTokSession === 'missing'
+  const prepCanContinue = loginBlocked
+  const retryAfterAccessRestored = loginBlocked &&
+    candidate?.clipPrepStatus === 'ready' &&
+    Boolean(pkg?.id) &&
+    pkg?.asset_status === 'attached' &&
+    Boolean(pkg?.local_asset_path)
 
   let missing: string | null = null
   if (!candidateId) missing = 'Missing Intelligence V1 candidate link.'
@@ -149,20 +183,25 @@ export function buildTikTokStagingReadiness(
   else if (pkg.asset_status !== 'attached' || !pkg.local_asset_path) missing = 'Local render attachment is missing.'
   else if (readyForManualPost) missing = 'Ready for manual Post.'
   else if (status === 'requested') missing = 'Staging is already requested.'
-  else if (readSessionReadiness(uploaderResult, blocker) === 'missing') missing = 'TikTok session needs local login.'
+  else if (tikTokSession === 'missing') missing = 'TikTok session needs local login.'
+  const eligible = missing === null
 
   return {
     laneLabel: pkg?.lane_label ?? null,
     channelKey: pkg?.browser_channel_key ?? null,
     packageId: pkg?.id ?? null,
     status,
-    eligible: missing === null,
+    operatorState: operatorStateFor({ readyForManualPost, loginBlocked, status, eligible }),
+    eligible,
     readyForManualPost,
+    loginBlocked,
+    prepCanContinue,
+    retryAfterAccessRestored,
     blocker: missing ?? blocker,
     requestedAt,
     stagedAt: pkg?.tiktok_staging_at ?? (readyForManualPost ? pkg?.dry_run_at ?? null : null),
     attachedAssetStatus: pkg?.asset_status ?? null,
-    tikTokSession: readSessionReadiness(uploaderResult, blocker),
+    tikTokSession,
     videoStaged,
     captionFilled,
     screenshotPath: readScreenshotPath(uploaderResult),
