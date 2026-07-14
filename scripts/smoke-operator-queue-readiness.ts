@@ -1,4 +1,8 @@
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+import { promisify } from 'node:util'
 
 import { createMacMiniClipPackageFromCandidate } from '../lib/mac-mini-handoff'
 import {
@@ -6,6 +10,9 @@ import {
   buildQueueReadiness,
   extractCandidateIdFromNotes,
 } from '../lib/operator-queue-readiness'
+import { validateRetryReadyLocalAsset } from '../lib/retry-ready-asset-validation'
+
+const execFileAsync = promisify(execFile)
 
 type Row = Record<string, unknown>
 type TableName = 'clip_candidates' | 'mac_mini_clip_packages'
@@ -83,6 +90,28 @@ class MemorySupabase {
   }
 }
 
+async function createSmokeMp4(assetPath: string) {
+  await mkdir(path.dirname(assetPath), { recursive: true })
+  await execFileAsync(
+    'ffmpeg',
+    [
+      '-y',
+      '-f',
+      'lavfi',
+      '-i',
+      'testsrc2=size=160x90:rate=24',
+      '-t',
+      '1',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      assetPath,
+    ],
+    { maxBuffer: 1024 * 1024 * 10 },
+  )
+}
+
 async function main() {
   const originalFetch = globalThis.fetch
   let fetchCalls = 0
@@ -92,6 +121,29 @@ async function main() {
   }) as typeof fetch
 
   try {
+    const assetRoot = path.join(process.cwd(), 'tmp', 'retry-ready-asset-validation-smoke')
+    const verifiedAssetPath = path.join(assetRoot, 'verified.mp4')
+    const unreadableAssetPath = path.join(assetRoot, 'unreadable.mp4')
+    await rm(assetRoot, { recursive: true, force: true })
+    await mkdir(assetRoot, { recursive: true })
+    await createSmokeMp4(verifiedAssetPath)
+    await writeFile(unreadableAssetPath, 'not an mp4')
+
+    const verifiedAsset = await validateRetryReadyLocalAsset(verifiedAssetPath)
+    assert.equal(verifiedAsset.asset_validation, 'verified')
+    assert.equal(verifiedAsset.locallyVerified, true)
+    assert.ok((verifiedAsset.durationSeconds ?? 0) > 0)
+
+    const missingAssetValidation = await validateRetryReadyLocalAsset(path.join(assetRoot, 'missing.mp4'))
+    assert.equal(missingAssetValidation.asset_validation, 'missing')
+    assert.equal(missingAssetValidation.locallyVerified, false)
+    assert.match(missingAssetValidation.reason ?? '', /does not exist/)
+
+    const unreadableAsset = await validateRetryReadyLocalAsset(unreadableAssetPath)
+    assert.equal(unreadableAsset.asset_validation, 'unreadable')
+    assert.equal(unreadableAsset.locallyVerified, false)
+    assert.match(unreadableAsset.reason ?? '', /ffprobe/)
+
     const candidateId = '11111111-1111-4111-8111-111111111111'
     const packageId = '22222222-2222-4222-8222-222222222222'
     const notes = [
@@ -258,6 +310,12 @@ async function main() {
         tiktokLoginBlocked: loginBlockedReadiness.tiktokStaging.loginBlocked,
         prepCanContinue: loginBlockedReadiness.tiktokStaging.prepCanContinue,
         retryAfterAccessRestored: loginBlockedReadiness.tiktokStaging.retryAfterAccessRestored,
+      },
+      assetValidation: {
+        verified: verifiedAsset.asset_validation,
+        verifiedDurationSeconds: verifiedAsset.durationSeconds,
+        missing: missingAssetValidation.asset_validation,
+        unreadable: unreadableAsset.asset_validation,
       },
       safety: {
         networkCalls: fetchCalls,

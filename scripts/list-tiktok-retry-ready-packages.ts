@@ -6,6 +6,7 @@ import {
   type QueueCandidateForReadiness,
   type QueuePackageForReadiness,
 } from '../lib/operator-queue-readiness'
+import { validateRetryReadyLocalAsset } from '../lib/retry-ready-asset-validation'
 
 config({ path: '.env.local', quiet: true })
 config({ quiet: true })
@@ -113,17 +114,26 @@ async function main() {
       return { pkg, candidate, readiness, range: clipRange(candidate, pkg) }
     })
     .filter((item) => item.readiness.tiktokStaging.readyForTikTokRetry)
+  const readyWithAssetValidation = await Promise.all(ready.map(async (item) => ({
+    ...item,
+    assetValidation: await validateRetryReadyLocalAsset(item.pkg.local_asset_path),
+  })))
 
   console.log(JSON.stringify({
     result: 'PASS',
-    count: ready.length,
-    packages: ready.map(({ pkg, candidate, readiness, range }) => ({
+    count: readyWithAssetValidation.length,
+    locallyVerifiedCount: readyWithAssetValidation.filter((item) => item.assetValidation.locallyVerified).length,
+    packages: readyWithAssetValidation.map(({ pkg, candidate, readiness, range, assetValidation }) => ({
       packageId: pkg.id,
       candidateId: pkg.clip_candidate_id,
       lane: pkg.lane_label,
       sourceTitle: pkg.source_title,
       assetPath: pkg.local_asset_path,
       assetStatus: pkg.asset_status,
+      asset_validation: assetValidation.asset_validation,
+      locallyVerified: assetValidation.locallyVerified,
+      probedDurationSeconds: assetValidation.durationSeconds,
+      assetValidationReason: assetValidation.reason,
       clipPrepStatus: candidate?.clip_prep_status ?? null,
       clipRange: range,
       caption: pkg.caption,
