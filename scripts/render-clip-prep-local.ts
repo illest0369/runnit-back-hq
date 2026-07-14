@@ -36,6 +36,7 @@ async function main() {
   const assetRoot = readArg('--asset-root') ?? process.env.MAC_MINI_ASSET_ROOT?.trim() ?? null
   const sourceDir = readArg('--source-dir') ?? process.env.CLIP_PREP_LOCAL_SOURCE_DIR?.trim() ?? null
   const outputDir = readArg('--output-dir') ?? null
+  const openingText = readArg('--opening-text') ?? null
   const downloadSource = hasFlag('--download-source')
   const attach = hasFlag('--attach')
   const verticalAsset = hasFlag('--vertical-asset')
@@ -53,6 +54,7 @@ async function main() {
       packageId,
       assetRoot,
       outputDir,
+      openingText,
     })
 
     console.log(JSON.stringify({
@@ -67,6 +69,8 @@ async function main() {
         assetRoot: result.assetRoot,
         durationSeconds: result.durationSeconds,
         sizeBytes: result.sizeBytes,
+        renderPlan: result.renderPlan,
+        qualityValidation: result.qualityValidation,
         attached: false,
       },
       safety: {
@@ -113,6 +117,7 @@ async function main() {
       endSeconds: result.endSeconds,
       durationSeconds: result.durationSeconds,
       sizeBytes: result.sizeBytes,
+      qualityValidation: result.qualityValidation,
       attached: result.attached,
       attachedPackageId: result.attachedPackage?.id ?? null,
       attachedAssetStatus: result.attachedPackage?.assetStatus ?? null,

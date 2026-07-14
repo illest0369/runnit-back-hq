@@ -44,6 +44,7 @@ export type LocalRenderPrepResult = {
   endSeconds: number
   durationSeconds: number
   sizeBytes: number
+  qualityValidation: LocalRenderQualityValidation
   attached: boolean
   attachedPackage: MacMiniClipPackage | null
   safety: {
@@ -57,6 +58,46 @@ export type LocalRenderPrepResult = {
 
 export type LocalRenderLayout = 'source' | 'vertical-blur'
 
+export type LocalRenderQualityValidation = {
+  valid: boolean
+  width: number | null
+  height: number | null
+  durationSeconds: number | null
+  videoCodec: string | null
+  audioCodec: string | null
+  pixelFormat: string | null
+  hasAudio: boolean
+  issues: string[]
+}
+
+export type LocalVerticalRenderPlan = {
+  targetWidth: 1080
+  targetHeight: 1920
+  aspectRatio: '9:16'
+  layout: 'vertical-blur'
+  safeCropStrategy: 'blurred-background-with-contained-foreground'
+  foreground: {
+    scale: 'contain'
+    crop: false
+  }
+  background: {
+    scale: 'cover'
+    crop: true
+    blurSigma: 30
+  }
+  textOverlay: {
+    burnedIn: false
+    openingText: string | null
+    note: string
+  }
+  captionSafeZone: {
+    topPixels: 250
+    bottomPixels: 420
+    sidePixels: 80
+    note: string
+  }
+}
+
 export type LocalVerticalAssetRenderResult = {
   status: 'rendered'
   layout: 'vertical-blur'
@@ -67,6 +108,8 @@ export type LocalVerticalAssetRenderResult = {
   assetRoot: string
   durationSeconds: number
   sizeBytes: number
+  renderPlan: LocalVerticalRenderPlan
+  qualityValidation: LocalRenderQualityValidation
   safety: {
     downloadsVideo: false
     uploadsVideo: false
@@ -179,6 +222,36 @@ function readFirstPositiveNumber(values: Array<number | string | null | undefine
     if (parsed !== null && parsed > 0) return parsed
   }
   return null
+}
+
+function verticalRenderPlan(openingText: string | null | undefined): LocalVerticalRenderPlan {
+  return {
+    targetWidth: 1080,
+    targetHeight: 1920,
+    aspectRatio: '9:16',
+    layout: 'vertical-blur',
+    safeCropStrategy: 'blurred-background-with-contained-foreground',
+    foreground: {
+      scale: 'contain',
+      crop: false,
+    },
+    background: {
+      scale: 'cover',
+      crop: true,
+      blurSigma: 30,
+    },
+    textOverlay: {
+      burnedIn: false,
+      openingText: openingText?.trim() || null,
+      note: 'Opening text is metadata for the editor/operator. The local renderer does not burn text into the MP4.',
+    },
+    captionSafeZone: {
+      topPixels: 250,
+      bottomPixels: 420,
+      sidePixels: 80,
+      note: 'Keep faces, ball/action, and any future overlays inside this caption-safe zone; platform captions and controls can cover edges.',
+    },
+  }
 }
 
 async function readToolStatus(binary: LocalSourceToolName): Promise<LocalSourceToolStatus> {
@@ -622,7 +695,7 @@ export async function renderLocalClipPrepMp4(input: {
   startSeconds: number
   endSeconds: number
   layout?: LocalRenderLayout
-}): Promise<{ outputPath: string; sizeBytes: number; durationSeconds: number }> {
+}): Promise<{ outputPath: string; sizeBytes: number; durationSeconds: number; qualityValidation: LocalRenderQualityValidation }> {
   await requireBinary('ffmpeg')
   await requireBinary('ffprobe')
   const sourcePath = await validateLocalSourceMp4(input.sourcePath)
@@ -684,15 +757,24 @@ export async function renderLocalClipPrepMp4(input: {
   if (!outputStat.isFile() || outputStat.size <= 0) {
     throw new Error('ffmpeg did not produce a non-empty local Clip Prep MP4.')
   }
+  const qualityValidation = await validateRenderedMp4Quality(outputPath, {
+    expectedDurationSeconds: durationSeconds,
+    expectedWidth: layout === 'vertical-blur' ? 1080 : null,
+    expectedHeight: layout === 'vertical-blur' ? 1920 : null,
+  })
+  if (!qualityValidation.valid) {
+    throw new Error(`ffprobe rejected rendered Clip Prep MP4: ${qualityValidation.issues.join('; ')}`)
+  }
 
   return {
     outputPath,
     sizeBytes: outputStat.size,
     durationSeconds,
+    qualityValidation,
   }
 }
 
-export async function probeLocalMp4DurationSeconds(sourcePath: string): Promise<number> {
+async function probeLocalMp4Quality(sourcePath: string): Promise<LocalRenderQualityValidation> {
   await requireBinary('ffprobe')
   const absoluteSourcePath = await validateLocalSourceMp4(sourcePath)
   const { stdout } = await execFileAsync(
@@ -701,7 +783,7 @@ export async function probeLocalMp4DurationSeconds(sourcePath: string): Promise<
       '-v',
       'error',
       '-show_entries',
-      'stream=codec_type,duration',
+      'stream=codec_type,codec_name,width,height,pix_fmt,duration',
       '-show_entries',
       'format=duration',
       '-of',
@@ -711,17 +793,76 @@ export async function probeLocalMp4DurationSeconds(sourcePath: string): Promise<
     { maxBuffer: 1024 * 1024 * 2 },
   )
   const parsed = JSON.parse(String(stdout)) as {
-    streams?: Array<{ codec_type?: string; duration?: string }>
+    streams?: Array<{
+      codec_type?: string
+      codec_name?: string
+      width?: number
+      height?: number
+      pix_fmt?: string
+      duration?: string
+    }>
     format?: { duration?: string }
   }
+  const video = parsed.streams?.find((stream) => stream.codec_type === 'video')
+  const audio = parsed.streams?.find((stream) => stream.codec_type === 'audio')
   const duration = readFirstPositiveNumber([
     parsed.format?.duration,
     ...(parsed.streams ?? []).map((stream) => stream.duration),
   ])
-  if (duration === null) {
-    throw new Error(`Could not read MP4 duration from ${absoluteSourcePath}.`)
+  return {
+    valid: true,
+    width: video?.width ?? null,
+    height: video?.height ?? null,
+    durationSeconds: duration !== null ? Number(duration.toFixed(3)) : null,
+    videoCodec: video?.codec_name ?? null,
+    audioCodec: audio?.codec_name ?? null,
+    pixelFormat: video?.pix_fmt ?? null,
+    hasAudio: Boolean(audio),
+    issues: [],
   }
-  return Number(duration.toFixed(3))
+}
+
+export async function validateRenderedMp4Quality(
+  sourcePath: string,
+  expected: {
+    expectedDurationSeconds?: number | null
+    expectedWidth?: number | null
+    expectedHeight?: number | null
+  } = {},
+): Promise<LocalRenderQualityValidation> {
+  const quality = await probeLocalMp4Quality(sourcePath)
+  const issues: string[] = []
+  if (!quality.videoCodec) issues.push('missing video stream')
+  if (quality.videoCodec && quality.videoCodec !== 'h264') issues.push(`video codec must be h264; received ${quality.videoCodec}`)
+  if (quality.pixelFormat && quality.pixelFormat !== 'yuv420p') issues.push(`pixel format should be yuv420p; received ${quality.pixelFormat}`)
+  if (!quality.hasAudio) issues.push('missing audio stream')
+  if (quality.audioCodec && quality.audioCodec !== 'aac') issues.push(`audio codec must be aac; received ${quality.audioCodec}`)
+  if (expected.expectedWidth && quality.width !== expected.expectedWidth) {
+    issues.push(`width must be ${expected.expectedWidth}; received ${quality.width ?? 'unknown'}`)
+  }
+  if (expected.expectedHeight && quality.height !== expected.expectedHeight) {
+    issues.push(`height must be ${expected.expectedHeight}; received ${quality.height ?? 'unknown'}`)
+  }
+  if (quality.durationSeconds === null) {
+    issues.push('missing positive duration')
+  } else if (expected.expectedDurationSeconds && Math.abs(quality.durationSeconds - expected.expectedDurationSeconds) > 0.35) {
+    issues.push(`duration drift exceeds 0.35s; expected ${expected.expectedDurationSeconds}, received ${quality.durationSeconds}`)
+  }
+
+  return {
+    ...quality,
+    valid: issues.length === 0,
+    issues,
+  }
+}
+
+export async function probeLocalMp4DurationSeconds(sourcePath: string): Promise<number> {
+  const quality = await probeLocalMp4Quality(sourcePath)
+  const duration = quality.durationSeconds
+  if (duration === null) {
+    throw new Error(`Could not read MP4 duration from ${path.resolve(sourcePath)}.`)
+  }
+  return duration
 }
 
 export async function renderLocalClipPrepVerticalAsset(input: {
@@ -729,6 +870,7 @@ export async function renderLocalClipPrepVerticalAsset(input: {
   packageId?: string | null
   assetRoot?: string | null
   outputDir?: string | null
+  openingText?: string | null
 }): Promise<LocalVerticalAssetRenderResult> {
   const sourcePath = await validateLocalSourceMp4(input.sourcePath)
   const output = localVerticalRenderOutputPath({
@@ -757,6 +899,8 @@ export async function renderLocalClipPrepVerticalAsset(input: {
     assetRoot: output.assetRoot,
     durationSeconds: rendered.durationSeconds,
     sizeBytes: rendered.sizeBytes,
+    renderPlan: verticalRenderPlan(input.openingText),
+    qualityValidation: rendered.qualityValidation,
     safety: {
       downloadsVideo: false,
       uploadsVideo: false,
@@ -832,6 +976,7 @@ export async function renderLocalClipPrepForCandidateOrPackage(
     endSeconds: prep.endSeconds,
     durationSeconds: rendered.durationSeconds,
     sizeBytes: rendered.sizeBytes,
+    qualityValidation: rendered.qualityValidation,
     attached: Boolean(attachedPackage),
     attachedPackage,
     safety: {
