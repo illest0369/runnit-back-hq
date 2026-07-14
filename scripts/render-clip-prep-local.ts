@@ -28,19 +28,21 @@ function createSupabase() {
 async function main() {
   const packageId = readArg('--package-id') ?? process.env.MAC_MINI_PACKAGE_ID?.trim() ?? null
   const candidateId = readArg('--candidate-id') ?? process.env.CLIP_CANDIDATE_ID?.trim() ?? null
-  const sourcePath = readArg('--source-path') ?? process.env.CLIP_PREP_SOURCE_PATH?.trim()
+  const sourcePath = readArg('--source-path') ?? process.env.CLIP_PREP_SOURCE_PATH?.trim() ?? null
+  const sourceUrl = readArg('--source-url') ?? process.env.CLIP_PREP_SOURCE_URL?.trim() ?? null
   const assetRoot = readArg('--asset-root') ?? process.env.MAC_MINI_ASSET_ROOT?.trim() ?? null
   const outputDir = readArg('--output-dir') ?? null
   const attach = hasFlag('--attach')
 
-  if (!sourcePath) {
-    throw new Error('Missing local source MP4 path. Use --source-path <local_source.mp4>.')
+  if (!sourcePath && !sourceUrl && !packageId) {
+    throw new Error('Missing source input. Use --source-path <local_source.mp4>, --source-url <url>, or --package-id <id> with package source metadata.')
   }
 
   const result = await renderLocalClipPrepForCandidateOrPackage(createSupabase(), {
     packageId,
     candidateId,
     sourcePath,
+    sourceUrl,
     assetRoot,
     outputDir,
     attach,
@@ -53,6 +55,7 @@ async function main() {
       packageId: result.packageId,
       candidateId: result.candidateId,
       sourcePath: result.sourcePath,
+      sourceDownloaded: result.sourceDownloaded,
       outputPath: result.outputPath,
       assetRoot: result.assetRoot,
       startSeconds: result.startSeconds,

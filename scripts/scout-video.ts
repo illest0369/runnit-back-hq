@@ -5,6 +5,7 @@ import {
   buildTikTokClipCandidates,
   type ScoutTranscriptRow,
   type ScoutVideoRow,
+  TIKTOK_MOMENT_RECOMMENDATION_MODEL,
 } from '../lib/tiktok-clip-scout'
 
 config({ path: '.env.local', quiet: true })
@@ -34,7 +35,7 @@ async function main() {
   const supabase = createSupabase()
   const { data: video, error: videoError } = await supabase
     .from('ingested_videos')
-    .select('id, title, description, video_url, thumbnail_url, published_at, source_channel_id')
+    .select('id, title, description, video_url, thumbnail_url, published_at, source_channel_id, source_channels(target_rbhq_channel_id)')
     .eq('id', videoId)
     .single()
 
@@ -44,7 +45,7 @@ async function main() {
 
   const { data: transcript, error: transcriptError } = await supabase
     .from('video_transcripts')
-    .select('transcript_source, transcript_text, transcript_json, language')
+    .select('id, transcript_source, transcript_text, transcript_json, language')
     .eq('ingested_video_id', videoId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -54,15 +55,53 @@ async function main() {
     throw new Error(transcriptError.message)
   }
 
-  const candidates = buildTikTokClipCandidates(
-    video as ScoutVideoRow,
-    transcript as ScoutTranscriptRow | null,
-  )
+  const typedVideo = video as ScoutVideoRow & { source_channels?: { target_rbhq_channel_id?: string | null } | Array<{ target_rbhq_channel_id?: string | null }> | null }
+  const source = Array.isArray(typedVideo.source_channels) ? typedVideo.source_channels[0] : typedVideo.source_channels
+  const targetChannelId = source?.target_rbhq_channel_id ?? null
+  const typedTranscript = transcript as ScoutTranscriptRow | null
+  const candidates = buildTikTokClipCandidates(typedVideo, typedTranscript, { targetChannelId })
 
-  const { data: inserted, error: insertError } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from('clip_candidates')
-    .insert(candidates)
     .select('id, ingested_video_id, status, score, start_seconds, end_seconds, score_breakdown')
+    .eq('ingested_video_id', videoId)
+
+  if (existingError) {
+    throw new Error(existingError.message)
+  }
+
+  const existingRecommendations = (existing ?? []).filter((candidate) => {
+    const breakdown = candidate.score_breakdown as Record<string, unknown> | null
+    return breakdown?.model === TIKTOK_MOMENT_RECOMMENDATION_MODEL &&
+      (!typedTranscript?.id || breakdown.transcriptId === typedTranscript.id)
+  })
+
+  if (existingRecommendations.length > 0) {
+    console.log(JSON.stringify(
+      {
+        result: 'PASS',
+        platform: 'tiktok',
+        reused: true,
+        transcript: {
+          available: Boolean(transcript),
+          timed: existingRecommendations.some((candidate) => candidate.start_seconds !== null && candidate.end_seconds !== null),
+          source: transcript?.transcript_source ?? null,
+          id: typedTranscript?.id ?? null,
+        },
+        candidates: existingRecommendations,
+      },
+      null,
+      2,
+    ))
+    return
+  }
+
+  const { data: inserted, error: insertError } = candidates.length > 0
+    ? await supabase
+      .from('clip_candidates')
+      .insert(candidates)
+      .select('id, ingested_video_id, status, score, start_seconds, end_seconds, score_breakdown')
+    : { data: [], error: null }
 
   if (insertError) {
     throw new Error(insertError.message)
@@ -76,6 +115,7 @@ async function main() {
         available: Boolean(transcript),
         timed: candidates.some((candidate) => candidate.start_seconds !== null && candidate.end_seconds !== null),
         source: transcript?.transcript_source ?? null,
+        id: typedTranscript?.id ?? null,
       },
       candidates: inserted,
     },

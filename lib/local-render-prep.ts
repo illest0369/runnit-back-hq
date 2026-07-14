@@ -27,6 +27,7 @@ type ClipCandidatePrepRow = {
 type MacMiniPackagePrepRow = {
   id: string
   clip_candidate_id: string
+  source_url: string | null
   package_payload: Record<string, unknown> | null
 }
 
@@ -35,6 +36,7 @@ export type LocalRenderPrepResult = {
   packageId: string | null
   candidateId: string
   sourcePath: string
+  sourceDownloaded: boolean
   outputPath: string
   assetRoot: string
   startSeconds: number
@@ -44,7 +46,7 @@ export type LocalRenderPrepResult = {
   attached: boolean
   attachedPackage: MacMiniClipPackage | null
   safety: {
-    downloadsVideo: false
+    downloadsVideo: boolean
     uploadsVideo: false
     postsVideo: false
     clicksFinalPost: false
@@ -56,6 +58,7 @@ type ResolvedPrep = {
   packageId: string | null
   candidateId: string
   candidateTitle: string
+  sourceUrl: string | null
   clipPrep: ClipPrepV1 | null
   startSeconds: number
   endSeconds: number
@@ -95,12 +98,21 @@ function sanitizeFileStem(value: string): string {
     .slice(0, 120) || 'clip-prep'
 }
 
-async function requireBinary(binary: 'ffmpeg'): Promise<void> {
+async function requireBinary(binary: 'ffmpeg' | 'yt-dlp'): Promise<void> {
   try {
-    await execFileAsync(binary, ['-version'], { maxBuffer: 1024 * 1024 })
+    await execFileAsync(binary, binary === 'yt-dlp' ? ['--version'] : ['-version'], { maxBuffer: 1024 * 1024 })
   } catch {
     throw new Error(`${binary} is required for local Clip Prep rendering.`)
   }
+}
+
+function readNestedString(value: unknown, keys: string[]): string | null {
+  let cursor = value
+  for (const key of keys) {
+    if (!cursor || typeof cursor !== 'object') return null
+    cursor = (cursor as Record<string, unknown>)[key]
+  }
+  return typeof cursor === 'string' && cursor.trim() ? cursor.trim() : null
 }
 
 export async function validateLocalSourceMp4(sourcePath: string): Promise<string> {
@@ -138,6 +150,52 @@ export function validateOutputPathInsideAssetRoot(outputPath: string, root: stri
   return absoluteOutput
 }
 
+async function resolveSourceMp4(input: {
+  source: string
+  assetRoot: string
+  packageId: string | null
+  candidateId: string
+}): Promise<{ sourcePath: string; downloaded: boolean }> {
+  const clean = input.source.trim()
+  if (!clean) {
+    throw new Error('Local source MP4 path or source URL is required.')
+  }
+
+  if (!isHttpUrl(clean)) {
+    return { sourcePath: await validateLocalSourceMp4(clean), downloaded: false }
+  }
+
+  await requireBinary('yt-dlp')
+  const sourceDir = path.join(input.assetRoot, 'source-assets')
+  await mkdir(sourceDir, { recursive: true })
+  const stem = sanitizeFileStem([
+    input.packageId ? `pkg-${input.packageId}` : null,
+    `candidate-${input.candidateId}`,
+    'source',
+  ].filter(Boolean).join('-'))
+  const outputTemplate = path.join(sourceDir, `${stem}.%(ext)s`)
+
+  await execFileAsync(
+    'yt-dlp',
+    [
+      '--no-playlist',
+      '-f',
+      'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best',
+      '--merge-output-format',
+      'mp4',
+      '-o',
+      outputTemplate,
+      clean,
+    ],
+    { maxBuffer: 1024 * 1024 * 20 },
+  )
+
+  return {
+    sourcePath: await validateLocalSourceMp4(path.join(sourceDir, `${stem}.mp4`)),
+    downloaded: true,
+  }
+}
+
 function readPrepFromPackage(row: MacMiniPackagePrepRow | null): ClipPrepV1 | null {
   return readClipPrepV1(row?.package_payload?.clipPrep)
 }
@@ -164,7 +222,7 @@ function resolveTiming(input: { clipPrep: ClipPrepV1 | null; candidate: ClipCand
 async function resolvePackageById(supabase: LocalRenderPrepDb, packageId: string): Promise<MacMiniPackagePrepRow> {
   const { data, error } = await supabase
     .from('mac_mini_clip_packages')
-    .select('id, clip_candidate_id, package_payload')
+    .select('id, clip_candidate_id, source_url, package_payload')
     .eq('id', packageId)
     .single()
 
@@ -177,7 +235,7 @@ async function resolvePackageById(supabase: LocalRenderPrepDb, packageId: string
 async function resolvePackageByCandidateId(supabase: LocalRenderPrepDb, candidateId: string): Promise<MacMiniPackagePrepRow | null> {
   const { data, error } = await supabase
     .from('mac_mini_clip_packages')
-    .select('id, clip_candidate_id, package_payload')
+    .select('id, clip_candidate_id, source_url, package_payload')
     .eq('clip_candidate_id', candidateId)
     .maybeSingle()
 
@@ -227,6 +285,7 @@ export async function resolveClipPrepForLocalRender(
     packageId: pkg?.id ?? null,
     candidateId: candidate.id,
     candidateTitle: candidate.title || candidate.id,
+    sourceUrl: pkg?.source_url ?? readNestedString(pkg?.package_payload, ['source', 'url']),
     clipPrep,
     startSeconds: timing.start,
     endSeconds: timing.end,
@@ -322,14 +381,14 @@ export async function renderLocalClipPrepForCandidateOrPackage(
   input: {
     packageId?: string | null
     candidateId?: string | null
-    sourcePath: string
+    sourcePath?: string | null
+    sourceUrl?: string | null
     assetRoot?: string | null
     outputDir?: string | null
     attach?: boolean
     now?: () => Date
   },
 ): Promise<LocalRenderPrepResult> {
-  const sourcePath = await validateLocalSourceMp4(input.sourcePath)
   const prep = await resolveClipPrepForLocalRender(supabase, {
     packageId: input.packageId,
     candidateId: input.candidateId,
@@ -341,8 +400,14 @@ export async function renderLocalClipPrepForCandidateOrPackage(
     outputDir: input.outputDir,
     assetRoot: input.assetRoot,
   })
+  const source = await resolveSourceMp4({
+    source: input.sourcePath?.trim() || input.sourceUrl?.trim() || prep.sourceUrl || '',
+    assetRoot: output.assetRoot,
+    packageId: prep.packageId,
+    candidateId: prep.candidateId,
+  })
   const rendered = await renderLocalClipPrepMp4({
-    sourcePath,
+    sourcePath: source.sourcePath,
     outputPath: output.outputPath,
     assetRoot: output.assetRoot,
     startSeconds: prep.startSeconds,
@@ -363,7 +428,8 @@ export async function renderLocalClipPrepForCandidateOrPackage(
     status: 'rendered',
     packageId: prep.packageId,
     candidateId: prep.candidateId,
-    sourcePath,
+    sourcePath: source.sourcePath,
+    sourceDownloaded: source.downloaded,
     outputPath: rendered.outputPath,
     assetRoot: output.assetRoot,
     startSeconds: prep.startSeconds,
@@ -373,7 +439,7 @@ export async function renderLocalClipPrepForCandidateOrPackage(
     attached: Boolean(attachedPackage),
     attachedPackage,
     safety: {
-      downloadsVideo: false,
+      downloadsVideo: source.downloaded,
       uploadsVideo: false,
       postsVideo: false,
       clicksFinalPost: false,

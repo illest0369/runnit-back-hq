@@ -431,6 +431,7 @@ export async function refreshClipPrepForCandidate(
   }
 
   const nowDate = (input.now ?? (() => new Date()))()
+  const existingScoreBreakdown = candidate.score_breakdown ?? null
   const intelligenceSync = await syncCandidateIntelligenceV1ForLoadedData(supabase, {
     candidate,
     video: {
@@ -463,7 +464,10 @@ export async function refreshClipPrepForCandidate(
   const { error: updateCandidateError } = await supabase
     .from('clip_candidates')
     .update({
-      ...clipPrepCandidateUpdate(prep, candidate.score_breakdown),
+      ...clipPrepCandidateUpdate(prep, {
+        ...(existingScoreBreakdown ?? {}),
+        ...(candidate.score_breakdown ?? {}),
+      }),
       updated_at: now,
     })
     .eq('id', candidate.id)
