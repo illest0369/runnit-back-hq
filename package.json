@@ -49,6 +49,7 @@
     "clip-prep:render-local": "tsx scripts/render-clip-prep-local.ts",
     "moment:select": "tsx scripts/select-moment.ts",
     "tiktok:web-upload-dry-run": "tsx scripts/tiktok-web-upload-dry-run.ts",
+    "tiktok:profile-diagnose": "tsx scripts/diagnose-tiktok-profile.ts",
     "tiktok:login": "tsx scripts/tiktok-web-upload-dry-run.ts --login",
     "tiktok:login:manual": "tsx scripts/tiktok-web-upload-dry-run.ts --login --headed --browser chrome --login-friendly",
     "tiktok:session-check": "tsx scripts/tiktok-web-upload-dry-run.ts --session-check",
