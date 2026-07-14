@@ -346,12 +346,25 @@ async function main() {
       sourcePath: rendered.outputPath,
       assetRoot: root,
       packageId,
+      openingText: 'Smoke opening.',
     })
     const verticalProbe = await probeMp4(vertical.outputPath)
     const verticalVideo = verticalProbe.streams?.find((stream) => stream.codec_type === 'video')
     const verticalAudio = verticalProbe.streams?.find((stream) => stream.codec_type === 'audio')
     assert.equal(vertical.layout, 'vertical-blur')
     assert.equal(vertical.durationMode, 'source')
+    assert.equal(vertical.renderPlan.targetWidth, 1080)
+    assert.equal(vertical.renderPlan.targetHeight, 1920)
+    assert.equal(vertical.renderPlan.safeCropStrategy, 'blurred-background-with-contained-foreground')
+    assert.equal(vertical.renderPlan.textOverlay.burnedIn, false)
+    assert.equal(vertical.renderPlan.textOverlay.openingText, 'Smoke opening.')
+    assert.match(vertical.renderPlan.captionSafeZone.note, /caption-safe/i)
+    assert.equal(vertical.qualityValidation.valid, true)
+    assert.equal(vertical.qualityValidation.width, 1080)
+    assert.equal(vertical.qualityValidation.height, 1920)
+    assert.equal(vertical.qualityValidation.videoCodec, 'h264')
+    assert.equal(vertical.qualityValidation.audioCodec, 'aac')
+    assert.equal(vertical.qualityValidation.issues.length, 0)
     assert.equal(verticalVideo?.codec_name, 'h264')
     assert.equal(verticalVideo?.width, 1080)
     assert.equal(verticalVideo?.height, 1920)
@@ -418,6 +431,10 @@ async function main() {
         verticalCodec: verticalVideo?.codec_name,
         verticalAudioCodec: verticalAudio?.codec_name,
         verticalResolution: `${verticalVideo?.width}x${verticalVideo?.height}`,
+        verticalRenderPlan: vertical.renderPlan.safeCropStrategy,
+        verticalOpeningTextBurnedIn: vertical.renderPlan.textOverlay.burnedIn,
+        verticalQualityValid: vertical.qualityValidation.valid,
+        verticalQualityIssues: vertical.qualityValidation.issues,
         verticalPreservesDuration: Math.abs(Number(verticalProbe.format?.duration ?? 0) - rendered.durationSeconds) < 0.25,
         sourceMustBeLocalMp4: true,
       },
