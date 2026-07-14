@@ -57,6 +57,7 @@ export type DailyContentPlanClip = {
   score: number
   rankLabel: RBHQIntelligenceRankLabel
   urgency: RBHQIntelligenceUrgency
+  reasons: string[]
   whyNow: string
   operatorSummary: string
   suggestedCaption: string
@@ -921,6 +922,7 @@ function toPlanClip(input: RBHQIntelligenceInput & {
     score: intelligence.score,
     rankLabel: intelligence.rankLabel,
     urgency: intelligence.urgency,
+    reasons: intelligence.reasons,
     whyNow: intelligence.whyNow,
     operatorSummary: intelligence.operatorSummary,
     suggestedCaption: intelligence.suggestedCaption,

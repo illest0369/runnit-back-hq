@@ -2,6 +2,7 @@
 
 import { AnimatePresence, motion, useMotionValue, useSpring, useTransform } from "framer-motion";
 import {
+  AlertTriangle,
   Check,
   ChevronRight,
   Copy,
@@ -108,6 +109,7 @@ type PackageReadiness = {
   clipPrepStatus: string | null;
   clipPrepConfidence: string | null;
   clipPrepReady: boolean;
+  clipPrep: ClipPrepSummary | null;
   macMiniPackageId: string | null;
   macMiniPackageStatus: string | null;
   macMiniHandoffStatus: string | null;
@@ -116,6 +118,19 @@ type PackageReadiness = {
   localRenderAttached: boolean;
   localAssetPath: string | null;
   tiktokStaging: TikTokStagingReadiness;
+};
+
+type ClipPrepSummary = {
+  status: string | null;
+  confidence: string | null;
+  suggestedStartSeconds: number | null;
+  suggestedEndSeconds: number | null;
+  suggestedLengthSeconds: number | null;
+  clipReason: string | null;
+  openingText: string | null;
+  editNotes: string[];
+  assetInstructions: string | null;
+  transcriptTimed: boolean | null;
 };
 
 type TikTokStagingReadiness = {
@@ -252,6 +267,7 @@ type DailyPlanClip = {
   score: number;
   rankLabel: IntelligenceRankLabel;
   urgency: IntelligenceUrgency;
+  reasons?: string[];
   whyNow: string;
   operatorSummary: string;
   suggestedCaption: string;
@@ -308,6 +324,7 @@ const DEFAULT_PACKAGE_READINESS: PackageReadiness = {
   clipPrepStatus: null,
   clipPrepConfidence: null,
   clipPrepReady: false,
+  clipPrep: null,
   macMiniPackageId: null,
   macMiniPackageStatus: null,
   macMiniHandoffStatus: null,
@@ -352,6 +369,7 @@ function themeForChannel(label: string | null | undefined) {
   if (value.includes("arena") || value.includes("gaming") || value.includes("esports")) return "arena";
   if (value.includes("women")) return "women";
   if (value.includes("combat")) return "combat";
+  if (value.includes("futbol") || value.includes("soccer")) return "futbol";
   if (value.includes("cfb")) return "runnitbackcfb";
   return "sports";
 }
@@ -1115,6 +1133,7 @@ function QueueScreen({
 }) {
   const [reviewId, setReviewId] = useState<string | null>(null);
   const reviewClip = reviewId != null ? (clips.find((c) => c.id === reviewId) ?? null) : null;
+  const hasActiveFilter = Boolean(selectedSource || urgencyFilter || scoreThreshold > 0);
 
   const nextClip = useMemo(() => {
     if (!reviewClip) return null;
@@ -1302,10 +1321,12 @@ function QueueScreen({
           <QueueEmptyState title="syncing clips" body="reconnecting live sources" />
         ) : clips.length === 0 ? (
           <QueueEmptyState
-            title="queue empty"
+            title={hasActiveFilter ? "no candidates" : "queue empty"}
             body={
               queueMode === "held"
                 ? "held clips stay here until you approve or reject them"
+                : hasActiveFilter
+                ? "no clips match the selected source, urgency, and score filters"
                 : "new clips will appear here as sources sync"
             }
           />
@@ -1592,35 +1613,53 @@ function verticalStatusTone(status: VerticalStatus) {
   return "bg-[#F5F5F5] text-[#6F6A60] border-[var(--rb-line)]";
 }
 
-function readinessTone(ready: boolean, blocked = false) {
+function readinessTone(ready: boolean, blocked = false, neutral = false) {
   if (ready) return "bg-[#ECFDF5] text-[#128A49] border-[#128A49]/20";
   if (blocked) return "bg-[#FFF1F2] text-[#DC2626] border-[#DC2626]/20";
+  if (neutral) return "bg-[#F5F5F5] text-[#6F6A60] border-[var(--rb-line)]";
   return "bg-[#FFFBEB] text-[#B45309] border-[#B45309]/20";
 }
 
 function clipPrepLabel(readiness: PackageReadiness) {
   if (readiness.clipPrepStatus === "ready") return `Clip Prep ready${readiness.clipPrepConfidence ? ` · ${readiness.clipPrepConfidence}` : ""}`;
-  if (readiness.clipPrepStatus === "metadata_only") return "Clip Prep metadata";
+  if (readiness.clipPrepStatus === "metadata_only") return `Metadata-only Prep${readiness.clipPrepConfidence ? ` · ${readiness.clipPrepConfidence}` : ""}`;
+  if (!readiness.candidateId) return "No candidate";
   return "Clip Prep needed";
 }
 
+function clipPrepTone(readiness: PackageReadiness) {
+  if (!readiness.candidateId) return readinessTone(false, false, true);
+  if (readiness.clipPrepStatus === "metadata_only") return readinessTone(false);
+  return readinessTone(readiness.clipPrepReady);
+}
+
 function macMiniPackageLabel(readiness: PackageReadiness) {
+  if (!readiness.candidateId) return "No package candidate";
   if (!readiness.macMiniPackageId) return "Package needed";
   if (readiness.macMiniPackageReady) return "Package ready";
   return `Package ${readiness.macMiniPackageStatus ?? "created"}`;
 }
 
 function localRenderLabel(readiness: PackageReadiness) {
-  if (readiness.localRenderAttached) return "Render attached";
+  if (!readiness.macMiniPackageId) return "Asset pending";
+  if (readiness.localRenderAttached) return "Asset attached";
   if (readiness.localRenderStatus === "invalid") return "Render invalid";
-  return "Render missing";
+  return "Asset missing";
+}
+
+function formatBlockerMessage(value: string | null | undefined) {
+  if (!value) return "";
+  if (value === "ASSET_MISSING") return "Local rendered asset is missing.";
+  if (value === "TIKTOK_LOGIN_REQUIRED") return "TikTok login required on the Mac mini.";
+  return value.replace(/_/g, " ");
 }
 
 function tiktokStagingLabel(staging: TikTokStagingReadiness) {
   if (staging.readyForManualPost) return "Ready for manual Post";
+  if (staging.tikTokSession === "missing") return "TikTok login required";
   if (staging.status === "requested") return "Staging requested";
   if (staging.status === "blocked") return "Staging blocked";
-  if (staging.status === "failed") return "Staging failed";
+  if (staging.status === "failed") return "Dry-run failed";
   if (staging.eligible) return "Ready to stage";
   return "Staging unavailable";
 }
@@ -1632,16 +1671,21 @@ function stagingTone(staging: TikTokStagingReadiness) {
   return "bg-[#F5F5F5] text-[#6F6A60] border-[var(--rb-line)]";
 }
 
+function formatClipSeconds(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "n/a";
+  return `${Number(value.toFixed(1))}s`;
+}
+
 function QueueReadinessStrip({ readiness }: { readiness: PackageReadiness }) {
   return (
     <div className="flex flex-wrap gap-1.5">
-      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${readinessTone(readiness.clipPrepReady)}`}>
+      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${clipPrepTone(readiness)}`}>
         {clipPrepLabel(readiness)}
       </span>
-      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${readinessTone(readiness.macMiniPackageReady)}`}>
+      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${readinessTone(readiness.macMiniPackageReady, false, !readiness.candidateId)}`}>
         {macMiniPackageLabel(readiness)}
       </span>
-      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${readinessTone(readiness.localRenderAttached, readiness.localRenderStatus === "invalid")}`}>
+      <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${readinessTone(readiness.localRenderAttached, readiness.localRenderStatus === "invalid" || (Boolean(readiness.macMiniPackageId) && !readiness.localRenderAttached), !readiness.macMiniPackageId)}`}>
         {localRenderLabel(readiness)}
       </span>
       <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${stagingTone(readiness.tiktokStaging)}`}>
@@ -1663,10 +1707,14 @@ function formatStagingTimestamp(value: string | null) {
 
 function OperatorStagingPanel({ readiness }: { readiness: PackageReadiness }) {
   const staging = readiness.tiktokStaging;
+  const blocker = formatBlockerMessage(staging.blocker || staging.error);
+  const assetMissing = Boolean(readiness.macMiniPackageId) && !readiness.localRenderAttached;
   const rows = [
     ["lane/channel", [staging.laneLabel, staging.channelKey].filter(Boolean).join(" · ")],
     ["package ID", staging.packageId],
-    ["attached asset", staging.attachedAssetStatus ?? readiness.localRenderStatus ?? "missing"],
+    ["local asset", readiness.localAssetPath ? "attached" : "missing"],
+    ["package", readiness.macMiniPackageStatus ?? "not created"],
+    ["dry-run", staging.status],
     ["TikTok session", staging.tikTokSession],
     ["video staged", staging.videoStaged ? "yes" : "no"],
     ["caption filled", staging.captionFilled ? "yes" : "no"],
@@ -1684,9 +1732,25 @@ function OperatorStagingPanel({ readiness }: { readiness: PackageReadiness }) {
       </div>
       {staging.readyForManualPost ? (
         <p className="mt-2 text-[13px] font-black text-[#128A49]">Ready for manual Post</p>
-      ) : staging.blocker ? (
-        <p className="mt-2 text-[11.5px] font-semibold leading-4 text-[#B45309]">{staging.blocker}</p>
+      ) : blocker ? (
+        <p className={`mt-2 text-[11.5px] font-semibold leading-4 ${staging.status === "failed" || staging.tikTokSession === "missing" || assetMissing ? "text-[#DC2626]" : "text-[#B45309]"}`}>
+          {blocker}
+        </p>
       ) : null}
+      {(readiness.clipPrepStatus === "metadata_only" || assetMissing || staging.status === "failed" || staging.tikTokSession === "missing") && (
+        <div className="mt-3 flex items-start gap-2 rounded-[12px] border border-[#DC2626]/15 bg-[#FFF1F2] px-3 py-2 text-[#DC2626]">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.8} />
+          <p className="text-[11px] font-bold leading-4">
+            {staging.tikTokSession === "missing"
+              ? "TikTok login required locally before staging can continue."
+              : staging.status === "failed"
+              ? "Dry-run failed; review the Mac mini dry-run error before retrying."
+              : assetMissing
+              ? "Attach the local rendered MP4 before staging."
+              : "Metadata-only Clip Prep needs manual moment verification before cutting."}
+          </p>
+        </div>
+      )}
       <div className="mt-3 grid grid-cols-2 gap-2">
         {rows.map(([label, value]) => (
           <div key={label} className="min-w-0 rounded-[10px] border border-[var(--rb-line)] bg-white px-2.5 py-2">
@@ -1702,10 +1766,68 @@ function OperatorStagingPanel({ readiness }: { readiness: PackageReadiness }) {
   );
 }
 
+function ClipPrepDetailPanel({ readiness }: { readiness: PackageReadiness }) {
+  const prep = readiness.clipPrep;
+  const hasTiming = prep?.suggestedStartSeconds !== null && prep?.suggestedStartSeconds !== undefined &&
+    prep?.suggestedEndSeconds !== null && prep?.suggestedEndSeconds !== undefined;
+  const stateCopy = !readiness.candidateId
+    ? "No persisted candidate is linked to this clip."
+    : readiness.clipPrepStatus === "metadata_only"
+    ? "Metadata-only prep: verify the strongest moment manually before cutting."
+    : readiness.clipPrepReady
+    ? "Clip Prep is ready for local render prep."
+    : "Refresh Clip Prep before packaging.";
+
+  return (
+    <div className="mt-3 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">Clip Prep</p>
+        <span className={`rounded-full border px-2 py-0.5 text-[10px] font-black ${clipPrepTone(readiness)}`}>
+          {clipPrepLabel(readiness)}
+        </span>
+      </div>
+      <p className="mt-2 text-[11.5px] font-semibold leading-4 text-[var(--rb-muted)]">{stateCopy}</p>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <div className="rounded-[10px] border border-[var(--rb-line)] bg-white px-2.5 py-2">
+          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--rb-faint)]">Start</p>
+          <p className="mt-1 text-[11px] font-bold text-[var(--rb-text)]">{formatClipSeconds(prep?.suggestedStartSeconds)}</p>
+        </div>
+        <div className="rounded-[10px] border border-[var(--rb-line)] bg-white px-2.5 py-2">
+          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--rb-faint)]">End</p>
+          <p className="mt-1 text-[11px] font-bold text-[var(--rb-text)]">{formatClipSeconds(prep?.suggestedEndSeconds)}</p>
+        </div>
+        <div className="rounded-[10px] border border-[var(--rb-line)] bg-white px-2.5 py-2">
+          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--rb-faint)]">Length</p>
+          <p className="mt-1 text-[11px] font-bold text-[var(--rb-text)]">{formatClipSeconds(prep?.suggestedLengthSeconds)}</p>
+        </div>
+      </div>
+      <div className="mt-3 space-y-2">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--rb-faint)]">Opening text</p>
+          <p className="mt-1 text-[12px] font-semibold leading-5 text-[var(--rb-text)]">{prep?.openingText || "Opening text will appear after Clip Prep refresh."}</p>
+        </div>
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--rb-faint)]">Moment selection</p>
+          <p className="mt-1 text-[11.5px] leading-4 text-[var(--rb-muted)]">
+            {hasTiming ? `${formatClipSeconds(prep?.suggestedStartSeconds)}-${formatClipSeconds(prep?.suggestedEndSeconds)} selected for the local cut.` : "No timed moment selected yet."}
+          </p>
+        </div>
+        {prep?.clipReason ? (
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.12em] text-[var(--rb-faint)]">Why this moment</p>
+            <p className="mt-1 text-[11.5px] leading-4 text-[var(--rb-muted)]">{prep.clipReason}</p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefreshAnalysis: (id: string) => void }) {
   const intelligence = clip.intelligence;
   const analysis = clip.analysis;
   const tags = analysis?.reasonTags ?? [];
+  const signals = intelligence?.reasons ?? [];
   const score = intelligence?.score ?? analysis?.priorityScore ?? clip.score;
   const rankLabel = intelligence?.rankLabel ?? analysis?.rankLabel;
   const urgency = intelligence?.urgency;
@@ -1750,13 +1872,21 @@ function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefr
         </button>
       </div>
 
-      {tags.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5">
+      {(signals.length > 0 || tags.length > 0) && (
+        <div className="mt-3">
+          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--rb-faint)]">Viral signals</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {signals.map((signal) => (
+            <span key={signal} className="rounded-full border border-[var(--rb-line)] bg-white px-2 py-0.5 text-[10px] font-bold text-[var(--rb-muted)]">
+              {signal.replace(/\.$/, "")}
+            </span>
+          ))}
           {tags.map((tag) => (
             <span key={tag} className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[10px] font-bold text-[var(--rb-muted)]">
               {formatReasonTag(tag)}
             </span>
           ))}
+          </div>
         </div>
       )}
 
@@ -1764,6 +1894,7 @@ function ClipIntelligencePanel({ clip, onRefreshAnalysis }: { clip: Clip; onRefr
         <QueueReadinessStrip readiness={clip.packageReadiness} />
       </div>
 
+      <ClipPrepDetailPanel readiness={clip.packageReadiness} />
       <OperatorStagingPanel readiness={clip.packageReadiness} />
 
       <div className="mt-3 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 py-2">
@@ -2022,7 +2153,7 @@ function DailyPlanScreen({
       {loading && !plan ? (
         <EmptyState title="Building plan" body="Ranking clips by lane, urgency, and caption potential." />
       ) : !hasContent ? (
-        <EmptyState title="No plan yet" body="Ranked clips will appear here when the queue has available inventory." />
+        <EmptyState title="No candidates" body="Ranked clips will appear here when queue inventory or source candidates are available." />
       ) : (
         <div className="flex flex-col gap-5">
           <DailyPlanSection title="Top Clips To Post Now" count={(plan?.topClipsToPostNow ?? []).length}>
@@ -2129,6 +2260,15 @@ function DailyPlanClipCard({ clip }: { clip: DailyPlanClip }) {
       </div>
 
       <p className="mt-3 text-[12px] font-semibold leading-5 text-[var(--rb-text)]">{clip.whyNow || "Ranked from current queue signals."}</p>
+      {(clip.reasons ?? []).length > 0 ? (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {(clip.reasons ?? []).slice(0, 4).map((reason) => (
+            <span key={reason} className="rounded-full border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-2 py-0.5 text-[10px] font-bold text-[var(--rb-muted)]">
+              {reason.replace(/\.$/, "")}
+            </span>
+          ))}
+        </div>
+      ) : null}
       {clip.operatorSummary ? (
         <p className="mt-2 text-[12px] leading-5 text-[var(--rb-muted)]">{clip.operatorSummary}</p>
       ) : null}
@@ -2200,6 +2340,11 @@ function DailyPlanCompactClip({ clip, index }: { clip: DailyPlanClip; index?: nu
         <p className="mt-1 truncate text-[11px] text-[var(--rb-muted)]">
           {clip.sourceName || "RBHQ"} · {clip.lane} · {formatRankLabel(clip.rankLabel)} · {formatUrgencyLabel(clip.urgency)}
         </p>
+        {(clip.reasons ?? []).length > 0 ? (
+          <p className="mt-1 line-clamp-1 text-[10.5px] font-semibold text-[var(--rb-faint)]">
+            {(clip.reasons ?? [])[0]?.replace(/\.$/, "")}
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -2621,11 +2766,12 @@ function BottomNav({ active, onChange }: { active: AppTab; onChange: (tab: AppTa
 
 function laneMetaForChannel(label: string | null | undefined) {
   const v = (label ?? "").toLowerCase();
-  if (v.includes("women")) return { emoji: "🏐", color: "#9333EA", bg: "#F5EAFF" };
-  if (v.includes("combat")) return { emoji: "🥊", color: "#DC2626", bg: "#FFEAEA" };
-  if (v.includes("futbol") || v.includes("soccer")) return { emoji: "⚽", color: "#2563EB", bg: "#E9F0FF" };
-  if (v.includes("cfb")) return { emoji: "🏈", color: "#16A34A", bg: "#ECFDF5" };
-  return { emoji: "🔥", color: "#FF5C1A", bg: "#FFF1EC" };
+  if (v.includes("arena") || v.includes("gaming") || v.includes("esports")) return { emoji: "🎮", color: "#F97316", bg: "#FFF1E8" };
+  if (v.includes("women")) return { emoji: "🏐", color: "#0A0A0A", bg: "#F0F0F0" };
+  if (v.includes("combat")) return { emoji: "🥊", color: "#6D28D9", bg: "#F5EAFF" };
+  if (v.includes("futbol") || v.includes("soccer")) return { emoji: "⚽", color: "#E2162B", bg: "#FFF1EC" };
+  if (v.includes("cfb")) return { emoji: "🏈", color: "#7B0000", bg: "#FFF8E0" };
+  return { emoji: "🔥", color: "#003087", bg: "#E8EEFA" };
 }
 
 function QueueListCard({ clip, onReview }: { clip: Clip; onReview: (id: string) => void }) {
@@ -2634,6 +2780,7 @@ function QueueListCard({ clip, onReview }: { clip: Clip; onReview: (id: string) 
   const urgency = clip.intelligence?.urgency;
   const captionDraft = clip.intelligence?.suggestedCaption ?? clip.analysis?.captionDraft ?? "";
   const hashtags = clip.intelligence?.suggestedHashtags ?? clip.analysis?.hashtagPack ?? [];
+  const signals = clip.intelligence?.reasons ?? [];
 
   return (
     <div className="flex items-start gap-3 rounded-[16px] border border-[var(--rb-line)] bg-white p-3">
@@ -2673,6 +2820,15 @@ function QueueListCard({ clip, onReview }: { clip: Clip; onReview: (id: string) 
         <div className="mt-2">
           <QueueReadinessStrip readiness={clip.packageReadiness} />
         </div>
+        {signals.length > 0 ? (
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {signals.slice(0, 3).map((signal) => (
+              <span key={signal} className="rounded-full bg-[var(--rb-graphite)] px-2 py-0.5 text-[9.5px] font-bold text-[var(--rb-muted)]">
+                {signal.replace(/\.$/, "")}
+              </span>
+            ))}
+          </div>
+        ) : null}
         {(clip.intelligence?.whyNow || clip.analysis?.whyNow) ? (
           <p className="mt-1.5 line-clamp-2 text-[11.5px] leading-4 text-[var(--rb-muted)]">{clip.intelligence?.whyNow ?? clip.analysis?.whyNow}</p>
         ) : null}
@@ -2800,7 +2956,7 @@ function DashboardScreen({
               >
                 <span
                   className="grid h-12 w-12 shrink-0 place-items-center rounded-[16px] text-[24px]"
-                  style={{ background: meta.bg }}
+                  style={{ background: meta.bg, color: meta.color }}
                 >
                   {meta.emoji}
                 </span>

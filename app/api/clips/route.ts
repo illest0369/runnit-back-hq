@@ -80,7 +80,11 @@ async function loadCandidateState(clips: ReviewClip[]): Promise<{
   const [{ data: candidates, error: candidateError }, { data: packages, error: packageError }] = await Promise.all([
     supabaseAdmin
       .from('clip_candidates')
-      .select('id, title, status, hook_text, caption, hashtags, score, score_breakdown, clip_prep_status, clip_prep_confidence')
+      .select(
+        `id, title, status, hook_text, caption, hashtags, score, score_breakdown,
+         clip_prep, suggested_clip_start_seconds, suggested_clip_end_seconds, suggested_clip_length_seconds,
+         clip_reason, opening_text, edit_notes, asset_instructions, clip_prep_status, clip_prep_confidence`,
+      )
       .in('id', candidateIds),
     supabaseAdmin
       .from('mac_mini_clip_packages')

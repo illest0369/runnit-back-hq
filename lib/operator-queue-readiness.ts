@@ -12,6 +12,7 @@ export type QueueCandidateReadiness = {
   clipPrepStatus: string | null
   clipPrepConfidence: string | null
   clipPrepReady: boolean
+  clipPrep: QueueClipPrepSummary | null
   macMiniPackageId: string | null
   macMiniPackageStatus: MacMiniPackageStatus | null
   macMiniHandoffStatus: MacMiniHandoffStatus | null
@@ -30,8 +31,29 @@ export type QueueCandidateForReadiness = {
   hashtags?: string[] | null
   score?: number | string | null
   score_breakdown?: Record<string, unknown> | null
+  clip_prep?: unknown
+  suggested_clip_start_seconds?: number | string | null
+  suggested_clip_end_seconds?: number | string | null
+  suggested_clip_length_seconds?: number | string | null
+  clip_reason?: string | null
+  opening_text?: string | null
+  edit_notes?: string[] | null
+  asset_instructions?: string | null
   clip_prep_status?: string | null
   clip_prep_confidence?: string | null
+}
+
+export type QueueClipPrepSummary = {
+  status: string | null
+  confidence: string | null
+  suggestedStartSeconds: number | null
+  suggestedEndSeconds: number | null
+  suggestedLengthSeconds: number | null
+  clipReason: string | null
+  openingText: string | null
+  editNotes: string[]
+  assetInstructions: string | null
+  transcriptTimed: boolean | null
 }
 
 export type QueuePackageForReadiness = {
@@ -73,6 +95,12 @@ function readStringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.map(compact).filter(Boolean)
     : []
+}
+
+function readObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
 }
 
 function normalizeRankLabel(value: unknown): RBHQIntelligenceRankLabel {
@@ -140,6 +168,7 @@ export function buildQueueReadiness(
     clipPrepStatus,
     clipPrepConfidence: candidate?.clip_prep_confidence ?? null,
     clipPrepReady: clipPrepStatus === 'ready',
+    clipPrep: readClipPrepSummary(candidate),
     macMiniPackageId: pkg?.id ?? null,
     macMiniPackageStatus: packageStatus,
     macMiniHandoffStatus: handoffStatus,
@@ -151,5 +180,44 @@ export function buildQueueReadiness(
       candidateStatus: candidate?.status ?? null,
       clipPrepStatus,
     }, pkg),
+  }
+}
+
+function readClipPrepSummary(
+  candidate: QueueCandidateForReadiness | null | undefined,
+): QueueClipPrepSummary | null {
+  if (!candidate) return null
+  const embedded = readObject(candidate.clip_prep) ?? readObject(candidate.score_breakdown?.clipPrep)
+  const basis = readObject(embedded?.basis)
+  const start = readNumber(embedded?.suggested_clip_start_seconds ?? candidate.suggested_clip_start_seconds)
+  const end = readNumber(embedded?.suggested_clip_end_seconds ?? candidate.suggested_clip_end_seconds)
+  const length = readNumber(embedded?.suggested_clip_length_seconds ?? candidate.suggested_clip_length_seconds)
+  const status = compact(embedded?.status) || compact(candidate.clip_prep_status) || null
+  const confidence = compact(embedded?.confidence) || compact(candidate.clip_prep_confidence) || null
+  const clipReason = compact(embedded?.clip_reason) || compact(candidate.clip_reason) || null
+  const openingText = compact(embedded?.opening_text) || compact(candidate.opening_text) || null
+  const assetInstructions = compact(embedded?.asset_instructions) || compact(candidate.asset_instructions) || null
+  const editNotes = readStringArray(embedded?.edit_notes).length > 0
+    ? readStringArray(embedded?.edit_notes)
+    : readStringArray(candidate.edit_notes)
+  const transcriptTimed = typeof basis?.timed_transcript_available === 'boolean'
+    ? basis.timed_transcript_available
+    : null
+
+  if (!status && !confidence && start === null && end === null && !clipReason && !openingText && editNotes.length === 0) {
+    return null
+  }
+
+  return {
+    status,
+    confidence,
+    suggestedStartSeconds: start,
+    suggestedEndSeconds: end,
+    suggestedLengthSeconds: length,
+    clipReason,
+    openingText,
+    editNotes,
+    assetInstructions,
+    transcriptTimed,
   }
 }

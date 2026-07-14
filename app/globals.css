@@ -166,26 +166,32 @@ button {
 
 .rbhq-theme-sports {
   --rb-accent: #e2162b;
+  --rb-lane-secondary: #003087;
 }
 
 .rbhq-theme-arena {
-  --rb-accent: #c13cc9;
+  --rb-accent: #f97316;
+  --rb-lane-secondary: #c2410c;
 }
 
 .rbhq-theme-women {
-  --rb-accent: #c99b34;
+  --rb-accent: #0a0a0a;
+  --rb-lane-secondary: #666666;
 }
 
 .rbhq-theme-combat {
-  --rb-accent: #d33a2f;
+  --rb-accent: #6d28d9;
+  --rb-lane-secondary: #a855f7;
 }
 
 .rbhq-theme-futbol {
   --rb-accent: #e2162b;
+  --rb-lane-secondary: #ff5c1a;
 }
 
 .rbhq-theme-runnitbackcfb {
-  --rb-accent: #d6b35a;
+  --rb-accent: #7b0000;
+  --rb-lane-secondary: #d6b35a;
 }
 
 @supports (height: 100svh) {
