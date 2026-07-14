@@ -55,6 +55,27 @@ export type LocalRenderPrepResult = {
   }
 }
 
+export type LocalRenderLayout = 'source' | 'vertical-blur'
+
+export type LocalVerticalAssetRenderResult = {
+  status: 'rendered'
+  layout: 'vertical-blur'
+  durationMode: 'source'
+  packageId: string | null
+  sourcePath: string
+  outputPath: string
+  assetRoot: string
+  durationSeconds: number
+  sizeBytes: number
+  safety: {
+    downloadsVideo: false
+    uploadsVideo: false
+    postsVideo: false
+    clicksFinalPost: false
+    livePublish: false
+  }
+}
+
 export type LocalSourceAcquisitionStatus = 'source_missing' | 'download_failed' | 'render_ready'
 export type LocalSourceToolName = 'yt-dlp' | 'ffmpeg' | 'ffprobe'
 
@@ -150,6 +171,14 @@ function firstVersionLine(stdout: string, stderr: string): string | null {
     .map((line) => line.trim())
     .find(Boolean)
   return text ?? null
+}
+
+function readFirstPositiveNumber(values: Array<number | string | null | undefined>): number | null {
+  for (const value of values) {
+    const parsed = readNumber(value)
+    if (parsed !== null && parsed > 0) return parsed
+  }
+  return null
 }
 
 async function readToolStatus(binary: LocalSourceToolName): Promise<LocalSourceToolStatus> {
@@ -458,6 +487,30 @@ export function localRenderOutputPath(input: {
   }
 }
 
+export function localVerticalRenderOutputPath(input: {
+  sourcePath: string
+  packageId?: string | null
+  outputDir?: string | null
+  assetRoot?: string | null
+}): { assetRoot: string; outputPath: string } {
+  const root = assetRoot({ assetRoot: input.assetRoot })
+  const outputDir = path.resolve(input.outputDir?.trim() || path.dirname(path.resolve(input.sourcePath)))
+  if (!isPathInside(root, outputDir)) {
+    throw new Error(`Vertical Clip Prep output directory must stay inside ${root}.`)
+  }
+
+  const sourceStem = sanitizeFileStem(path.basename(input.sourcePath, path.extname(input.sourcePath))).slice(0, 48)
+  const stem = sanitizeFileStem([
+    input.packageId ? `pkg-${input.packageId}` : null,
+    sourceStem,
+    'vertical-1080x1920',
+  ].filter(Boolean).join('-'))
+  return {
+    assetRoot: root,
+    outputPath: validateOutputPathInsideAssetRoot(path.join(outputDir, `${stem}.mp4`), root),
+  }
+}
+
 export async function acquireLocalSourceForClipPrep(
   supabase: LocalRenderPrepDb,
   input: {
@@ -568,6 +621,7 @@ export async function renderLocalClipPrepMp4(input: {
   assetRoot: string
   startSeconds: number
   endSeconds: number
+  layout?: LocalRenderLayout
 }): Promise<{ outputPath: string; sizeBytes: number; durationSeconds: number }> {
   await requireBinary('ffmpeg')
   await requireBinary('ffprobe')
@@ -579,6 +633,23 @@ export async function renderLocalClipPrepMp4(input: {
   }
 
   await mkdir(path.dirname(outputPath), { recursive: true })
+  const layout = input.layout ?? 'source'
+  const videoArgs = layout === 'vertical-blur'
+    ? [
+        '-filter_complex',
+        [
+          '[0:v:0]split=2[bg][fg]',
+          '[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=30,eq=brightness=-0.08:saturation=1.12,setsar=1[base]',
+          '[fg]scale=1080:1920:force_original_aspect_ratio=decrease,setsar=1[front]',
+          '[base][front]overlay=(W-w)/2:(H-h)/2,format=yuv420p[v]',
+        ].join(';'),
+        '-map',
+        '[v]',
+      ]
+    : [
+        '-map',
+        '0:v:0',
+      ]
   await execFileAsync(
     'ffmpeg',
     [
@@ -589,8 +660,7 @@ export async function renderLocalClipPrepMp4(input: {
       sourcePath,
       '-t',
       String(durationSeconds),
-      '-map',
-      '0:v:0',
+      ...videoArgs,
       '-map',
       '0:a?',
       '-c:v',
@@ -619,6 +689,81 @@ export async function renderLocalClipPrepMp4(input: {
     outputPath,
     sizeBytes: outputStat.size,
     durationSeconds,
+  }
+}
+
+export async function probeLocalMp4DurationSeconds(sourcePath: string): Promise<number> {
+  await requireBinary('ffprobe')
+  const absoluteSourcePath = await validateLocalSourceMp4(sourcePath)
+  const { stdout } = await execFileAsync(
+    'ffprobe',
+    [
+      '-v',
+      'error',
+      '-show_entries',
+      'stream=codec_type,duration',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'json',
+      absoluteSourcePath,
+    ],
+    { maxBuffer: 1024 * 1024 * 2 },
+  )
+  const parsed = JSON.parse(String(stdout)) as {
+    streams?: Array<{ codec_type?: string; duration?: string }>
+    format?: { duration?: string }
+  }
+  const duration = readFirstPositiveNumber([
+    parsed.format?.duration,
+    ...(parsed.streams ?? []).map((stream) => stream.duration),
+  ])
+  if (duration === null) {
+    throw new Error(`Could not read MP4 duration from ${absoluteSourcePath}.`)
+  }
+  return Number(duration.toFixed(3))
+}
+
+export async function renderLocalClipPrepVerticalAsset(input: {
+  sourcePath: string
+  packageId?: string | null
+  assetRoot?: string | null
+  outputDir?: string | null
+}): Promise<LocalVerticalAssetRenderResult> {
+  const sourcePath = await validateLocalSourceMp4(input.sourcePath)
+  const output = localVerticalRenderOutputPath({
+    sourcePath,
+    packageId: input.packageId,
+    outputDir: input.outputDir,
+    assetRoot: input.assetRoot,
+  })
+  const durationSeconds = await probeLocalMp4DurationSeconds(sourcePath)
+  const rendered = await renderLocalClipPrepMp4({
+    sourcePath,
+    outputPath: output.outputPath,
+    assetRoot: output.assetRoot,
+    startSeconds: 0,
+    endSeconds: durationSeconds,
+    layout: 'vertical-blur',
+  })
+
+  return {
+    status: 'rendered',
+    layout: 'vertical-blur',
+    durationMode: 'source',
+    packageId: input.packageId?.trim() || null,
+    sourcePath,
+    outputPath: rendered.outputPath,
+    assetRoot: output.assetRoot,
+    durationSeconds: rendered.durationSeconds,
+    sizeBytes: rendered.sizeBytes,
+    safety: {
+      downloadsVideo: false,
+      uploadsVideo: false,
+      postsVideo: false,
+      clicksFinalPost: false,
+      livePublish: false,
+    },
   }
 }
 

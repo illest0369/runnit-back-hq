@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 
-import { renderLocalClipPrepForCandidateOrPackage } from '../lib/local-render-prep'
+import {
+  renderLocalClipPrepForCandidateOrPackage,
+  renderLocalClipPrepVerticalAsset,
+} from '../lib/local-render-prep'
 
 config({ path: '.env.local', quiet: true })
 config({ quiet: true })
@@ -35,6 +38,49 @@ async function main() {
   const outputDir = readArg('--output-dir') ?? null
   const downloadSource = hasFlag('--download-source')
   const attach = hasFlag('--attach')
+  const verticalAsset = hasFlag('--vertical-asset')
+
+  if (verticalAsset) {
+    if (!sourcePath) {
+      throw new Error('Missing source input. Use --vertical-asset --source-path <local_clip.mp4>.')
+    }
+    if (attach) {
+      throw new Error('--vertical-asset refuses --attach. Verify the vertical variant before replacing package assets.')
+    }
+
+    const result = await renderLocalClipPrepVerticalAsset({
+      sourcePath,
+      packageId,
+      assetRoot,
+      outputDir,
+    })
+
+    console.log(JSON.stringify({
+      result: 'PASS',
+      render: {
+        status: result.status,
+        layout: result.layout,
+        durationMode: result.durationMode,
+        packageId: result.packageId,
+        sourcePath: result.sourcePath,
+        outputPath: result.outputPath,
+        assetRoot: result.assetRoot,
+        durationSeconds: result.durationSeconds,
+        sizeBytes: result.sizeBytes,
+        attached: false,
+      },
+      safety: {
+        downloadsVideo: result.safety.downloadsVideo,
+        uploadsVideo: result.safety.uploadsVideo,
+        postsVideo: result.safety.postsVideo,
+        clicksFinalPost: result.safety.clicksFinalPost,
+        livePublish: result.safety.livePublish,
+        callsMetricool: false,
+        callsN8n: false,
+      },
+    }, null, 2))
+    return
+  }
 
   if (!sourcePath && !sourceUrl && !packageId && !candidateId) {
     throw new Error('Missing source input. Use --source-path <local_source.mp4>, --source-url <url>, --package-id <id>, or --candidate-id <id> with package source metadata.')

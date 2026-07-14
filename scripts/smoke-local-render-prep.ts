@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 
 import {
   acquireLocalSourceForClipPrep,
+  renderLocalClipPrepVerticalAsset,
   renderLocalClipPrepForCandidateOrPackage,
   validateLocalSourceMp4,
 } from '../lib/local-render-prep'
@@ -226,6 +227,34 @@ async function createSourceVideo(sourcePath: string) {
   )
 }
 
+async function probeMp4(filePath: string) {
+  const { stdout } = await execFileAsync(
+    'ffprobe',
+    [
+      '-v',
+      'error',
+      '-show_entries',
+      'stream=index,codec_type,codec_name,width,height,duration',
+      '-show_entries',
+      'format=duration',
+      '-of',
+      'json',
+      filePath,
+    ],
+    { maxBuffer: 1024 * 1024 * 2 },
+  )
+  return JSON.parse(String(stdout)) as {
+    streams?: Array<{
+      codec_type?: string
+      codec_name?: string
+      width?: number
+      height?: number
+      duration?: string
+    }>
+    format?: { duration?: string }
+  }
+}
+
 async function main() {
   const originalFetch = globalThis.fetch
   let fetchCalls = 0
@@ -313,6 +342,24 @@ async function main() {
     assert.equal(db.rows('mac_mini_clip_packages')[0]?.local_asset_path, rendered.outputPath)
     assert.equal((db.rows('mac_mini_clip_packages')[0]?.package_payload as Record<string, unknown>)?.localAssetPath, rendered.outputPath)
 
+    const vertical = await renderLocalClipPrepVerticalAsset({
+      sourcePath: rendered.outputPath,
+      assetRoot: root,
+      packageId,
+    })
+    const verticalProbe = await probeMp4(vertical.outputPath)
+    const verticalVideo = verticalProbe.streams?.find((stream) => stream.codec_type === 'video')
+    const verticalAudio = verticalProbe.streams?.find((stream) => stream.codec_type === 'audio')
+    assert.equal(vertical.layout, 'vertical-blur')
+    assert.equal(vertical.durationMode, 'source')
+    assert.equal(verticalVideo?.codec_name, 'h264')
+    assert.equal(verticalVideo?.width, 1080)
+    assert.equal(verticalVideo?.height, 1920)
+    assert.equal(verticalAudio?.codec_name, 'aac')
+    assert.ok(Math.abs(Number(verticalProbe.format?.duration ?? 0) - rendered.durationSeconds) < 0.25)
+    assert.ok(vertical.outputPath.startsWith(root))
+    assert.match(path.basename(vertical.outputPath), /vertical-1080x1920\.mp4$/)
+
     await assert.rejects(
       () => validateLocalSourceMp4('https://example.com/source.mp4'),
       /refuses URL sources/,
@@ -357,6 +404,8 @@ async function main() {
         sizeBytes: rendered.sizeBytes,
         attached: rendered.attached,
         attachedAssetStatus: rendered.attachedPackage?.assetStatus ?? null,
+        verticalOutputPath: vertical.outputPath,
+        verticalDurationSeconds: vertical.durationSeconds,
       },
       validations: {
         localSourceStatus: localSource.status,
@@ -366,6 +415,10 @@ async function main() {
         rejectsMissingTiming: true,
         rejectsOutsideOutputDir: true,
         outputInsideAssetRoot: rendered.outputPath.startsWith(root),
+        verticalCodec: verticalVideo?.codec_name,
+        verticalAudioCodec: verticalAudio?.codec_name,
+        verticalResolution: `${verticalVideo?.width}x${verticalVideo?.height}`,
+        verticalPreservesDuration: Math.abs(Number(verticalProbe.format?.duration ?? 0) - rendered.durationSeconds) < 0.25,
         sourceMustBeLocalMp4: true,
       },
       safety: {
