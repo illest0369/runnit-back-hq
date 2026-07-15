@@ -102,6 +102,78 @@ const highScoreEvergreenCandidate = {
   risk_flags: [],
 }
 const highScoreEvergreen = buildRBHQIntelligenceV1(highScoreEvergreenCandidate)
+const rbWomenHighDebate = buildRBHQIntelligenceV1({
+  id: 'rb-women-high-debate',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'A\'ja Wilson responds after controversial foul call sparks fairness debate',
+  hook: 'A\'ja did not hold back on that foul call',
+  source_name: 'WNBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 22,
+  ai_score: 70,
+  virality_score: 70,
+  hook_strength: 70,
+  published_at: new Date().toISOString(),
+  text: 'A\'ja Wilson said rookies do not get the same whistle after a controversial foul call and fans are split about the officiating and fairness.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbWomenPersonalityQuote = buildRBHQIntelligenceV1({
+  id: 'rb-women-personality-quote',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'Angel Reese jokes about the rookie matchup after a big win',
+  hook: 'Angel Reese had the room laughing with this quote',
+  source_name: 'WNBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 18,
+  ai_score: 65,
+  virality_score: 65,
+  hook_strength: 65,
+  published_at: new Date().toISOString(),
+  text: 'Angel Reese joked about the rookie matchup and turned a normal postgame answer into a personality moment fans will quote.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbWomenGenericAnnouncement = buildRBHQIntelligenceV1({
+  id: 'rb-women-generic-announcement',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'WNBA announces updated regular season broadcast schedule',
+  hook: 'The league announced the new schedule',
+  source_name: 'WNBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 28,
+  ai_score: 70,
+  virality_score: 60,
+  hook_strength: 50,
+  published_at: new Date().toISOString(),
+  text: 'The league announced schedule updates, broadcast windows, ticket information, and general regular season details.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbWomenContextHeavy = buildRBHQIntelligenceV1({
+  id: 'rb-women-context-heavy',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'Caitlin Clark treatment debate needs a long CBA roster explainer',
+  hook: 'Caitlin Clark reaction needs the full rule context',
+  source_name: 'WNBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 45,
+  ai_score: 68,
+  virality_score: 55,
+  hook_strength: 45,
+  published_at: new Date().toISOString(),
+  text: 'Caitlin Clark is part of the treatment debate, but to understand why this matters, viewers need the prior CBA dispute, roster hardship rule, salary cap timeline, and months of background before the actual quote makes sense.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const storedNotes = withStoredRBHQIntelligenceV1([], sports)
 const stored = getStoredRBHQIntelligenceV1(storedNotes)
 const fallback = getRBHQIntelligenceV1({ ...sportsClip, moderation_notes: storedNotes })
@@ -166,6 +238,38 @@ assert.ok(staleSourceCandidate.whyNow.includes('not in a live viral window'))
 assert.ok(!staleSourceCandidate.suggestedHashtags.includes('#PatchNotes'))
 assert.equal(highScoreEvergreen.urgency, 'evergreen')
 assert.equal(highScoreEvergreen.rankLabel, 'must_post')
+assert.ok(rbWomenHighDebate.score >= 80)
+assert.equal(rbWomenHighDebate.rankLabel, 'must_post')
+assert.equal(rbWomenHighDebate.urgency, 'post_now')
+assert.equal(rbWomenHighDebate.rbWomen?.contentPillar, 'debate_moment')
+assert.equal(rbWomenHighDebate.rbWomen?.featuredPlayer, 'A\'ja Wilson')
+assert.equal(rbWomenHighDebate.rbWomen?.debateTopic, 'officiating/fairness')
+assert.equal(rbWomenHighDebate.rbWomen?.expectedEngagementType, 'argumentative_comments')
+assert.equal(rbWomenHighDebate.rbWomen?.decisionBand, 'high_confidence')
+assert.equal(rbWomenHighDebate.rbWomen?.hooks.reaction.includes('A\'ja'), true)
+assert.equal(rbWomenHighDebate.rbWomen?.hooks.debate.includes('?'), true)
+assert.ok(rbWomenHighDebate.suggestedHashtags.length <= 5)
+assert.ok(rbWomenHighDebate.operatorSummary.includes('debate moment'))
+assert.ok(rbWomenHighDebate.whyNow.includes('fairness'))
+assert.ok(rbWomenHighDebate.rbWomen?.recommendedCommentPrompt.includes('fair'))
+assert.ok(rbWomenPersonalityQuote.score >= 80)
+assert.equal(rbWomenPersonalityQuote.rbWomen?.contentPillar, 'personality_culture')
+assert.equal(rbWomenPersonalityQuote.rbWomen?.featuredPlayer, 'Angel Reese')
+assert.equal(rbWomenPersonalityQuote.rbWomen?.expectedEngagementType, 'quote_reactions')
+assert.ok(rbWomenPersonalityQuote.rbWomen?.hooks.context.includes('Angel Reese'))
+assert.ok(rbWomenGenericAnnouncement.score < 50)
+assert.equal(rbWomenGenericAnnouncement.rankLabel, 'low_priority')
+assert.equal(rbWomenGenericAnnouncement.urgency, 'hold')
+assert.equal(rbWomenGenericAnnouncement.rbWomen?.decisionBand, 'reject')
+assert.equal(rbWomenGenericAnnouncement.rbWomen?.contentPillar, 'meaningful_league_story')
+assert.ok(rbWomenGenericAnnouncement.reasons.some((reason) => reason.includes('generic league news')))
+assert.ok(rbWomenContextHeavy.score >= 50 && rbWomenContextHeavy.score <= 64)
+assert.equal(rbWomenContextHeavy.rankLabel, 'low_priority')
+assert.equal(rbWomenContextHeavy.urgency, 'hold')
+assert.equal(rbWomenContextHeavy.rbWomen?.decisionBand, 'hold_unless_timely')
+assert.ok(rbWomenContextHeavy.reasons.some((reason) => reason.includes('long explanation')))
+assert.equal(buildRBHQIntelligenceV1({ ...sportsClip, text: 'A\'ja Wilson foul debate' }).rbWomen, undefined)
+assert.equal(buildRBHQIntelligenceV1({ ...arenaClip, text: 'Angel Reese quote debate' }).rbWomen, undefined)
 assert.ok(plan.suggestedPostingOrder.length >= 1)
 assert.ok(plan.topClipsToPostNow.length + plan.strongAlternates.length >= 1)
 assert.ok(!plan.topClipsToPostNow.some((clip) => clip.id === highScoreEvergreenCandidate.id))
@@ -182,5 +286,9 @@ console.log(JSON.stringify({
   combatBoxingCandidate,
   staleSourceCandidate,
   highScoreEvergreen,
+  rbWomenHighDebate,
+  rbWomenPersonalityQuote,
+  rbWomenGenericAnnouncement,
+  rbWomenContextHeavy,
   dailyPlan: plan,
 }, null, 2))
