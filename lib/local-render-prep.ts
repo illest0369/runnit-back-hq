@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { mkdir, readdir, stat } from 'node:fs/promises'
+import { mkdir, readdir, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import sharp from 'sharp'
 
 import { readClipPrepV1, type CaptionPrepV1, type ClipPrepV1 } from './clip-prep'
 import { attachMacMiniLocalAsset, type MacMiniClipPackage } from './mac-mini-handoff'
@@ -112,6 +113,7 @@ export type LocalVerticalAssetRenderResult = {
   renderPlan: LocalVerticalRenderPlan
   qualityValidation: LocalRenderQualityValidation
   captionPrep: CaptionPrepV1
+  subtitleBurn: LocalSubtitleBurnResult
   safety: {
     downloadsVideo: false
     uploadsVideo: false
@@ -119,6 +121,20 @@ export type LocalVerticalAssetRenderResult = {
     clicksFinalPost: false
     livePublish: false
   }
+}
+
+export type LocalSubtitleBurnResult = {
+  requested: boolean
+  burnedIn: boolean
+  skippedReason: string | null
+  assPath: string | null
+  eventCount: number
+}
+
+type LocalSubtitleImageOverlay = {
+  path: string
+  start: number
+  end: number
 }
 
 export type LocalSourceAcquisitionStatus = 'source_missing' | 'download_failed' | 'render_ready'
@@ -289,6 +305,178 @@ function readCaptionPrep(value: unknown, openingText: string | null | undefined)
     if (record.version === 'rbhq-caption-prep-v1') return record as CaptionPrepV1
   }
   return fallbackCaptionPrep(openingText)
+}
+
+function assTimestamp(seconds: number): string {
+  const safe = Math.max(0, seconds)
+  const hours = Math.floor(safe / 3600)
+  const minutes = Math.floor((safe % 3600) / 60)
+  const wholeSeconds = Math.floor(safe % 60)
+  const centiseconds = Math.floor((safe - Math.floor(safe)) * 100)
+  return `${hours}:${String(minutes).padStart(2, '0')}:${String(wholeSeconds).padStart(2, '0')}.${String(centiseconds).padStart(2, '0')}`
+}
+
+function assText(value: string): string {
+  return subtitleLines(value).join('\\N') || ' '
+}
+
+function subtitleLines(value: string): string[] {
+  const words = value
+    .replace(/[{}]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+  const lines: string[] = []
+  let line = ''
+  for (const word of words) {
+    const next = line ? `${line} ${word}` : word
+    if (next.length > 28 && line) {
+      lines.push(line)
+      line = word
+      if (lines.length >= 2) break
+    } else {
+      line = next
+    }
+  }
+  if (line && lines.length < 2) lines.push(line)
+  return lines
+}
+
+function assSafeText(value: string): string {
+  return assText(value).replace(/\\/g, '\\\\')
+}
+
+function validateSubtitlePathInsideAssetRoot(outputPath: string, root: string): string {
+  const absoluteRoot = path.resolve(root)
+  const absoluteOutput = path.resolve(outputPath)
+  if (!isPathInside(absoluteRoot, absoluteOutput)) {
+    throw new Error(`Rendered subtitle output must stay inside ${absoluteRoot}.`)
+  }
+  if (!absoluteOutput.toLowerCase().endsWith('.ass')) {
+    throw new Error('Rendered subtitle output must be an .ass file.')
+  }
+  return absoluteOutput
+}
+
+function validateSubtitleImagePathInsideAssetRoot(outputPath: string, root: string): string {
+  const absoluteRoot = path.resolve(root)
+  const absoluteOutput = path.resolve(outputPath)
+  if (!isPathInside(absoluteRoot, absoluteOutput)) {
+    throw new Error(`Rendered subtitle image output must stay inside ${absoluteRoot}.`)
+  }
+  if (!absoluteOutput.toLowerCase().endsWith('.png')) {
+    throw new Error('Rendered subtitle image output must be a .png file.')
+  }
+  return absoluteOutput
+}
+
+function subtitleEvents(input: {
+  captionPrep: CaptionPrepV1
+  clipStart: number
+  clipDuration: number
+}): Array<{ start: number; end: number; text: string }> {
+  const segments = input.captionPrep.transcript_segments?.length
+    ? input.captionPrep.transcript_segments
+    : []
+  if (!segments.length) return []
+
+  return segments.flatMap((segment) => {
+    const start = Math.max(0, Number((segment.start_seconds - input.clipStart).toFixed(3)))
+    const end = Math.min(input.clipDuration, Number((segment.end_seconds - input.clipStart).toFixed(3)))
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end - start < 0.25) return []
+    return [{ start, end, text: segment.text }]
+  })
+}
+
+export async function buildAssSubtitleFile(
+  captionPrep: CaptionPrepV1,
+  clipStart: number,
+  clipDuration: number,
+  assetRootInput: string,
+): Promise<{ assPath: string; eventCount: number }> {
+  const root = path.resolve(assetRootInput)
+  const subtitleDir = path.join(root, 'subtitle-assets')
+  await mkdir(subtitleDir, { recursive: true })
+  const assPath = validateSubtitlePathInsideAssetRoot(path.join(subtitleDir, `caption-prep-${randomUUID().slice(0, 8)}.ass`), root)
+  const events = subtitleEvents({ captionPrep, clipStart, clipDuration })
+  const body = [
+    '[Script Info]',
+    'ScriptType: v4.00+',
+    'PlayResX: 1080',
+    'PlayResY: 1920',
+    'ScaledBorderAndShadow: yes',
+    '',
+    '[V4+ Styles]',
+    'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
+    'Style: CaptionPrep,Arial,64,&H00FFFFFF,&H00FFFFFF,&H00000000,&H99000000,-1,0,0,0,100,100,0,0,1,5,1,2,80,80,420,1',
+    '',
+    '[Events]',
+    'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
+    ...events.map((event) =>
+      `Dialogue: 0,${assTimestamp(event.start)},${assTimestamp(event.end)},CaptionPrep,,0,0,0,,${assSafeText(event.text)}`),
+    '',
+  ].join('\n')
+  await writeFile(assPath, body, 'utf8')
+  return { assPath, eventCount: events.length }
+}
+
+function xmlText(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+async function buildSubtitleImageOverlays(
+  captionPrep: CaptionPrepV1,
+  clipStart: number,
+  clipDuration: number,
+  assetRootInput: string,
+): Promise<{ overlays: LocalSubtitleImageOverlay[]; eventCount: number }> {
+  const root = path.resolve(assetRootInput)
+  const subtitleDir = path.join(root, 'subtitle-assets')
+  await mkdir(subtitleDir, { recursive: true })
+  const events = subtitleEvents({ captionPrep, clipStart, clipDuration })
+  const overlays: LocalSubtitleImageOverlay[] = []
+  for (const [index, event] of events.entries()) {
+    const imagePath = validateSubtitleImagePathInsideAssetRoot(
+      path.join(subtitleDir, `caption-prep-${randomUUID().slice(0, 8)}-${index}.png`),
+      root,
+    )
+    const lines = subtitleLines(event.text)
+    const lineHeight = 78
+    const boxPaddingY = 24
+    const boxHeight = Math.max(100, (lines.length * lineHeight) + (boxPaddingY * 2))
+    const boxWidth = 920
+    const boxX = 80
+    const boxY = 1920 - 420 - boxHeight
+    const firstBaseline = boxY + boxPaddingY + 58
+    const tspans = (lines.length ? lines : [' ']).map((line, lineIndex) =>
+      `<tspan x="540" y="${firstBaseline + (lineIndex * lineHeight)}">${xmlText(line)}</tspan>`).join('')
+    const svg = [
+      '<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1920" viewBox="0 0 1080 1920">',
+      '<rect width="1080" height="1920" fill="none"/>',
+      `<rect x="${boxX}" y="${boxY}" width="${boxWidth}" height="${boxHeight}" rx="18" fill="rgba(0,0,0,0.42)"/>`,
+      '<text font-family="Arial, Helvetica, sans-serif" font-size="64" font-weight="700" fill="#fff" stroke="#000" stroke-width="5" paint-order="stroke" text-anchor="middle">',
+      tspans,
+      '</text>',
+      '</svg>',
+    ].join('')
+    await sharp(Buffer.from(svg)).png().toFile(imagePath)
+    overlays.push({ path: imagePath, start: event.start, end: event.end })
+  }
+  return { overlays, eventCount: overlays.length }
+}
+
+function subtitleBurnSkipReason(captionPrep: CaptionPrepV1): string | null {
+  if (captionPrep.subtitle_source !== 'transcript') return `subtitle_source_${captionPrep.subtitle_source}`
+  if (!captionPrep.transcript_segment_range) return 'transcript_segment_range_missing'
+  if ((captionPrep.transcript_segment_range.segment_count ?? 0) <= 0) return 'timed_transcript_segments_unavailable'
+  if (!captionPrep.transcript_segments?.length) return 'timed_transcript_segments_unavailable'
+  return null
 }
 
 async function readToolStatus(binary: LocalSourceToolName): Promise<LocalSourceToolStatus> {
@@ -732,6 +920,7 @@ export async function renderLocalClipPrepMp4(input: {
   startSeconds: number
   endSeconds: number
   layout?: LocalRenderLayout
+  subtitleImageOverlays?: LocalSubtitleImageOverlay[] | null
 }): Promise<{ outputPath: string; sizeBytes: number; durationSeconds: number; qualityValidation: LocalRenderQualityValidation }> {
   await requireBinary('ffmpeg')
   await requireBinary('ffprobe')
@@ -744,6 +933,18 @@ export async function renderLocalClipPrepMp4(input: {
 
   await mkdir(path.dirname(outputPath), { recursive: true })
   const layout = input.layout ?? 'source'
+  const subtitleImageOverlays = input.subtitleImageOverlays?.length
+    ? input.subtitleImageOverlays
+    : null
+  const subtitleInputArgs = subtitleImageOverlays
+    ? subtitleImageOverlays.flatMap((overlay) => ['-loop', '1', '-i', overlay.path])
+    : []
+  const subtitleOverlayFilters = subtitleImageOverlays?.map((overlay, index) => {
+    const inputLabel = index === 0 ? 'pre' : `sub${index - 1}`
+    const outputLabel = `sub${index}`
+    return `[${inputLabel}][${index + 1}:v]overlay=0:0:enable='between(t,${overlay.start.toFixed(3)},${overlay.end.toFixed(3)})'[${outputLabel}]`
+  }) ?? []
+  const subtitleOutputLabel = subtitleImageOverlays?.length ? `sub${subtitleImageOverlays.length - 1}` : 'pre'
   const videoArgs = layout === 'vertical-blur'
     ? [
         '-filter_complex',
@@ -751,11 +952,28 @@ export async function renderLocalClipPrepMp4(input: {
           '[0:v:0]split=2[bg][fg]',
           '[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=30,eq=brightness=-0.08:saturation=1.12,setsar=1[base]',
           '[fg]scale=1080:1920:force_original_aspect_ratio=decrease,setsar=1[front]',
-          '[base][front]overlay=(W-w)/2:(H-h)/2,format=yuv420p[v]',
+          subtitleImageOverlays
+            ? [
+                '[base][front]overlay=(W-w)/2:(H-h)/2,format=rgba[pre]',
+                ...subtitleOverlayFilters,
+                `[${subtitleOutputLabel}]format=yuv420p[v]`,
+              ].join(';')
+            : '[base][front]overlay=(W-w)/2:(H-h)/2,format=yuv420p[v]',
         ].join(';'),
         '-map',
         '[v]',
       ]
+    : subtitleImageOverlays
+      ? [
+          '-filter_complex',
+          [
+            '[0:v:0]format=rgba[pre]',
+            ...subtitleOverlayFilters,
+            `[${subtitleOutputLabel}]format=yuv420p[v]`,
+          ].join(';'),
+          '-map',
+          '[v]',
+        ]
     : [
         '-map',
         '0:v:0',
@@ -768,6 +986,7 @@ export async function renderLocalClipPrepMp4(input: {
       String(input.startSeconds),
       '-i',
       sourcePath,
+      ...subtitleInputArgs,
       '-t',
       String(durationSeconds),
       ...videoArgs,
@@ -909,6 +1128,8 @@ export async function renderLocalClipPrepVerticalAsset(input: {
   outputDir?: string | null
   openingText?: string | null
   captionPrep?: CaptionPrepV1 | null
+  burnSubtitles?: boolean
+  clipStartSeconds?: number | null
 }): Promise<LocalVerticalAssetRenderResult> {
   const sourcePath = await validateLocalSourceMp4(input.sourcePath)
   const output = localVerticalRenderOutputPath({
@@ -918,6 +1139,48 @@ export async function renderLocalClipPrepVerticalAsset(input: {
     assetRoot: input.assetRoot,
   })
   const durationSeconds = await probeLocalMp4DurationSeconds(sourcePath)
+  const captionPrep = input.captionPrep ?? fallbackCaptionPrep(input.openingText)
+  const requestedSubtitleBurn = Boolean(input.burnSubtitles)
+  let subtitleBurn: LocalSubtitleBurnResult = {
+    requested: requestedSubtitleBurn,
+    burnedIn: false,
+    skippedReason: requestedSubtitleBurn ? subtitleBurnSkipReason(captionPrep) : null,
+    assPath: null,
+    eventCount: 0,
+  }
+  let subtitleImageOverlays: LocalSubtitleImageOverlay[] | null = null
+  if (requestedSubtitleBurn && !subtitleBurn.skippedReason) {
+    const ass = await buildAssSubtitleFile(
+      captionPrep,
+      input.clipStartSeconds ?? 0,
+      durationSeconds,
+      output.assetRoot,
+    )
+    const images = await buildSubtitleImageOverlays(
+      captionPrep,
+      input.clipStartSeconds ?? 0,
+      durationSeconds,
+      output.assetRoot,
+    )
+    if (ass.eventCount > 0 && images.eventCount > 0) {
+      subtitleImageOverlays = images.overlays
+      subtitleBurn = {
+        requested: true,
+        burnedIn: true,
+        skippedReason: null,
+        assPath: ass.assPath,
+        eventCount: ass.eventCount,
+      }
+    } else {
+      subtitleBurn = {
+        requested: true,
+        burnedIn: false,
+        skippedReason: 'timed_transcript_segments_outside_clip',
+        assPath: ass.assPath,
+        eventCount: 0,
+      }
+    }
+  }
   const rendered = await renderLocalClipPrepMp4({
     sourcePath,
     outputPath: output.outputPath,
@@ -925,6 +1188,7 @@ export async function renderLocalClipPrepVerticalAsset(input: {
     startSeconds: 0,
     endSeconds: durationSeconds,
     layout: 'vertical-blur',
+    subtitleImageOverlays,
   })
 
   return {
@@ -939,7 +1203,8 @@ export async function renderLocalClipPrepVerticalAsset(input: {
     sizeBytes: rendered.sizeBytes,
     renderPlan: verticalRenderPlan(input.openingText),
     qualityValidation: rendered.qualityValidation,
-    captionPrep: input.captionPrep ?? fallbackCaptionPrep(input.openingText),
+    captionPrep,
+    subtitleBurn,
     safety: {
       downloadsVideo: false,
       uploadsVideo: false,

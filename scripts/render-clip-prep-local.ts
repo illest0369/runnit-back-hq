@@ -40,6 +40,7 @@ async function main() {
   const downloadSource = hasFlag('--download-source')
   const attach = hasFlag('--attach')
   const verticalAsset = hasFlag('--vertical-asset')
+  const burnSubtitles = hasFlag('--burn-subtitles')
 
   if (verticalAsset) {
     if (!sourcePath) {
@@ -55,6 +56,7 @@ async function main() {
       assetRoot,
       outputDir,
       openingText,
+      burnSubtitles,
     })
 
     console.log(JSON.stringify({
@@ -71,6 +73,8 @@ async function main() {
         sizeBytes: result.sizeBytes,
         renderPlan: result.renderPlan,
         qualityValidation: result.qualityValidation,
+        captionPrep: result.captionPrep,
+        subtitleBurn: result.subtitleBurn,
         attached: false,
       },
       safety: {

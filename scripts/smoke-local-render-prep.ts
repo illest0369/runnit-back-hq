@@ -10,6 +10,7 @@ import {
   renderLocalClipPrepForCandidateOrPackage,
   validateLocalSourceMp4,
 } from '../lib/local-render-prep'
+import type { CaptionPrepV1 } from '../lib/clip-prep'
 
 const execFileAsync = promisify(execFile)
 
@@ -111,6 +112,13 @@ function clipPrepFixture(input: { start: number | null; end: number | null }) {
             segment_count: 1,
           }
         : null,
+      transcript_segments: input.start !== null && input.end !== null
+        ? [{
+            start_seconds: input.start,
+            end_seconds: input.end,
+            text: 'Smoke opening.',
+          }]
+        : [],
       safety: {
         burned_in: false,
         uploads_video: false,
@@ -391,6 +399,8 @@ async function main() {
     assert.equal(vertical.renderPlan.textOverlay.openingText, 'Smoke opening.')
     assert.equal(vertical.captionPrep?.suggested_subtitle_style.burned_in, false)
     assert.equal(vertical.captionPrep?.caption_safe_zone_notes.some((note) => note.includes('bottom 420px')), true)
+    assert.equal(vertical.subtitleBurn.requested, false)
+    assert.equal(vertical.subtitleBurn.burnedIn, false)
     assert.match(vertical.renderPlan.captionSafeZone.note, /caption-safe/i)
     assert.equal(vertical.qualityValidation.valid, true)
     assert.equal(vertical.qualityValidation.width, 1080)
@@ -405,6 +415,38 @@ async function main() {
     assert.ok(Math.abs(Number(verticalProbe.format?.duration ?? 0) - rendered.durationSeconds) < 0.25)
     assert.ok(vertical.outputPath.startsWith(root))
     assert.match(path.basename(vertical.outputPath), /vertical-1080x1920\.mp4$/)
+
+    const burned = await renderLocalClipPrepVerticalAsset({
+      sourcePath: rendered.outputPath,
+      assetRoot: root,
+      packageId,
+      openingText: 'Smoke opening.',
+      captionPrep: rendered.captionPrep,
+      clipStartSeconds: rendered.startSeconds,
+      burnSubtitles: true,
+    })
+    const burnedProbe = await probeMp4(burned.outputPath)
+    const burnedVideo = burnedProbe.streams?.find((stream) => stream.codec_type === 'video')
+    assert.equal(burned.subtitleBurn.requested, true)
+    assert.equal(burned.subtitleBurn.burnedIn, true)
+    assert.equal(burned.subtitleBurn.skippedReason, null)
+    assert.ok((burned.subtitleBurn.eventCount ?? 0) > 0)
+    assert.ok((burned.subtitleBurn.assPath ?? '').startsWith(root))
+    assert.equal(burned.qualityValidation.valid, true)
+    assert.equal(burnedVideo?.width, 1080)
+    assert.equal(burnedVideo?.height, 1920)
+
+    const metadataOnlyBurn = await renderLocalClipPrepVerticalAsset({
+      sourcePath: rendered.outputPath,
+      assetRoot: root,
+      packageId,
+      openingText: 'Smoke opening.',
+      captionPrep: clipPrepFixture({ start: null, end: null }).caption_prep as CaptionPrepV1,
+      burnSubtitles: true,
+    })
+    assert.equal(metadataOnlyBurn.subtitleBurn.requested, true)
+    assert.equal(metadataOnlyBurn.subtitleBurn.burnedIn, false)
+    assert.match(metadataOnlyBurn.subtitleBurn.skippedReason ?? '', /metadata_only/)
 
     await assert.rejects(
       () => validateLocalSourceMp4('https://example.com/source.mp4'),
@@ -454,6 +496,9 @@ async function main() {
         verticalDurationSeconds: vertical.durationSeconds,
         captionPrep: rendered.captionPrep,
         verticalCaptionPrep: vertical.captionPrep,
+        burnedSubtitleOutputPath: burned.outputPath,
+        subtitleBurn: burned.subtitleBurn,
+        metadataOnlySubtitleBurn: metadataOnlyBurn.subtitleBurn,
       },
       validations: {
         localSourceStatus: localSource.status,
@@ -468,6 +513,9 @@ async function main() {
         verticalResolution: `${verticalVideo?.width}x${verticalVideo?.height}`,
         verticalRenderPlan: vertical.renderPlan.safeCropStrategy,
         verticalOpeningTextBurnedIn: vertical.renderPlan.textOverlay.burnedIn,
+        defaultSubtitlesBurnedIn: vertical.subtitleBurn.burnedIn,
+        burnedSubtitleResolution: `${burnedVideo?.width}x${burnedVideo?.height}`,
+        metadataOnlyBurnSkipped: Boolean(metadataOnlyBurn.subtitleBurn.skippedReason),
         verticalQualityValid: vertical.qualityValidation.valid,
         verticalQualityIssues: vertical.qualityValidation.issues,
         verticalPreservesDuration: Math.abs(Number(verticalProbe.format?.duration ?? 0) - rendered.durationSeconds) < 0.25,

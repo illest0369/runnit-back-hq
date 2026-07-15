@@ -65,6 +65,13 @@ export type BatchLocalClipGenerationItem = {
   }
   assetPath: string | null
   captionPrep: CaptionPrepV1 | null
+  subtitleBurn: {
+    requested: boolean
+    burnedIn: boolean
+    skippedReason: string | null
+    assPath: string | null
+    eventCount: number
+  } | null
   status: BatchItemStatus
   attached: boolean
   sourceDownloaded: boolean
@@ -370,6 +377,7 @@ function itemBase(target: BatchTarget, pkg: PackageRow | null): Omit<BatchLocalC
     sourceTitle: pkg?.source_title ?? target.candidate?.title ?? null,
     clipRange: clipRange(target.candidate, pkg),
     captionPrep: captionPrep(target.candidate, pkg),
+    subtitleBurn: null,
   }
 }
 
@@ -383,6 +391,7 @@ export async function runBatchLocalClipGeneration(
     attach?: boolean
     rerender?: boolean
     downloadSource?: boolean
+    burnSubtitles?: boolean
     now?: () => Date
   } = {},
 ): Promise<BatchLocalClipGenerationResult> {
@@ -439,6 +448,8 @@ export async function runBatchLocalClipGeneration(
         outputDir: input.outputDir,
         openingText: openingText(target.candidate, pkg),
         captionPrep: clipped.captionPrep,
+        clipStartSeconds: clipped.startSeconds,
+        burnSubtitles: input.burnSubtitles,
       })
       const attachedPackage = input.attach
         ? await attachMacMiniLocalAsset(db, pkg.id, vertical.outputPath, {
@@ -451,6 +462,7 @@ export async function runBatchLocalClipGeneration(
         packageId: pkg.id,
         assetPath: attachedPackage?.localAssetPath ?? vertical.outputPath,
         captionPrep: vertical.captionPrep,
+        subtitleBurn: vertical.subtitleBurn,
         status: attachedPackage ? 'attached' : 'rendered',
         attached: Boolean(attachedPackage),
         sourceDownloaded: clipped.sourceDownloaded,
@@ -501,6 +513,7 @@ async function main() {
     attach: hasFlag('--attach'),
     rerender: hasFlag('--rerender'),
     downloadSource: hasFlag('--download-source'),
+    burnSubtitles: hasFlag('--burn-subtitles'),
   })
 
   console.log(JSON.stringify(result, null, 2))

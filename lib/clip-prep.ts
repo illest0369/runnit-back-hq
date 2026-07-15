@@ -25,6 +25,11 @@ export type CaptionPrepV1 = {
     text: string
     segment_count: number
   } | null
+  transcript_segments?: Array<{
+    start_seconds: number
+    end_seconds: number
+    text: string
+  }>
   safety: {
     burned_in: false
     uploads_video: false
@@ -285,6 +290,11 @@ function buildCaptionPrep(input: {
       burned_in: false,
     },
     transcript_segment_range: transcriptRange,
+    transcript_segments: rangeSegments.map((segment) => ({
+      start_seconds: roundSeconds(segment.start) ?? segment.start,
+      end_seconds: roundSeconds(segment.end) ?? segment.end,
+      text: truncate(segment.text, 160),
+    })),
     safety: {
       burned_in: false,
       uploads_video: false,
