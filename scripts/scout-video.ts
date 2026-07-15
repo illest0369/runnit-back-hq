@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { config } from 'dotenv'
 
+import { buildMomentCandidatesWithOptionalAiAnalyst } from '../lib/ai-moment-analyst'
 import {
-  buildTikTokClipCandidates,
   type ScoutTranscriptRow,
   type ScoutVideoRow,
   TIKTOK_MOMENT_RECOMMENDATION_MODEL,
@@ -59,7 +59,12 @@ async function main() {
   const source = Array.isArray(typedVideo.source_channels) ? typedVideo.source_channels[0] : typedVideo.source_channels
   const targetChannelId = source?.target_rbhq_channel_id ?? null
   const typedTranscript = transcript as ScoutTranscriptRow | null
-  const candidates = buildTikTokClipCandidates(typedVideo, typedTranscript, { targetChannelId })
+  const momentSelection = await buildMomentCandidatesWithOptionalAiAnalyst(typedVideo, typedTranscript, {
+    targetChannelId,
+    lane: targetChannelId,
+    source: { name: null, type: 'youtube_rss', url: typedVideo.video_url },
+  })
+  const candidates = momentSelection.candidates
 
   const { data: existing, error: existingError } = await supabase
     .from('clip_candidates')
@@ -87,6 +92,12 @@ async function main() {
           timed: existingRecommendations.some((candidate) => candidate.start_seconds !== null && candidate.end_seconds !== null),
           source: transcript?.transcript_source ?? null,
           id: typedTranscript?.id ?? null,
+        },
+        aiMomentAnalyst: {
+          mode: momentSelection.mode,
+          fallbackUsed: momentSelection.fallbackUsed,
+          fallbackReason: momentSelection.fallbackReason,
+          liveAiCalls: momentSelection.safety.liveAiCalls,
         },
         candidates: existingRecommendations,
       },
@@ -116,6 +127,12 @@ async function main() {
         timed: candidates.some((candidate) => candidate.start_seconds !== null && candidate.end_seconds !== null),
         source: transcript?.transcript_source ?? null,
         id: typedTranscript?.id ?? null,
+      },
+      aiMomentAnalyst: {
+        mode: momentSelection.mode,
+        fallbackUsed: momentSelection.fallbackUsed,
+        fallbackReason: momentSelection.fallbackReason,
+        liveAiCalls: momentSelection.safety.liveAiCalls,
       },
       candidates: inserted,
     },

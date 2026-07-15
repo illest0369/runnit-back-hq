@@ -23,7 +23,7 @@ export type ScoutSegment = {
   text: string
 }
 
-type CandidateInsert = {
+export type ScoutCandidateInsert = {
   ingested_video_id: string
   target_channel_id: string | null
   start_seconds: number | null
@@ -272,7 +272,7 @@ function buildPlaceholderCandidate(
   transcript: ScoutTranscriptRow | null,
   targetChannelId: string | null,
   now: string,
-): CandidateInsert {
+): ScoutCandidateInsert {
   const segments = transcript ? readTimedSegments(transcript.transcript_json) : []
   const transcriptText = transcript?.transcript_text?.trim() || segments.map((segment) => segment.text).join(' ')
   const basis = transcriptText || `${video.title}. ${video.description ?? ''}`
@@ -318,7 +318,7 @@ export function buildTikTokClipCandidates(
   video: ScoutVideoRow,
   transcript: ScoutTranscriptRow | null,
   input: { targetChannelId?: string | null; now?: () => Date } = {},
-): CandidateInsert[] {
+): ScoutCandidateInsert[] {
   const targetChannelId = input.targetChannelId ?? null
   const now = (input.now ?? (() => new Date()))().toISOString()
   const segments = transcript ? readTimedSegments(transcript.transcript_json) : []

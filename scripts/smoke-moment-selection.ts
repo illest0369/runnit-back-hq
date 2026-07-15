@@ -2,6 +2,10 @@ import assert from 'node:assert/strict'
 
 import { buildOperatorMomentSelectionUpdate } from '../lib/operator-moment-selection'
 import {
+  buildMomentCandidatesWithOptionalAiAnalyst,
+  createMockAiMomentAnalystProvider,
+} from '../lib/ai-moment-analyst'
+import {
   buildTikTokClipCandidates,
   TIKTOK_MOMENT_RECOMMENDATION_MODEL,
 } from '../lib/tiktok-clip-scout'
@@ -43,8 +47,26 @@ async function main() {
     targetChannelId: 'a1000000-0000-0000-0000-000000000004',
     now: () => new Date('2026-07-13T12:00:00.000Z'),
   })
+  const previousAiMomentAnalystEnv = process.env.RBHQ_AI_MOMENT_ANALYST
+  delete process.env.RBHQ_AI_MOMENT_ANALYST
+  const deterministicWithAnalystOff = await buildMomentCandidatesWithOptionalAiAnalyst(video, transcript, {
+    targetChannelId: 'a1000000-0000-0000-0000-000000000004',
+    lane: 'rb_women',
+    source: { name: 'Fixture Source', type: 'youtube_rss', url: video.video_url },
+    viralSignals: [{ key: 'fan_reaction', label: 'fan reaction' }],
+    now: () => new Date('2026-07-13T12:00:00.000Z'),
+  })
+  if (previousAiMomentAnalystEnv === undefined) {
+    delete process.env.RBHQ_AI_MOMENT_ANALYST
+  } else {
+    process.env.RBHQ_AI_MOMENT_ANALYST = previousAiMomentAnalystEnv
+  }
 
   assert.ok(candidates.length >= 1 && candidates.length <= 3)
+  assert.deepEqual(deterministicWithAnalystOff.candidates, candidates)
+  assert.equal(deterministicWithAnalystOff.mode, 'off')
+  assert.equal(deterministicWithAnalystOff.fallbackUsed, true)
+  assert.equal(deterministicWithAnalystOff.safety.liveAiCalls, false)
   assert.equal(candidates[0]?.target_channel_id, 'a1000000-0000-0000-0000-000000000004')
   assert.equal(candidates[0]?.score_breakdown.model, TIKTOK_MOMENT_RECOMMENDATION_MODEL)
   assert.equal(candidates[0]?.score_breakdown.role, 'primary')
@@ -55,6 +77,38 @@ async function main() {
       assert.equal(overlaps(candidates[index], candidates[next]), false)
     }
   }
+
+  const mockReranked = await buildMomentCandidatesWithOptionalAiAnalyst(video, transcript, {
+    targetChannelId: 'a1000000-0000-0000-0000-000000000004',
+    lane: 'rb_women',
+    source: { name: 'Fixture Source', type: 'youtube_rss', url: video.video_url },
+    viralSignals: [{ key: 'fan_reaction', label: 'fan reaction' }],
+    mode: 'mock',
+    provider: createMockAiMomentAnalystProvider({ selectedRank: 2 }),
+    now: () => new Date('2026-07-13T12:00:00.000Z'),
+  })
+  if (candidates.length > 1) {
+    assert.equal(mockReranked.candidates[0].start_seconds, candidates[1].start_seconds)
+    assert.equal(mockReranked.candidates[0].score_breakdown.role, 'primary')
+    assert.equal(mockReranked.candidates[0].score_breakdown.rank, 1)
+    assert.equal((mockReranked.candidates[0].score_breakdown.aiMomentAnalyst as Record<string, unknown>).mode, 'mock')
+    assert.equal(mockReranked.fallbackUsed, false)
+  }
+  assert.equal(mockReranked.safety.liveAiCalls, false)
+
+  const invalidMock = await buildMomentCandidatesWithOptionalAiAnalyst(video, transcript, {
+    targetChannelId: 'a1000000-0000-0000-0000-000000000004',
+    lane: 'rb_women',
+    source: { name: 'Fixture Source', type: 'youtube_rss', url: video.video_url },
+    viralSignals: [{ key: 'fan_reaction', label: 'fan reaction' }],
+    mode: 'mock',
+    provider: createMockAiMomentAnalystProvider({ invalid: true }),
+    now: () => new Date('2026-07-13T12:00:00.000Z'),
+  })
+  assert.deepEqual(invalidMock.candidates, candidates)
+  assert.equal(invalidMock.fallbackUsed, true)
+  assert.match(invalidMock.fallbackReason ?? '', /invalid_ai_output/)
+  assert.equal(invalidMock.safety.liveAiCalls, false)
 
   const accepted = buildOperatorMomentSelectionUpdate({
     candidate: {
@@ -100,6 +154,25 @@ async function main() {
     selection: {
       accepted: accepted.result.decision,
       overridden: overridden.result.decision,
+    },
+    aiMomentAnalyst: {
+      defaultMode: deterministicWithAnalystOff.mode,
+      defaultFallbackUsed: deterministicWithAnalystOff.fallbackUsed,
+      mockMode: mockReranked.mode,
+      mockFallbackUsed: mockReranked.fallbackUsed,
+      mockSelectedStart: mockReranked.candidates[0]?.start_seconds ?? null,
+      invalidFallbackReason: invalidMock.fallbackReason,
+    },
+    safety: {
+      liveAiCalls: false,
+      networkCalls: 0,
+      downloadsVideo: false,
+      rendersVideo: false,
+      uploadsVideo: false,
+      postsVideo: false,
+      triggersTikTokDryRun: false,
+      clicksFinalPost: false,
+      livePublish: false,
     },
   }, null, 2))
 }
