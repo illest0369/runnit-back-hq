@@ -89,6 +89,34 @@ function clipPrepFixture(input: { start: number | null; end: number | null }) {
     opening_text: 'Smoke opening.',
     edit_notes: ['Suggested manual cut from smoke fixture.'],
     asset_instructions: 'No automated download. Use local source MP4 only.',
+    caption_prep: {
+      version: 'rbhq-caption-prep-v1',
+      subtitle_source: input.start !== null && input.end !== null ? 'transcript' : 'metadata_only',
+      suggested_on_screen_hook: 'Smoke opening.',
+      first_two_second_opener_text: 'Smoke opening.',
+      caption_safe_zone_notes: [
+        'Keep subtitle text clear of the top 250px, bottom 420px, and 80px side gutters.',
+      ],
+      suggested_subtitle_style: {
+        preset: 'bold-lower-third',
+        position: 'lower_third_caption_safe',
+        max_lines: 2,
+        burned_in: false,
+      },
+      transcript_segment_range: input.start !== null && input.end !== null
+        ? {
+            start_seconds: input.start,
+            end_seconds: input.end,
+            text: 'Smoke opening.',
+            segment_count: 1,
+          }
+        : null,
+      safety: {
+        burned_in: false,
+        uploads_video: false,
+        posts_video: false,
+      },
+    },
     basis: {
       transcript_available: true,
       timed_transcript_available: true,
@@ -339,6 +367,9 @@ async function main() {
     assert.ok(renderedStat.size > 0)
     assert.equal(rendered.attached, true)
     assert.equal(rendered.attachedPackage?.assetStatus, 'attached')
+    assert.equal(rendered.captionPrep?.subtitle_source, 'transcript')
+    assert.equal(rendered.captionPrep?.suggested_subtitle_style.burned_in, false)
+    assert.equal(rendered.captionPrep?.transcript_segment_range?.start_seconds, 1)
     assert.equal(db.rows('mac_mini_clip_packages')[0]?.local_asset_path, rendered.outputPath)
     assert.equal((db.rows('mac_mini_clip_packages')[0]?.package_payload as Record<string, unknown>)?.localAssetPath, rendered.outputPath)
 
@@ -358,6 +389,8 @@ async function main() {
     assert.equal(vertical.renderPlan.safeCropStrategy, 'blurred-background-with-contained-foreground')
     assert.equal(vertical.renderPlan.textOverlay.burnedIn, false)
     assert.equal(vertical.renderPlan.textOverlay.openingText, 'Smoke opening.')
+    assert.equal(vertical.captionPrep?.suggested_subtitle_style.burned_in, false)
+    assert.equal(vertical.captionPrep?.caption_safe_zone_notes.some((note) => note.includes('bottom 420px')), true)
     assert.match(vertical.renderPlan.captionSafeZone.note, /caption-safe/i)
     assert.equal(vertical.qualityValidation.valid, true)
     assert.equal(vertical.qualityValidation.width, 1080)
@@ -419,6 +452,8 @@ async function main() {
         attachedAssetStatus: rendered.attachedPackage?.assetStatus ?? null,
         verticalOutputPath: vertical.outputPath,
         verticalDurationSeconds: vertical.durationSeconds,
+        captionPrep: rendered.captionPrep,
+        verticalCaptionPrep: vertical.captionPrep,
       },
       validations: {
         localSourceStatus: localSource.status,

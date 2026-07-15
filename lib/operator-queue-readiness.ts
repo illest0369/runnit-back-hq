@@ -1,4 +1,5 @@
 import type { RBHQIntelligenceRankLabel, RBHQIntelligenceUrgency, RBHQIntelligenceV1 } from './intelligence-v1'
+import type { CaptionPrepV1 } from './clip-prep'
 import type { MacMiniAssetStatus, MacMiniHandoffStatus, MacMiniPackageStatus } from './mac-mini-handoff'
 import {
   buildTikTokStagingReadiness,
@@ -54,6 +55,7 @@ export type QueueClipPrepSummary = {
   editNotes: string[]
   assetInstructions: string | null
   transcriptTimed: boolean | null
+  captionPrep: CaptionPrepV1 | null
 }
 
 export type QueuePackageForReadiness = {
@@ -203,6 +205,7 @@ function readClipPrepSummary(
   const transcriptTimed = typeof basis?.timed_transcript_available === 'boolean'
     ? basis.timed_transcript_available
     : null
+  const captionPrep = readObject(embedded?.caption_prep)
 
   if (!status && !confidence && start === null && end === null && !clipReason && !openingText && editNotes.length === 0) {
     return null
@@ -219,5 +222,6 @@ function readClipPrepSummary(
     editNotes,
     assetInstructions,
     transcriptTimed,
+    captionPrep: captionPrep?.version === 'rbhq-caption-prep-v1' ? captionPrep as unknown as CaptionPrepV1 : null,
   }
 }

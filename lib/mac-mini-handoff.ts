@@ -7,6 +7,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   buildClipPrepV1,
   readClipPrepFromCandidate,
+  type CaptionPrepV1,
   type ClipPrepV1,
 } from './clip-prep'
 import { syncLoadedCandidateIntelligenceV1 } from './candidate-intelligence'
@@ -43,6 +44,7 @@ export type MacMiniClipPackagePayload = {
     error: string | null
   }
   clipPrep: ClipPrepV1
+  captionPrep: CaptionPrepV1
   tiktokDraft: {
     title: string
     hook: string
@@ -410,6 +412,7 @@ function payloadWithLocalAsset(
   assertDryRunPayload(payload)
   return {
     ...payload,
+    captionPrep: payload.captionPrep ?? payload.clipPrep.caption_prep,
     localAssetPath: input.localAssetPath,
     asset: {
       localPath: input.localAssetPath,
@@ -470,6 +473,7 @@ function buildPayload(input: {
       error: null,
     },
     clipPrep: input.clipPrep,
+    captionPrep: input.clipPrep.caption_prep,
     tiktokDraft: {
       title: input.candidate.title || input.sourceTitle,
       hook: input.hook,

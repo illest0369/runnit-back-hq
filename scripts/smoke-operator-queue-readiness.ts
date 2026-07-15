@@ -222,6 +222,8 @@ async function main() {
     assert.equal(pkg.payload.safety.livePostingAllowed, false)
     assert.equal(pkg.payload.safety.metricoolAllowed, false)
     assert.equal(pkg.payload.safety.finalPostClickAllowed, false)
+    assert.equal(pkg.payload.captionPrep.subtitle_source, 'metadata_only')
+    assert.equal(pkg.payload.captionPrep.suggested_subtitle_style.burned_in, false)
 
     const packageRow = db.rows('mac_mini_clip_packages')[0]
     const packagedReadiness = buildQueueReadiness(candidateId, candidate, {
@@ -323,6 +325,7 @@ async function main() {
         macMiniPackageReady: packagedReadiness.macMiniPackageReady,
         localRenderAttached: packagedReadiness.localRenderAttached,
         packageId: packagedReadiness.macMiniPackageId,
+        captionPrepSource: pkg.payload.captionPrep.subtitle_source,
         notYetStagedReadyForTikTokRetry: notYetStagedReadiness.tiktokStaging.readyForTikTokRetry,
         notYetStagedOperatorState: notYetStagedReadiness.tiktokStaging.operatorState,
         readyForTikTokRetry: retryReadyReadiness.tiktokStaging.readyForTikTokRetry,

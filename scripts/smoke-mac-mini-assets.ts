@@ -57,6 +57,35 @@ class MemorySupabase {
   }
 }
 
+function captionPrepFixture() {
+  return {
+    version: 'rbhq-caption-prep-v1' as const,
+    subtitle_source: 'transcript' as const,
+    suggested_on_screen_hook: 'Fans are losing it after the final play',
+    first_two_second_opener_text: 'Fans are losing it after the final play',
+    caption_safe_zone_notes: [
+      'Keep subtitles clear of the top 250px, bottom 420px, and 80px side gutters in the 1080x1920 render.',
+    ],
+    suggested_subtitle_style: {
+      preset: 'bold-lower-third' as const,
+      position: 'lower_third_caption_safe' as const,
+      max_lines: 2 as const,
+      burned_in: false as const,
+    },
+    transcript_segment_range: {
+      start_seconds: 4,
+      end_seconds: 19,
+      text: 'Fans are losing it after the final play',
+      segment_count: 1,
+    },
+    safety: {
+      burned_in: false as const,
+      uploads_video: false as const,
+      posts_video: false as const,
+    },
+  }
+}
+
 function clipPrepFixture() {
   return {
     version: 'rbhq-clip-prep-v1' as const,
@@ -67,6 +96,7 @@ function clipPrepFixture() {
     suggested_clip_length_seconds: 15,
     clip_reason: 'RB Sports has breaking/news momentum; 0-3 hour viral window.',
     opening_text: 'Fans are losing it after the final play',
+    caption_prep: captionPrepFixture(),
     edit_notes: ['Suggested manual cut: 4s-19s (15s).'],
     asset_instructions: 'Manually provide a local MP4 asset, then cut 4s-19s after human review. No automated download or render is performed.',
     basis: {
@@ -119,6 +149,7 @@ function packagePayload(packageId: string): MacMiniClipPackagePayload {
       error: null,
     },
     clipPrep: clipPrepFixture(),
+    captionPrep: captionPrepFixture(),
     tiktokDraft: {
       title: 'ESPN trade reaction source video',
       hook: 'Fans are losing it after the final play',

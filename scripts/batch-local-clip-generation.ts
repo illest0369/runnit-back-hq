@@ -20,6 +20,7 @@ import {
   renderLocalClipPrepVerticalAsset,
   type LocalRenderQualityValidation,
 } from '../lib/local-render-prep'
+import type { CaptionPrepV1 } from '../lib/clip-prep'
 
 config({ path: '.env.local', quiet: true })
 config({ quiet: true })
@@ -63,6 +64,7 @@ export type BatchLocalClipGenerationItem = {
     lengthSeconds: number | null
   }
   assetPath: string | null
+  captionPrep: CaptionPrepV1 | null
   status: BatchItemStatus
   attached: boolean
   sourceDownloaded: boolean
@@ -84,6 +86,7 @@ export type BatchLocalClipGenerationResult = {
       assetPath: string | null
       clipRange: BatchLocalClipGenerationItem['clipRange']
       caption: string | null
+      captionPrep: CaptionPrepV1 | null
       readiness: {
         label: 'Ready for TikTok retry'
         readyForTikTokRetry: boolean
@@ -149,6 +152,11 @@ function readObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
 }
 
+function readCaptionPrep(value: unknown): CaptionPrepV1 | null {
+  const record = readObject(value)
+  return record?.version === 'rbhq-caption-prep-v1' ? record as unknown as CaptionPrepV1 : null
+}
+
 function readNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string' && value.trim()) {
@@ -171,6 +179,14 @@ function openingText(candidate: CandidateRow | null, pkg: PackageRow | null): st
   const clipPrep = readObject(pkg?.package_payload?.clipPrep) ?? readObject(candidate?.clip_prep)
   const value = clipPrep?.opening_text ?? candidate?.opening_text
   return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function captionPrep(candidate: CandidateRow | null, pkg: PackageRow | null): CaptionPrepV1 | null {
+  const packageClipPrep = readObject(pkg?.package_payload?.clipPrep)
+  const candidateClipPrep = readObject(candidate?.clip_prep)
+  return readCaptionPrep(pkg?.package_payload?.captionPrep)
+    ?? readCaptionPrep(packageClipPrep?.caption_prep)
+    ?? readCaptionPrep(candidateClipPrep?.caption_prep)
 }
 
 function packageRowFromMacMini(pkg: MacMiniClipPackage): PackageRow {
@@ -321,6 +337,7 @@ async function readyForTikTokRetryList(db: BatchDb): Promise<BatchLocalClipGener
       assetPath: pkg.local_asset_path,
       clipRange: clipRange(candidate, pkg),
       caption: pkg.caption,
+      captionPrep: captionPrep(candidate, pkg),
       readiness: {
         label: 'Ready for TikTok retry' as const,
         readyForTikTokRetry: readiness.tiktokStaging.readyForTikTokRetry,
@@ -352,6 +369,7 @@ function itemBase(target: BatchTarget, pkg: PackageRow | null): Omit<BatchLocalC
     lane: pkg?.lane_label ?? null,
     sourceTitle: pkg?.source_title ?? target.candidate?.title ?? null,
     clipRange: clipRange(target.candidate, pkg),
+    captionPrep: captionPrep(target.candidate, pkg),
   }
 }
 
@@ -420,6 +438,7 @@ export async function runBatchLocalClipGeneration(
         assetRoot: input.assetRoot,
         outputDir: input.outputDir,
         openingText: openingText(target.candidate, pkg),
+        captionPrep: clipped.captionPrep,
       })
       const attachedPackage = input.attach
         ? await attachMacMiniLocalAsset(db, pkg.id, vertical.outputPath, {
@@ -431,6 +450,7 @@ export async function runBatchLocalClipGeneration(
         ...itemBase(target, pkg),
         packageId: pkg.id,
         assetPath: attachedPackage?.localAssetPath ?? vertical.outputPath,
+        captionPrep: vertical.captionPrep,
         status: attachedPackage ? 'attached' : 'rendered',
         attached: Boolean(attachedPackage),
         sourceDownloaded: clipped.sourceDownloaded,

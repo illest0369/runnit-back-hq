@@ -5,6 +5,32 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type ClipPrepStatus = 'ready' | 'metadata_only'
 export type ClipPrepConfidence = 'high' | 'medium' | 'low'
+export type CaptionPrepSubtitleSource = 'transcript' | 'metadata_only' | 'unavailable'
+
+export type CaptionPrepV1 = {
+  version: 'rbhq-caption-prep-v1'
+  subtitle_source: CaptionPrepSubtitleSource
+  suggested_on_screen_hook: string
+  first_two_second_opener_text: string
+  caption_safe_zone_notes: string[]
+  suggested_subtitle_style: {
+    preset: 'bold-lower-third'
+    position: 'lower_third_caption_safe'
+    max_lines: 2
+    burned_in: false
+  }
+  transcript_segment_range: {
+    start_seconds: number
+    end_seconds: number
+    text: string
+    segment_count: number
+  } | null
+  safety: {
+    burned_in: false
+    uploads_video: false
+    posts_video: false
+  }
+}
 
 export type ClipPrepV1 = {
   version: 'rbhq-clip-prep-v1'
@@ -15,6 +41,7 @@ export type ClipPrepV1 = {
   suggested_clip_length_seconds: number | null
   clip_reason: string
   opening_text: string
+  caption_prep: CaptionPrepV1
   edit_notes: string[]
   asset_instructions: string
   basis: {
@@ -166,6 +193,15 @@ function textWithinRange(segments: ScoutSegment[], start: number, end: number): 
     .join(' '))
 }
 
+function segmentsWithinRange(segments: ScoutSegment[], start: number, end: number): ScoutSegment[] {
+  return segments.filter((segment) => segment.end > start && segment.start < end)
+}
+
+function firstTwoSecondText(segments: ScoutSegment[], start: number, fallback: string): string {
+  const opener = textWithinRange(segments, start, start + 2)
+  return truncate(opener || fallback, 90)
+}
+
 function chooseTranscriptRange(segments: ScoutSegment[]): { start: number; end: number; text: string } | null {
   if (segments.length === 0) return null
   const start = segments[0]?.start ?? 0
@@ -195,6 +231,66 @@ function openingFrom(input: {
       input.candidate.title,
     140,
   )
+}
+
+function captionPrepSource(input: {
+  transcriptWindowText: string
+  transcriptText: string
+  opening: string
+}): CaptionPrepSubtitleSource {
+  if (input.transcriptWindowText) return 'transcript'
+  if (input.transcriptText || input.opening) return 'metadata_only'
+  return 'unavailable'
+}
+
+function buildCaptionPrep(input: {
+  opening: string
+  transcriptText: string
+  transcriptWindowText: string
+  selectedRange: { start: number; end: number } | null
+  segments: ScoutSegment[]
+}): CaptionPrepV1 {
+  const rangeSegments = input.selectedRange
+    ? segmentsWithinRange(input.segments, input.selectedRange.start, input.selectedRange.end)
+    : []
+  const transcriptRange = input.selectedRange && rangeSegments.length > 0
+    ? {
+        start_seconds: roundSeconds(input.selectedRange.start) ?? input.selectedRange.start,
+        end_seconds: roundSeconds(input.selectedRange.end) ?? input.selectedRange.end,
+        text: truncate(input.transcriptWindowText || rangeSegments.map((segment) => segment.text).join(' '), 500),
+        segment_count: rangeSegments.length,
+      }
+    : null
+
+  return {
+    version: 'rbhq-caption-prep-v1',
+    subtitle_source: captionPrepSource({
+      transcriptWindowText: input.transcriptWindowText,
+      transcriptText: input.transcriptText,
+      opening: input.opening,
+    }),
+    suggested_on_screen_hook: truncate(input.opening, 90),
+    first_two_second_opener_text: input.selectedRange
+      ? firstTwoSecondText(input.segments, input.selectedRange.start, input.opening)
+      : truncate(input.opening, 90),
+    caption_safe_zone_notes: [
+      'Keep subtitles clear of the top 250px, bottom 420px, and 80px side gutters in the 1080x1920 render.',
+      'Use one or two short lines near the lower third; avoid covering faces, the ball, scorebugs, or key action.',
+      'Metadata only: subtitles are not burned into the MP4 by this pipeline yet.',
+    ],
+    suggested_subtitle_style: {
+      preset: 'bold-lower-third',
+      position: 'lower_third_caption_safe',
+      max_lines: 2,
+      burned_in: false,
+    },
+    transcript_segment_range: transcriptRange,
+    safety: {
+      burned_in: false,
+      uploads_video: false,
+      posts_video: false,
+    },
+  }
 }
 
 function statusAndConfidence(input: {
@@ -254,6 +350,13 @@ export function buildClipPrepV1(input: {
     hasCandidateRange: Boolean(candidateRange),
   })
   const opening = openingFrom({ candidate, transcriptWindowText, intelligence, sourceTitle })
+  const captionPrep = buildCaptionPrep({
+    opening,
+    transcriptText,
+    transcriptWindowText,
+    selectedRange,
+    segments,
+  })
   const reasons = [
     firstString(candidate.score_breakdown?.whyNow),
     firstString(candidate.score_breakdown?.operatorSummary),
@@ -287,6 +390,7 @@ export function buildClipPrepV1(input: {
     suggested_clip_length_seconds: length,
     clip_reason: clipReason,
     opening_text: opening,
+    caption_prep: captionPrep,
     edit_notes: editNotes,
     asset_instructions: start !== null && end !== null
       ? `Manually provide a local MP4 asset, then cut ${start}s-${end}s after human review. No automated download or render is performed.`
@@ -320,7 +424,19 @@ export function readClipPrepV1(value: unknown): ClipPrepV1 | null {
   const record = value as Partial<ClipPrepV1>
   if (record.version !== 'rbhq-clip-prep-v1') return null
   if (record.status !== 'ready' && record.status !== 'metadata_only') return null
-  return record as ClipPrepV1
+  const captionPrep = record.caption_prep?.version === 'rbhq-caption-prep-v1'
+    ? record.caption_prep
+    : buildCaptionPrep({
+        opening: compact(record.opening_text),
+        transcriptText: '',
+        transcriptWindowText: '',
+        selectedRange: null,
+        segments: [],
+      })
+  return {
+    ...record,
+    caption_prep: captionPrep,
+  } as ClipPrepV1
 }
 
 export function readClipPrepFromCandidate(candidate: {
@@ -360,6 +476,7 @@ function packagePayloadWithClipPrep(payload: Record<string, unknown>, prep: Clip
   return {
     ...payload,
     clipPrep: prep,
+    captionPrep: prep.caption_prep,
     tiktokDraft: draft
       ? {
           ...draft,

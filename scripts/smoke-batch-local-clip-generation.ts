@@ -132,6 +132,32 @@ function clipPrepFixture(start: number, end: number) {
     suggested_clip_length_seconds: Number((end - start).toFixed(3)),
     clip_reason: 'Smoke batch local render clip reason.',
     opening_text: 'Smoke batch opening.',
+    caption_prep: {
+      version: 'rbhq-caption-prep-v1',
+      subtitle_source: 'transcript',
+      suggested_on_screen_hook: 'Smoke batch opening.',
+      first_two_second_opener_text: 'Smoke batch opening.',
+      caption_safe_zone_notes: [
+        'Keep subtitles clear of the top 250px, bottom 420px, and 80px side gutters in the 1080x1920 render.',
+      ],
+      suggested_subtitle_style: {
+        preset: 'bold-lower-third',
+        position: 'lower_third_caption_safe',
+        max_lines: 2,
+        burned_in: false,
+      },
+      transcript_segment_range: {
+        start_seconds: start,
+        end_seconds: end,
+        text: 'Smoke batch opening.',
+        segment_count: 1,
+      },
+      safety: {
+        burned_in: false,
+        uploads_video: false,
+        posts_video: false,
+      },
+    },
     edit_notes: ['Smoke batch local render note.'],
     asset_instructions: 'Use local source MP4 only unless --download-source is passed.',
     basis: {
@@ -390,6 +416,8 @@ async function main() {
     assert.equal(dryRun.items[0]?.status, 'rendered')
     assert.equal(dryRun.items[0]?.attached, false)
     assert.equal(dryRun.items[0]?.qualityValidation?.valid, true)
+    assert.equal(dryRun.items[0]?.captionPrep?.subtitle_source, 'transcript')
+    assert.equal(dryRun.items[0]?.captionPrep?.suggested_subtitle_style.burned_in, false)
     assert.equal(dryRun.items[1]?.status, 'source_missing')
     assert.match(dryRun.items[1]?.error ?? '', /download-source/)
     assert.equal(dryRun.items[2]?.status, 'rendered')
@@ -413,6 +441,7 @@ async function main() {
     assert.ok(attached.items.some((item) => item.status === 'attached'))
     assert.ok(attached.readyForTikTokRetry.count >= 1)
     assert.ok(attached.readyForTikTokRetry.packages.every((pkg) => pkg.readiness.readyForTikTokRetry))
+    assert.ok(attached.readyForTikTokRetry.packages.every((pkg) => pkg.captionPrep?.suggested_subtitle_style.burned_in === false))
     assert.equal(fetchCalls, 0)
 
     console.log(JSON.stringify({
@@ -430,6 +459,7 @@ async function main() {
           candidateId: pkg.candidateId,
           assetPath: pkg.assetPath,
           label: pkg.readiness.label,
+          captionPrep: pkg.captionPrep,
         })),
       },
       safety: {

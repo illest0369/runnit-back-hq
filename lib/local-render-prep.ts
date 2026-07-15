@@ -6,7 +6,7 @@ import { promisify } from 'node:util'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 
-import { readClipPrepV1, type ClipPrepV1 } from './clip-prep'
+import { readClipPrepV1, type CaptionPrepV1, type ClipPrepV1 } from './clip-prep'
 import { attachMacMiniLocalAsset, type MacMiniClipPackage } from './mac-mini-handoff'
 
 const execFileAsync = promisify(execFile)
@@ -45,6 +45,7 @@ export type LocalRenderPrepResult = {
   durationSeconds: number
   sizeBytes: number
   qualityValidation: LocalRenderQualityValidation
+  captionPrep: CaptionPrepV1
   attached: boolean
   attachedPackage: MacMiniClipPackage | null
   safety: {
@@ -110,6 +111,7 @@ export type LocalVerticalAssetRenderResult = {
   sizeBytes: number
   renderPlan: LocalVerticalRenderPlan
   qualityValidation: LocalRenderQualityValidation
+  captionPrep: CaptionPrepV1
   safety: {
     downloadsVideo: false
     uploadsVideo: false
@@ -252,6 +254,41 @@ function verticalRenderPlan(openingText: string | null | undefined): LocalVertic
       note: 'Keep faces, ball/action, and any future overlays inside this caption-safe zone; platform captions and controls can cover edges.',
     },
   }
+}
+
+function fallbackCaptionPrep(openingText: string | null | undefined): CaptionPrepV1 {
+  const opening = openingText?.trim() || ''
+  return {
+    version: 'rbhq-caption-prep-v1',
+    subtitle_source: opening ? 'metadata_only' : 'unavailable',
+    suggested_on_screen_hook: opening,
+    first_two_second_opener_text: opening,
+    caption_safe_zone_notes: [
+      'Keep subtitles clear of the top 250px, bottom 420px, and 80px side gutters in the 1080x1920 render.',
+      'Use one or two short lines near the lower third; avoid covering faces, the ball, scorebugs, or key action.',
+      'Metadata only: subtitles are not burned into the MP4 by this pipeline yet.',
+    ],
+    suggested_subtitle_style: {
+      preset: 'bold-lower-third',
+      position: 'lower_third_caption_safe',
+      max_lines: 2,
+      burned_in: false,
+    },
+    transcript_segment_range: null,
+    safety: {
+      burned_in: false,
+      uploads_video: false,
+      posts_video: false,
+    },
+  }
+}
+
+function readCaptionPrep(value: unknown, openingText: string | null | undefined): CaptionPrepV1 {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const record = value as Partial<CaptionPrepV1>
+    if (record.version === 'rbhq-caption-prep-v1') return record as CaptionPrepV1
+  }
+  return fallbackCaptionPrep(openingText)
 }
 
 async function readToolStatus(binary: LocalSourceToolName): Promise<LocalSourceToolStatus> {
@@ -871,6 +908,7 @@ export async function renderLocalClipPrepVerticalAsset(input: {
   assetRoot?: string | null
   outputDir?: string | null
   openingText?: string | null
+  captionPrep?: CaptionPrepV1 | null
 }): Promise<LocalVerticalAssetRenderResult> {
   const sourcePath = await validateLocalSourceMp4(input.sourcePath)
   const output = localVerticalRenderOutputPath({
@@ -901,6 +939,7 @@ export async function renderLocalClipPrepVerticalAsset(input: {
     sizeBytes: rendered.sizeBytes,
     renderPlan: verticalRenderPlan(input.openingText),
     qualityValidation: rendered.qualityValidation,
+    captionPrep: input.captionPrep ?? fallbackCaptionPrep(input.openingText),
     safety: {
       downloadsVideo: false,
       uploadsVideo: false,
@@ -977,6 +1016,7 @@ export async function renderLocalClipPrepForCandidateOrPackage(
     durationSeconds: rendered.durationSeconds,
     sizeBytes: rendered.sizeBytes,
     qualityValidation: rendered.qualityValidation,
+    captionPrep: readCaptionPrep(prep.clipPrep?.caption_prep, prep.clipPrep?.opening_text ?? prep.candidateTitle),
     attached: Boolean(attachedPackage),
     attachedPackage,
     safety: {

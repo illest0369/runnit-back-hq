@@ -7,6 +7,7 @@ import {
   type QueuePackageForReadiness,
 } from '../lib/operator-queue-readiness'
 import { validateRetryReadyLocalAsset } from '../lib/retry-ready-asset-validation'
+import type { CaptionPrepV1 } from '../lib/clip-prep'
 
 config({ path: '.env.local', quiet: true })
 config({ quiet: true })
@@ -55,6 +56,11 @@ function readObject(value: unknown): Record<string, unknown> | null {
     : null
 }
 
+function readCaptionPrep(value: unknown): CaptionPrepV1 | null {
+  const record = readObject(value)
+  return record?.version === 'rbhq-caption-prep-v1' ? record as unknown as CaptionPrepV1 : null
+}
+
 function readNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value
   if (typeof value === 'string' && value.trim()) {
@@ -71,6 +77,14 @@ function clipRange(candidate: CandidateRow | null, pkg: PackageRow) {
   const length = readNumber(clipPrep?.suggested_clip_length_seconds ?? candidate?.suggested_clip_length_seconds)
     ?? (start !== null && end !== null ? Number((end - start).toFixed(3)) : null)
   return { startSeconds: start, endSeconds: end, lengthSeconds: length }
+}
+
+function captionPrep(candidate: CandidateRow | null, pkg: PackageRow): CaptionPrepV1 | null {
+  const packageClipPrep = readObject(pkg.package_payload?.clipPrep)
+  const candidateClipPrep = readObject(candidate?.clip_prep)
+  return readCaptionPrep(pkg.package_payload?.captionPrep)
+    ?? readCaptionPrep(packageClipPrep?.caption_prep)
+    ?? readCaptionPrep(candidateClipPrep?.caption_prep)
 }
 
 async function main() {
@@ -137,6 +151,7 @@ async function main() {
       clipPrepStatus: candidate?.clip_prep_status ?? null,
       clipRange: range,
       caption: pkg.caption,
+      captionPrep: captionPrep(candidate, pkg),
       dryRunStatus: {
         packageStatus: pkg.package_status ?? null,
         handoffStatus: pkg.handoff_status ?? null,

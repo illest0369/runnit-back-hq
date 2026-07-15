@@ -233,6 +233,14 @@ async function main() {
     assert.equal(timed.clipPrep.suggested_clip_length_seconds, 22)
     assert.equal(timed.transcript.available, true)
     assert.equal(timed.transcript.timed, true)
+    assert.equal(timed.clipPrep.caption_prep.subtitle_source, 'transcript')
+    assert.equal(timed.clipPrep.caption_prep.suggested_on_screen_hook, 'The crowd is stunned as the comeback starts')
+    assert.equal(timed.clipPrep.caption_prep.first_two_second_opener_text, 'The rookie answers the pressure right away.')
+    assert.equal(timed.clipPrep.caption_prep.transcript_segment_range?.start_seconds, 3)
+    assert.equal(timed.clipPrep.caption_prep.transcript_segment_range?.end_seconds, 25)
+    assert.equal(timed.clipPrep.caption_prep.transcript_segment_range?.segment_count, 3)
+    assert.equal(timed.clipPrep.caption_prep.suggested_subtitle_style.burned_in, false)
+    assert.ok(timed.clipPrep.caption_prep.caption_safe_zone_notes.some((note) => note.includes('bottom 420px')))
     assert.equal(timed.clipPrep.safety.downloads_video, false)
     assert.equal(timed.clipPrep.safety.renders_video, false)
     assert.equal(timed.clipPrep.safety.uploads_video, false)
@@ -252,6 +260,8 @@ async function main() {
     const payload = timedPackage?.package_payload as Record<string, unknown>
     const draft = payload.tiktokDraft as Record<string, unknown>
     assert.equal((payload.clipPrep as Record<string, unknown>)?.status, 'ready')
+    assert.equal((payload.captionPrep as Record<string, unknown>)?.subtitle_source, 'transcript')
+    assert.equal(((payload.captionPrep as Record<string, unknown>)?.suggested_subtitle_style as Record<string, unknown>)?.burned_in, false)
     assert.equal(draft.caption, 'EDITORIAL CAPTION MUST STAY')
     assert.deepEqual(draft.hashtags, ['#Editorial', '#KeepMe'])
 
@@ -262,6 +272,9 @@ async function main() {
     assert.equal(metadata.clipPrep.confidence, 'low')
     assert.equal(metadata.clipPrep.suggested_clip_start_seconds, null)
     assert.equal(metadata.clipPrep.suggested_clip_end_seconds, null)
+    assert.equal(metadata.clipPrep.caption_prep.subtitle_source, 'metadata_only')
+    assert.equal(metadata.clipPrep.caption_prep.transcript_segment_range, null)
+    assert.equal(metadata.clipPrep.caption_prep.suggested_subtitle_style.burned_in, false)
     assert.ok(metadata.clipPrep.edit_notes.some((note) => note.includes('Metadata-only prep')))
     assert.equal(metadata.transcript.available, false)
 
@@ -283,6 +296,7 @@ async function main() {
     })
     assert.equal(pureMetadata.status, 'metadata_only')
     assert.equal(pureMetadata.confidence, 'low')
+    assert.equal(pureMetadata.caption_prep.subtitle_source, 'metadata_only')
 
     assert.equal(fetchCalls, 0)
 
@@ -295,6 +309,7 @@ async function main() {
         suggestedEnd: timed.clipPrep.suggested_clip_end_seconds,
         openingText: timed.clipPrep.opening_text,
         clipReason: timed.clipPrep.clip_reason,
+        captionPrep: timed.clipPrep.caption_prep,
       },
       metadataOnly: {
         status: metadata.clipPrep.status,
@@ -302,6 +317,7 @@ async function main() {
         suggestedStart: metadata.clipPrep.suggested_clip_start_seconds,
         suggestedEnd: metadata.clipPrep.suggested_clip_end_seconds,
         assetInstructions: metadata.clipPrep.asset_instructions,
+        captionPrep: metadata.clipPrep.caption_prep,
       },
       precedence: {
         captionPreserved: draft.caption,
