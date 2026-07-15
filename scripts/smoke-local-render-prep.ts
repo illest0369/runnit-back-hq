@@ -356,6 +356,32 @@ async function main() {
     assert.equal(urlSource.sourceDownloaded, false)
     assert.match(urlSource.error ?? '', /download is manual-only/)
 
+    const cachedUrlPackageId = 'package-cached-url-source'
+    const cachedUrlCandidateId = 'candidate-cached-url-source'
+    const cachedUrlSourceDir = path.join(root, 'source-assets')
+    const cachedUrlSourcePath = path.join(cachedUrlSourceDir, `pkg-${cachedUrlPackageId}-candidate-${cachedUrlCandidateId}-source.mp4`)
+    await createSourceVideo(cachedUrlSourcePath)
+    db.rows('clip_candidates').push({
+      id: cachedUrlCandidateId,
+      title: 'Cached URL source',
+      clip_prep: clipPrepFixture({ start: 1, end: 3 }),
+      score_breakdown: null,
+      suggested_clip_start_seconds: 1,
+      suggested_clip_end_seconds: 3,
+      suggested_clip_length_seconds: 2,
+    })
+    db.rows('mac_mini_clip_packages').push(packageRow(cachedUrlPackageId, cachedUrlCandidateId))
+    const cachedUrlRendered = await renderLocalClipPrepForCandidateOrPackage(db as never, {
+      packageId: cachedUrlPackageId,
+      sourceUrl: 'https://example.com/cached-source.mp4',
+      assetRoot: root,
+      sourceDir: cachedUrlSourceDir,
+      now: () => new Date('2026-07-09T12:31:00.000Z'),
+    })
+    assert.equal(cachedUrlRendered.sourcePath, cachedUrlSourcePath)
+    assert.equal(cachedUrlRendered.sourceDownloaded, false)
+    assert.equal(cachedUrlRendered.qualityValidation.valid, true)
+
     const rendered = await renderLocalClipPrepForCandidateOrPackage(db as never, {
       packageId,
       sourcePath,
@@ -505,6 +531,8 @@ async function main() {
         urlSourceStatus: urlSource.status,
         rejectsUrlSource: true,
         rejectsUrlRenderWithoutDownloadFlag: true,
+        cachedUrlSourceUsesLocalMp4: cachedUrlRendered.sourcePath === cachedUrlSourcePath,
+        cachedUrlSourceDownloaded: cachedUrlRendered.sourceDownloaded,
         rejectsMissingTiming: true,
         rejectsOutsideOutputDir: true,
         outputInsideAssetRoot: rendered.outputPath.startsWith(root),

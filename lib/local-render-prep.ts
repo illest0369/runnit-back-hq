@@ -595,18 +595,27 @@ async function resolveSourceMp4(input: {
     }
   }
 
-  if (!input.downloadSource) {
-    throw new Error('source_missing: Source URL requires explicit --download-source before local Clip Prep render.')
-  }
-
-  await requireBinary('yt-dlp')
   const sourceDir = localSourceDir({ assetRoot: input.assetRoot, sourceDir: input.sourceDir })
-  await mkdir(sourceDir, { recursive: true })
   const stem = sanitizeFileStem([
     input.packageId ? `pkg-${input.packageId}` : null,
     `candidate-${input.candidateId}`,
     'source',
   ].filter(Boolean).join('-'))
+  const cachedSource = await newestMp4File(sourceDir, stem)
+  if (cachedSource) {
+    return {
+      sourcePath: await validateLocalSourceMp4(cachedSource),
+      downloaded: false,
+      sourceDir,
+    }
+  }
+
+  if (!input.downloadSource) {
+    throw new Error('source_missing: Source URL requires explicit --download-source before local Clip Prep render.')
+  }
+
+  await requireBinary('yt-dlp')
+  await mkdir(sourceDir, { recursive: true })
   const outputTemplate = path.join(sourceDir, `${stem}.%(ext)s`)
 
   try {
