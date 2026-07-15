@@ -20,7 +20,7 @@ import {
   renderLocalClipPrepVerticalAsset,
   type LocalRenderQualityValidation,
 } from '../lib/local-render-prep'
-import type { CaptionPrepV1 } from '../lib/clip-prep'
+import { refreshClipPrepForCandidate, type CaptionPrepV1, type ClipPrepV1 } from '../lib/clip-prep'
 
 config({ path: '.env.local', quiet: true })
 config({ quiet: true })
@@ -381,6 +381,37 @@ function itemBase(target: BatchTarget, pkg: PackageRow | null): Omit<BatchLocalC
   }
 }
 
+async function refreshClipPrepBeforeRender(
+  db: BatchDb,
+  target: BatchTarget,
+  pkg: PackageRow,
+  input: { now?: () => Date },
+): Promise<void> {
+  if (captionPrep(target.candidate, pkg)?.subtitle_source === 'transcript') return
+  const refreshed = await refreshClipPrepForCandidate(db, target.candidateId, {
+    packageId: pkg.id,
+    now: input.now,
+  })
+  const refreshedPayload = {
+    ...(pkg.package_payload ?? {}),
+    clipPrep: refreshed.clipPrep,
+    captionPrep: refreshed.clipPrep.caption_prep,
+  }
+  Object.assign(pkg, {
+    package_payload: refreshedPayload,
+  })
+  if (target.candidate) {
+    Object.assign(target.candidate, {
+      clip_prep: refreshed.clipPrep,
+      clip_prep_status: refreshed.clipPrep.status,
+      clip_prep_confidence: refreshed.clipPrep.confidence,
+      suggested_clip_start_seconds: refreshed.clipPrep.suggested_clip_start_seconds,
+      suggested_clip_end_seconds: refreshed.clipPrep.suggested_clip_end_seconds,
+      suggested_clip_length_seconds: refreshed.clipPrep.suggested_clip_length_seconds,
+    } satisfies Partial<CandidateRow> & { clip_prep: ClipPrepV1 })
+  }
+}
+
 export async function runBatchLocalClipGeneration(
   db: BatchDb,
   input: {
@@ -430,6 +461,7 @@ export async function runBatchLocalClipGeneration(
         })
         continue
       }
+      await refreshClipPrepBeforeRender(db, target, pkg, { now: input.now })
 
       const clipped = await renderLocalClipPrepForCandidateOrPackage(db, {
         packageId: pkg.id,

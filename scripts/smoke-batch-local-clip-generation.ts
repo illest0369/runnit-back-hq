@@ -9,7 +9,7 @@ import { runBatchLocalClipGeneration } from './batch-local-clip-generation'
 const execFileAsync = promisify(execFile)
 
 type Row = Record<string, unknown>
-type TableName = 'clip_candidates' | 'mac_mini_clip_packages'
+type TableName = 'clip_candidates' | 'ingested_videos' | 'source_channels' | 'video_transcripts' | 'mac_mini_clip_packages'
 
 class MemoryQuery {
   private filters: Array<{ key: string; value: unknown }> = []
@@ -109,7 +109,14 @@ class MemorySupabase {
   constructor(private readonly tables: Record<TableName, Row[]>) {}
 
   from(table: string) {
-    assert.ok(table === 'clip_candidates' || table === 'mac_mini_clip_packages', `Unexpected table access: ${table}`)
+    assert.ok(
+      table === 'clip_candidates' ||
+        table === 'ingested_videos' ||
+        table === 'source_channels' ||
+        table === 'video_transcripts' ||
+        table === 'mac_mini_clip_packages',
+      `Unexpected table access: ${table}`,
+    )
     return new MemoryQuery(this, table)
   }
 
@@ -177,14 +184,37 @@ function clipPrepFixture(start: number, end: number) {
   }
 }
 
+function metadataOnlyClipPrepFixture(start: number, end: number) {
+  const prep = clipPrepFixture(start, end)
+  return {
+    ...prep,
+    confidence: 'low',
+    caption_prep: {
+      ...prep.caption_prep,
+      subtitle_source: 'metadata_only',
+      transcript_segment_range: null,
+      transcript_segments: [],
+    },
+    basis: {
+      ...prep.basis,
+      transcript_available: false,
+      timed_transcript_available: false,
+      transcript_source: null,
+    },
+  }
+}
+
 function packagePayload(input: {
   packageId: string
   candidateId: string
   sourcePath: string
   start: number
   end: number
+  staleMetadataOnly?: boolean
 }) {
-  const prep = clipPrepFixture(input.start, input.end)
+  const prep = input.staleMetadataOnly
+    ? metadataOnlyClipPrepFixture(input.start, input.end)
+    : clipPrepFixture(input.start, input.end)
   return {
     version: 'rbhq-mac-mini-clip-package-v1',
     targetPlatform: 'tiktok',
@@ -242,6 +272,7 @@ function packageRow(input: {
   assetStatus?: string
   localAssetPath?: string | null
   stagingStatus?: string
+  staleMetadataOnly?: boolean
 }) {
   return {
     id: input.packageId,
@@ -267,6 +298,7 @@ function packageRow(input: {
       sourcePath: input.sourcePath,
       start: 1,
       end: 3,
+      staleMetadataOnly: input.staleMetadataOnly,
     }),
     package_status: 'ready',
     handoff_status: 'pending',
@@ -293,8 +325,11 @@ function candidateRow(input: {
   sourcePath: string
   status?: string
   clipPrepStatus?: string
+  staleMetadataOnly?: boolean
 }) {
-  const prep = clipPrepFixture(1, 3)
+  const prep = input.staleMetadataOnly
+    ? metadataOnlyClipPrepFixture(1, 3)
+    : clipPrepFixture(1, 3)
   return {
     id: input.candidateId,
     ingested_video_id: `video-${input.candidateId}`,
@@ -342,6 +377,34 @@ function candidateRow(input: {
   }
 }
 
+function videoRow(candidateId: string, sourcePath: string) {
+  return {
+    id: `video-${candidateId}`,
+    source_channel_id: 'source-smoke',
+    title: 'Smoke batch source',
+    description: 'Smoke batch source description.',
+    platform: 'youtube',
+    video_url: sourcePath,
+    published_at: '2026-07-14T12:00:00.000Z',
+    duration_seconds: 5,
+  }
+}
+
+function transcriptRow(candidateId: string) {
+  return {
+    id: `transcript-${candidateId}`,
+    ingested_video_id: `video-${candidateId}`,
+    transcript_source: 'fixture',
+    transcript_text: 'Smoke batch opening. Strong follow-up line.',
+    transcript_json: [
+      { start: 1, duration: 1, end: 2, text: 'Smoke batch opening.' },
+      { start: 2, duration: 1, end: 3, text: 'Strong follow-up line.' },
+    ],
+    language: 'en',
+    created_at: '2026-07-14T12:00:00.000Z',
+  }
+}
+
 async function createSourceVideo(sourcePath: string) {
   await mkdir(path.dirname(sourcePath), { recursive: true })
   await execFileAsync(
@@ -386,13 +449,30 @@ async function main() {
 
     const db = new MemorySupabase({
       clip_candidates: [
-        candidateRow({ candidateId: 'candidate-existing', sourcePath }),
+        candidateRow({ candidateId: 'candidate-existing', sourcePath, staleMetadataOnly: true }),
         candidateRow({ candidateId: 'candidate-create', sourcePath }),
         candidateRow({ candidateId: 'candidate-url', sourcePath: 'https://example.com/source.mp4' }),
         candidateRow({ candidateId: 'candidate-manual-post', sourcePath }),
       ],
+      ingested_videos: [
+        videoRow('candidate-existing', sourcePath),
+        videoRow('candidate-create', sourcePath),
+        videoRow('candidate-url', 'https://example.com/source.mp4'),
+        videoRow('candidate-manual-post', sourcePath),
+      ],
+      source_channels: [
+        {
+          id: 'source-smoke',
+          display_name: 'Smoke',
+          target_rbhq_channel_id: 'a1000000-0000-0000-0000-000000000001',
+        },
+      ],
+      video_transcripts: [
+        transcriptRow('candidate-existing'),
+        transcriptRow('candidate-create'),
+      ],
       mac_mini_clip_packages: [
-        packageRow({ packageId: 'package-existing', candidateId: 'candidate-existing', sourcePath }),
+        packageRow({ packageId: 'package-existing', candidateId: 'candidate-existing', sourcePath, staleMetadataOnly: true }),
         packageRow({ packageId: 'package-url', candidateId: 'candidate-url', sourcePath: 'https://example.com/source.mp4' }),
         packageRow({
           packageId: 'package-manual-post',
@@ -410,6 +490,7 @@ async function main() {
       assetRoot: root,
       attach: false,
       downloadSource: false,
+      burnSubtitles: true,
       now: () => new Date('2026-07-14T12:30:00.000Z'),
     })
     assert.equal(dryRun.items.length, 3)
@@ -417,6 +498,10 @@ async function main() {
     assert.equal(dryRun.items[0]?.attached, false)
     assert.equal(dryRun.items[0]?.qualityValidation?.valid, true)
     assert.equal(dryRun.items[0]?.captionPrep?.subtitle_source, 'transcript')
+    assert.equal(dryRun.items[0]?.captionPrep?.transcript_segment_range?.start_seconds, 1)
+    assert.equal(dryRun.items[0]?.captionPrep?.transcript_segment_range?.end_seconds, 3)
+    assert.equal(dryRun.items[0]?.subtitleBurn?.requested, true)
+    assert.equal(dryRun.items[0]?.subtitleBurn?.burnedIn, true)
     assert.equal(dryRun.items[0]?.captionPrep?.suggested_subtitle_style.burned_in, false)
     assert.equal(dryRun.items[1]?.status, 'source_missing')
     assert.match(dryRun.items[1]?.error ?? '', /download-source/)
@@ -436,6 +521,7 @@ async function main() {
       attach: true,
       rerender: true,
       downloadSource: false,
+      burnSubtitles: true,
       now: () => new Date('2026-07-14T12:35:00.000Z'),
     })
     assert.ok(attached.items.some((item) => item.status === 'attached'))
