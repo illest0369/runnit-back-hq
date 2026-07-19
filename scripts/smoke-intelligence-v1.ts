@@ -210,6 +210,78 @@ const rbWomenNonWnbaAthleteStory = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbWomenFlaujaeVisibility = buildRBHQIntelligenceV1({
+  id: 'rb-women-flaujae-visibility',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'Flau\'jae Johnson production is louder than the national conversation',
+  hook: 'Flau\'jae Johnson put the production on tape and the coverage still lagged',
+  source_name: 'Just Women\'s Sports',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'NCAA WBB',
+  duration_seconds: 32,
+  ai_score: 70,
+  virality_score: 72,
+  hook_strength: 72,
+  published_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+  text: 'Flau\'jae Johnson production, points, assists, defense, and game footage created a basketball evidence case while national conversation and media visibility lagged behind the play.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbWomenKelseyStarSystem = buildRBHQIntelligenceV1({
+  id: 'rb-women-kelsey-star-system',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'Kelsey Mitchell production versus star-system coverage keeps showing up',
+  hook: 'Kelsey Mitchell keeps bringing production while the star system decides the spotlight',
+  source_name: 'Indiana Fever',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 28,
+  ai_score: 68,
+  virality_score: 70,
+  hook_strength: 70,
+  published_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+  text: 'Kelsey Mitchell production versus star-system coverage with points, efficiency, buckets, and a clear popularity versus production debate from game footage.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbWomenCaitlinAssistCredit = buildRBHQIntelligenceV1({
+  id: 'rb-women-caitlin-assist-credit',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'Caitlin Clark assist sparks credit distribution debate',
+  hook: 'Caitlin Clark created the assist, but the play is really about who gets the credit',
+  source_name: 'WNBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 18,
+  ai_score: 68,
+  virality_score: 70,
+  hook_strength: 70,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Caitlin Clark assist, basketball IQ, pass timing, teammate finish, and credit distribution debate. The clip has clear game footage and asks who gets credit for creating the bucket.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbWomenRoutinePromoHold = buildRBHQIntelligenceV1({
+  id: 'rb-women-routine-promo-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'WNBA sponsor announces ticket promo and updated schedule',
+  hook: 'The league announced a sponsor ticket promo',
+  source_name: 'WNBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 20,
+  ai_score: 65,
+  virality_score: 55,
+  hook_strength: 45,
+  published_at: new Date().toISOString(),
+  text: 'Sponsor ad, ticket promo, merch mention, schedule announcement, and routine community appearance without a player story, quote, or useful footage.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const storedNotes = withStoredRBHQIntelligenceV1([], sports)
 const stored = getStoredRBHQIntelligenceV1(storedNotes)
 const fallback = getRBHQIntelligenceV1({ ...sportsClip, moderation_notes: storedNotes })
@@ -236,6 +308,56 @@ const plan = buildDailyContentPlan([
   { ...highScoreEvergreenCandidate, status: 'pending', publish_status: 'not_ready' },
 ], [sourceCandidateSummary])
 const rbWomenDailyPlan = buildDailyContentPlan([
+  {
+    id: 'rb-women-daily-plan-flaujae',
+    channel_id: 'a1000000-0000-0000-0000-000000000004',
+    title: 'Flau\'jae Johnson production is louder than the national conversation',
+    hook: 'Flau\'jae Johnson put the production on tape and the coverage still lagged',
+    source_name: 'Just Women\'s Sports',
+    source_type: 'youtube_rss',
+    sport: 'basketball',
+    league: 'NCAA WBB',
+    duration_seconds: 32,
+    ai_score: 70,
+    virality_score: 72,
+    hook_strength: 72,
+    published_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+    text: 'Flau\'jae Johnson production, points, assists, defense, and game footage created a basketball evidence case while national conversation and media visibility lagged behind the play.',
+    status: 'approved_for_handoff',
+    publish_status: 'needs_clip_render',
+    package_readiness: {
+      macMiniPackageId: 'rb-women-flaujae-package',
+      clipPrepStatus: 'ready',
+      localRenderStatus: 'attached',
+      localRenderAttached: true,
+      localAssetPath: '/tmp/rb-women-flaujae.mp4',
+      clipPrep: {
+        status: 'ready',
+        transcriptTimed: true,
+        captionPrep: {
+          subtitle_source: 'transcript',
+        },
+      },
+    },
+  },
+  {
+    id: 'rb-women-daily-plan-kelsey',
+    channel_id: 'a1000000-0000-0000-0000-000000000004',
+    title: 'Kelsey Mitchell production versus star-system coverage keeps showing up',
+    hook: 'Kelsey Mitchell keeps bringing production while the star system decides the spotlight',
+    source_name: 'Indiana Fever',
+    source_type: 'youtube_rss',
+    sport: 'basketball',
+    league: 'WNBA',
+    duration_seconds: 28,
+    ai_score: 68,
+    virality_score: 70,
+    hook_strength: 70,
+    published_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    text: 'Kelsey Mitchell production versus star-system coverage with points, efficiency, buckets, and a clear popularity versus production debate from game footage.',
+    status: 'candidate',
+    publish_status: 'not_ready',
+  },
   {
     id: 'rb-women-daily-plan-must-post',
     channel_id: 'a1000000-0000-0000-0000-000000000004',
@@ -320,8 +442,8 @@ assert.ok(!neutralSourceCandidate.reasons.some((reason) => reason.includes('Sour
 assert.ok(!womenTournamentCandidate.whyNow.includes('gaming update'))
 assert.ok(!womenTournamentCandidate.operatorSummary.includes('gaming update'))
 assert.ok(!womenTournamentCandidate.suggestedHashtags.some((tag) => tag.toLowerCase().includes('gaming')))
-assert.ok(womenTournamentCandidate.whyNow.includes('championship/playoff/tournament'))
-assert.ok(womenTournamentCandidate.whyNow.includes('women\'s sports fans are still reacting'))
+assert.ok(womenTournamentCandidate.whyNow.includes('women college basketball'))
+assert.ok(womenTournamentCandidate.whyNow.includes('post-now'))
 assert.ok(!futbolTournamentCandidate.whyNow.includes('gaming update'))
 assert.ok(!futbolTournamentCandidate.operatorSummary.includes('gaming update'))
 assert.ok(!futbolTournamentCandidate.suggestedHashtags.some((tag) => tag.toLowerCase().includes('gaming')))
@@ -394,6 +516,17 @@ assert.equal(rbWomenNonWnbaAthleteStory.rbWomen?.expectedEngagementType, 'story_
 assert.ok(rbWomenNonWnbaAthleteStory.suggestedHashtags.includes('#AlexMorgan'))
 assert.ok(rbWomenNonWnbaAthleteStory.suggestedHashtags.includes('#NWSL'))
 assert.ok(!rbWomenNonWnbaAthleteStory.suggestedHashtags.includes('#WNBA'))
+assert.equal(rbWomenFlaujaeVisibility.rbWomen?.scoutLabel, 'post_now')
+assert.equal(rbWomenFlaujaeVisibility.rbWomen?.rbAngle, 'unequal visibility')
+assert.ok(rbWomenFlaujaeVisibility.operatorSummary.includes('Lead with the basketball'))
+assert.ok(!/race-only/i.test(rbWomenFlaujaeVisibility.suggestedCaption))
+assert.ok(['post_now', 'develop'].includes(rbWomenKelseyStarSystem.rbWomen?.scoutLabel ?? ''))
+assert.equal(rbWomenKelseyStarSystem.rbWomen?.rbAngle, 'popularity versus production')
+assert.equal(rbWomenCaitlinAssistCredit.rbWomen?.rbAngle, 'credit distribution')
+assert.ok(rbWomenCaitlinAssistCredit.suggestedCaption.includes('who gets credit'))
+assert.ok(!rbWomenCaitlinAssistCredit.suggestedCaption.toLowerCase().includes('generic praise'))
+assert.equal(rbWomenRoutinePromoHold.rbWomen?.scoutLabel, 'hold')
+assert.equal(rbWomenRoutinePromoHold.urgency, 'hold')
 assert.equal(buildRBHQIntelligenceV1({ ...sportsClip, text: 'A\'ja Wilson foul debate' }).rbWomen, undefined)
 assert.equal(buildRBHQIntelligenceV1({ ...arenaClip, text: 'Angel Reese quote debate' }).rbWomen, undefined)
 assert.ok(plan.suggestedPostingOrder.length >= 1)
@@ -403,23 +536,34 @@ assert.ok(plan.strongAlternates.some((clip) => clip.id === highScoreEvergreenCan
 assert.equal(plan.sourceCandidates[0]?.operatorSummary, sourceCandidateSummary.operatorSummary)
 const rbWomenMustPost = rbWomenDailyPlan.topClipsToPostNow[0]
 assert.ok(rbWomenMustPost)
-assert.equal(rbWomenMustPost.clipTopic, 'Caitlin Clark WNBA foul debate')
-assert.equal(rbWomenMustPost.playerEntity, 'Caitlin Clark')
-assert.equal(rbWomenMustPost.sourceName, 'WNBA')
+assert.equal(rbWomenDailyPlan.topClipsToPostNow.length, 1)
+assert.equal(rbWomenDailyPlan.strongAlternates.length, 1)
+assert.equal(rbWomenDailyPlan.holdOrLowPriority.length, 1)
+assert.equal(rbWomenDailyPlan.topClipsToPostNow.length + rbWomenDailyPlan.strongAlternates.length + rbWomenDailyPlan.holdOrLowPriority.length, 3)
+assert.equal(rbWomenMustPost.scoutLabel, 'post_now')
+assert.equal(rbWomenMustPost.clipTopic, 'Flau\'jae Johnson visibility gap')
+assert.equal(rbWomenMustPost.playerEntity, 'Flau\'jae Johnson')
+assert.equal(rbWomenMustPost.rbAngle, 'unequal visibility')
+assert.equal(rbWomenMustPost.sourceName, 'Just Women\'s Sports')
 assert.ok(rbWomenMustPost.score >= 80)
-assert.ok(rbWomenMustPost.whyNow.includes('officiating'))
-assert.ok(rbWomenMustPost.suggestedCaption.includes('Caitlin Clark'))
-assert.ok(rbWomenMustPost.suggestedHashtags.includes('#CaitlinClark'))
+assert.ok(rbWomenMustPost.whyThisShouldPostNow.includes('72-hour RB Women scouting window'))
+assert.ok(rbWomenMustPost.captionDraft.includes('coverage'))
+assert.ok(rbWomenMustPost.hashtagPack.includes('#FlaujaeJohnson'))
 assert.ok(rbWomenMustPost.operatorSummary.includes('RB Women'))
-assert.equal(rbWomenMustPost.packageRenderStatus.packageId, 'rb-women-package')
+assert.equal(rbWomenMustPost.packageRenderStatus.packageId, 'rb-women-flaujae-package')
 assert.equal(rbWomenMustPost.packageRenderStatus.localRenderStatus, 'attached')
 assert.equal(rbWomenMustPost.packageRenderStatus.localRenderAttached, true)
+assert.equal(rbWomenMustPost.transcriptSourceStatus.subtitleSource, 'transcript')
+assert.equal(rbWomenMustPost.transcriptSourceStatus.transcriptTimed, true)
 const rbWomenMaybe = rbWomenDailyPlan.strongAlternates.find((clip) => clip.id === 'rb-women-daily-plan-maybe')
 assert.ok(rbWomenMaybe)
+assert.equal(rbWomenMaybe.scoutLabel, 'develop')
 assert.equal(rbWomenMaybe.playerEntity, 'Alex Morgan')
+assert.ok(rbWomenMaybe.rbAngle)
 assert.ok(rbWomenMaybe.reviewReason)
 const rbWomenHold = rbWomenDailyPlan.holdOrLowPriority.find((clip) => clip.id === 'rb-women-daily-plan-hold')
 assert.ok(rbWomenHold)
+assert.equal(rbWomenHold.scoutLabel, 'hold')
 assert.equal(rbWomenHold.sourceName, 'WNBA')
 assert.ok(rbWomenHold.reviewReason?.includes('generic league news'))
 
@@ -439,6 +583,10 @@ console.log(JSON.stringify({
   rbWomenGenericAnnouncement,
   rbWomenContextHeavy,
   rbWomenNonWnbaAthleteStory,
+  rbWomenFlaujaeVisibility,
+  rbWomenKelseyStarSystem,
+  rbWomenCaitlinAssistCredit,
+  rbWomenRoutinePromoHold,
   dailyPlan: plan,
   rbWomenDailyPlan,
 }, null, 2))

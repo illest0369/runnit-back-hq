@@ -266,6 +266,10 @@ type PublishQueueItem = Clip & {
 type DailyPlanClip = {
   id: string | null;
   title: string;
+  clipTopic?: string;
+  playerEntity?: string | null;
+  scoutLabel?: "post_now" | "develop" | "hold";
+  rbAngle?: string | null;
   channelId: string | null;
   lane: string;
   sourceName: string | null;
@@ -274,9 +278,26 @@ type DailyPlanClip = {
   urgency: IntelligenceUrgency;
   reasons?: string[];
   whyNow: string;
+  whyThisShouldPostNow?: string;
   operatorSummary: string;
   suggestedCaption: string;
+  captionDraft?: string;
   suggestedHashtags: string[];
+  hashtagPack?: string[];
+  packageRenderStatus?: {
+    packageId: string | null;
+    clipPrepStatus: string | null;
+    localRenderStatus: string | null;
+    localRenderAttached: boolean;
+    localAssetPath: string | null;
+  };
+  transcriptSourceStatus?: {
+    subtitleSource: string | null;
+    transcriptTimed: boolean | null;
+    sourceType: string | null;
+    sourceStatus: string | null;
+  };
+  reviewReason?: string | null;
   status?: string | null;
   publishStatus?: string | null;
   createdAt?: string | null;

@@ -83,6 +83,8 @@ Hold or reject:
 
 RB Women Intelligence V1 uses isolated channel logic. Do not reuse these weights globally.
 
+RB Women scouting uses a 72-hour source window. Fresh RB Women source clips can stay in the scout pool for 72 hours, while other lanes keep their existing freshness behavior.
+
 Boost:
 
 - Recognizable athlete.
@@ -108,6 +110,14 @@ Decision bands:
 - `<50`: reject.
 
 Generated package outputs should include three hook options (`reaction`, `debate`, `search_first`), concise caption, no more than five hashtags, why-now explanation, operator summary, and suggested pinned comment.
+
+Daily Content Plan output for RB Women defaults to no more than three scout candidates per cycle:
+
+- `post_now`: the best immediate post candidate.
+- `develop`: a promising candidate that needs operator judgment or more packaging.
+- `hold`: a candidate held or rejected with a clear reason.
+
+Each RB Women Daily Plan candidate exposes `scoutLabel`, `rbAngle`, `whyThisShouldPostNow`, `captionDraft`, `hashtagPack`, `operatorSummary`, package/render status, and transcript/source status. RB Women voice should stay fan-first, basketball-evidence-first, culture-aware, politically willing, and non-corporate. Do not force every post into a race-centered frame; use broader RB Women angles such as media power, unequal visibility, star treatment, labor and leadership, credit distribution, who gets protected or criticized, popularity versus production, and basketball evidence.
 
 ## Transcript Requirements
 
