@@ -22,7 +22,7 @@ import {
 } from '../lib/local-render-prep'
 import { refreshClipPrepForCandidate, type CaptionPrepV1, type ClipPrepV1 } from '../lib/clip-prep'
 import { CHANNEL_META } from '../lib/channel-meta'
-import { RB_WOMEN_CHANNEL_ID } from '../lib/rb-women-source-config'
+import { RB_WOMEN_CHANNEL_ID, RB_WOMEN_PHASE1_SOURCES, rbWomenPhase1SourceForKey } from '../lib/rb-women-source-config'
 
 config({ path: '.env.local', quiet: true })
 config({ quiet: true })
@@ -90,6 +90,7 @@ export type BatchLocalClipGenerationResult = {
   items: BatchLocalClipGenerationItem[]
   readyForTikTokRetry: {
     count: number
+    historicalNonActiveSourceCount?: number
     packages: Array<{
       packageId: string
       candidateId: string
@@ -112,6 +113,8 @@ export type BatchLocalClipGenerationResult = {
         durationSeconds: number | null
         reason: string | null
       }
+      sourceActive?: boolean
+      historicalNonActiveSource?: boolean
     }>
   }
   safety: {
@@ -180,6 +183,10 @@ function readObject(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : null
 }
 
+function compact(value: string | null | undefined): string {
+  return value?.replace(/\s+/g, ' ').trim() ?? ''
+}
+
 function readCaptionPrep(value: unknown): CaptionPrepV1 | null {
   const record = readObject(value)
   return record?.version === 'rbhq-caption-prep-v1' ? record as unknown as CaptionPrepV1 : null
@@ -230,6 +237,24 @@ function captionPrep(candidate: CandidateRow | null, pkg: PackageRow | null): Ca
   return readCaptionPrep(pkg?.package_payload?.captionPrep)
     ?? readCaptionPrep(packageClipPrep?.caption_prep)
     ?? readCaptionPrep(candidateClipPrep?.caption_prep)
+}
+
+function packageSourceName(pkg: PackageRow): string | null {
+  const payloadSource = readObject(pkg.package_payload?.source)
+  return compact(typeof payloadSource?.name === 'string' ? payloadSource.name : pkg.source_title)
+}
+
+function rbWomenPackageSourceActive(pkg: PackageRow): boolean | null {
+  if (
+    pkg.target_channel_id !== RB_WOMEN_CHANNEL_ID &&
+    pkg.browser_channel_key !== 'rb_women' &&
+    pkg.lane_label !== 'RB Women'
+  ) return null
+  const sourceName = packageSourceName(pkg)
+  if (!sourceName) return null
+  const source = rbWomenPhase1SourceForKey(sourceName) ??
+    RB_WOMEN_PHASE1_SOURCES.find((item) => item.displayName.toLowerCase() === sourceName.toLowerCase())
+  return source ? source.active : false
 }
 
 function packageRowFromMacMini(pkg: MacMiniClipPackage): PackageRow {
@@ -316,6 +341,7 @@ async function selectBatchTargets(
   for (const pkg of packages) {
     if (targets.length >= input.limit) break
     const candidate = candidateMap.get(pkg.clip_candidate_id) ?? null
+    if (input.targetChannelId === RB_WOMEN_CHANNEL_ID && rbWomenPackageSourceActive(pkg) === false) continue
     if (!isRenderableClipPrep(candidate, pkg)) continue
     if (!input.rerender && pkg.asset_status === 'attached' && pkg.local_asset_path) continue
     targets.push({ candidateId: pkg.clip_candidate_id, pkg, candidate })
@@ -346,6 +372,7 @@ async function selectBatchTargets(
   for (const candidate of candidates) {
     if (targets.length >= input.limit) break
     const pkg = packageMap.get(candidate.id) ?? null
+    if (pkg && input.targetChannelId === RB_WOMEN_CHANNEL_ID && rbWomenPackageSourceActive(pkg) === false) continue
     if (!isRenderableClipPrep(candidate, pkg)) continue
     if (pkg?.tiktok_staging_status === 'ready_for_manual_post') continue
     if (pkg && !input.rerender && pkg.asset_status === 'attached' && pkg.local_asset_path) continue
@@ -381,6 +408,7 @@ async function readyForTikTokRetryList(
     const candidate = candidateMap.get(pkg.clip_candidate_id) ?? null
     const readiness = buildQueueReadiness(pkg.clip_candidate_id, candidate, pkg)
     if (!readiness.tiktokStaging.readyForTikTokRetry) return null
+    const sourceActive = rbWomenPackageSourceActive(pkg)
     const assetValidation = await validateRetryReadyLocalAsset(pkg.local_asset_path)
     return {
       packageId: pkg.id,
@@ -404,10 +432,17 @@ async function readyForTikTokRetryList(
         durationSeconds: assetValidation.durationSeconds,
         reason: assetValidation.reason,
       },
+      sourceActive: sourceActive ?? undefined,
+      historicalNonActiveSource: sourceActive === false,
     }
   }))
   const packagesReady = ready.filter((item): item is NonNullable<typeof item> => Boolean(item))
-  return { count: packagesReady.length, packages: packagesReady }
+  const currentPackages = packagesReady.filter((item) => !item.historicalNonActiveSource)
+  return {
+    count: currentPackages.length,
+    historicalNonActiveSourceCount: packagesReady.length - currentPackages.length,
+    packages: currentPackages,
+  }
 }
 
 function isSourceMissing(error: unknown): boolean {

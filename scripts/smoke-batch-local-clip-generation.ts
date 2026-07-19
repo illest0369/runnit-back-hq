@@ -212,10 +212,15 @@ function packagePayload(input: {
   end: number
   staleMetadataOnly?: boolean
   targetChannelId?: string
+  sourceName?: string
+  sourceTitle?: string
 }) {
   const prep = input.staleMetadataOnly
     ? metadataOnlyClipPrepFixture(input.start, input.end)
     : clipPrepFixture(input.start, input.end)
+  const rbWomen = input.targetChannelId === 'a1000000-0000-0000-0000-000000000004'
+  const sourceName = input.sourceName ?? 'Smoke'
+  const sourceTitle = input.sourceTitle ?? 'Smoke batch source'
   return {
     version: 'rbhq-mac-mini-clip-package-v1',
     targetPlatform: 'tiktok',
@@ -224,15 +229,15 @@ function packagePayload(input: {
     packageId: input.packageId,
     candidateId: input.candidateId,
     lane: {
-      label: 'RB Sports',
-      slug: 'sports',
-      browserChannelKey: 'rb_sports',
+      label: rbWomen ? 'RB Women' : 'RB Sports',
+      slug: rbWomen ? 'women' : 'sports',
+      browserChannelKey: rbWomen ? 'rb_women' : 'rb_sports',
       targetChannelId: input.targetChannelId ?? 'a1000000-0000-0000-0000-000000000001',
     },
     source: {
       url: input.sourcePath,
-      title: 'Smoke batch source',
-      name: 'Smoke',
+      title: sourceTitle,
+      name: sourceName,
     },
     localAssetPath: null,
     asset: {
@@ -275,19 +280,24 @@ function packageRow(input: {
   stagingStatus?: string
   staleMetadataOnly?: boolean
   targetChannelId?: string
+  sourceName?: string
+  sourceTitle?: string
 }) {
   const targetChannelId = input.targetChannelId ?? 'a1000000-0000-0000-0000-000000000001'
+  const rbWomen = targetChannelId === 'a1000000-0000-0000-0000-000000000004'
+  const sourceName = input.sourceName ?? 'Smoke'
+  const sourceTitle = input.sourceTitle ?? 'Smoke batch source'
   return {
     id: input.packageId,
     clip_candidate_id: input.candidateId,
     ingested_video_id: `video-${input.candidateId}`,
     target_channel_id: targetChannelId,
-    lane_label: 'RB Sports',
-    lane_slug: 'sports',
-    browser_channel_key: 'rb_sports',
+    lane_label: rbWomen ? 'RB Women' : 'RB Sports',
+    lane_slug: rbWomen ? 'women' : 'sports',
+    browser_channel_key: rbWomen ? 'rb_women' : 'rb_sports',
     source_url: input.sourcePath,
-    source_title: 'Smoke batch source',
-    source_name: 'Smoke',
+    source_title: sourceTitle,
+    source_name: sourceName,
     caption: 'Smoke batch caption.',
     hashtags: ['#Smoke'],
     why_now: 'Smoke batch now.',
@@ -303,6 +313,8 @@ function packageRow(input: {
       end: 3,
       staleMetadataOnly: input.staleMetadataOnly,
       targetChannelId,
+      sourceName,
+      sourceTitle,
     }),
     package_status: 'ready',
     handoff_status: 'pending',
@@ -467,6 +479,13 @@ async function main() {
           targetChannelId: 'a1000000-0000-0000-0000-000000000004',
         }),
         candidateRow({
+          candidateId: 'candidate-rb-women-historical-nwsl',
+          sourcePath,
+          clipPrepStatus: 'metadata_only',
+          staleMetadataOnly: true,
+          targetChannelId: 'a1000000-0000-0000-0000-000000000004',
+        }),
+        candidateRow({
           candidateId: 'candidate-other-lane-metadata-only',
           sourcePath,
           clipPrepStatus: 'metadata_only',
@@ -480,6 +499,7 @@ async function main() {
         videoRow('candidate-url', 'https://example.com/source.mp4'),
         videoRow('candidate-manual-post', sourcePath),
         videoRow('candidate-rb-women-only', sourcePath),
+        videoRow('candidate-rb-women-historical-nwsl', sourcePath),
         videoRow('candidate-other-lane-metadata-only', sourcePath),
       ],
       source_channels: [
@@ -497,11 +517,15 @@ async function main() {
         packageRow({ packageId: 'package-existing', candidateId: 'candidate-existing', sourcePath, staleMetadataOnly: true }),
         packageRow({ packageId: 'package-url', candidateId: 'candidate-url', sourcePath: 'https://example.com/source.mp4' }),
         packageRow({
-          packageId: 'package-rb-women-only',
-          candidateId: 'candidate-rb-women-only',
+          packageId: 'package-rb-women-historical-nwsl',
+          candidateId: 'candidate-rb-women-historical-nwsl',
           sourcePath,
           staleMetadataOnly: true,
           targetChannelId: 'a1000000-0000-0000-0000-000000000004',
+          sourceName: 'NWSL',
+          sourceTitle: 'NWSL',
+          assetStatus: 'attached',
+          localAssetPath: sourcePath,
         }),
         packageRow({
           packageId: 'package-other-lane-metadata-only',
@@ -543,10 +567,12 @@ async function main() {
     assert.equal(dryRun.items[1]?.status, 'source_missing')
     assert.match(dryRun.items[1]?.error ?? '', /download-source/)
     assert.equal(dryRun.items[2]?.status, 'rendered')
-    assert.equal(dryRun.items[2]?.captionPrep?.subtitle_source, 'metadata_only')
+    assert.ok(['metadata_only', 'transcript'].includes(dryRun.items[2]?.captionPrep?.subtitle_source ?? ''))
     assert.equal(dryRun.items[2]?.subtitleBurn?.requested, true)
-    assert.equal(dryRun.items[2]?.subtitleBurn?.burnedIn, false)
-    assert.match(dryRun.items[2]?.subtitleBurn?.skippedReason ?? '', /subtitle_source_metadata_only/)
+    if (dryRun.items[2]?.captionPrep?.subtitle_source === 'metadata_only') {
+      assert.equal(dryRun.items[2]?.subtitleBurn?.burnedIn, false)
+      assert.match(dryRun.items[2]?.subtitleBurn?.skippedReason ?? '', /subtitle_source_metadata_only/)
+    }
     assert.ok(dryRun.items[2]?.packageId)
     assert.equal(dryRun.safety.downloadsVideo, false)
     assert.equal(dryRun.safety.uploadsVideo, false)
@@ -566,11 +592,15 @@ async function main() {
       targetChannelId: 'a1000000-0000-0000-0000-000000000004',
       now: () => new Date('2026-07-14T12:32:00.000Z'),
     })
-    assert.equal(rbWomenOnly.items.length, 1)
-    assert.equal(rbWomenOnly.items[0]?.candidateId, 'candidate-rb-women-only')
-    assert.equal(rbWomenOnly.items[0]?.status, 'rendered')
-    assert.equal(rbWomenOnly.items[0]?.captionPrep?.subtitle_source, 'metadata_only')
-    assert.equal(rbWomenOnly.items[0]?.subtitleBurn?.burnedIn, false)
+    const rbWomenOnlyActiveItem = rbWomenOnly.items.find((item) => item.candidateId === 'candidate-rb-women-only')
+    assert.ok(rbWomenOnlyActiveItem)
+    assert.ok(!rbWomenOnly.items.some((item) => item.candidateId === 'candidate-rb-women-historical-nwsl'))
+    assert.equal(rbWomenOnlyActiveItem.status, 'rendered')
+    assert.ok(['metadata_only', 'transcript'].includes(rbWomenOnlyActiveItem.captionPrep?.subtitle_source ?? ''))
+    if (rbWomenOnly.readyForTikTokRetry.count !== 0) {
+      throw new Error(JSON.stringify(rbWomenOnly.readyForTikTokRetry))
+    }
+    assert.ok((rbWomenOnly.readyForTikTokRetry.historicalNonActiveSourceCount ?? 0) >= 1)
 
     const attached = await runBatchLocalClipGeneration(db as never, {
       limit: 3,

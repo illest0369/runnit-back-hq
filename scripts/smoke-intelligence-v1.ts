@@ -318,6 +318,42 @@ const rbWomenRoutinePromoHold = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbWomenPaigeProduction = buildRBHQIntelligenceV1({
+  id: 'rb-women-paige-production-title',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'Highlights: Paige Bueckers Shines in 25-Point Performance vs Sparks | 7.19.26',
+  hook: 'Paige Bueckers keeps putting production on the board',
+  source_name: 'Dallas Wings',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 30,
+  ai_score: 92,
+  virality_score: 92,
+  hook_strength: 88,
+  published_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+  text: 'Paige Bueckers 25 points, production, highlights, game footage, and basketball evidence.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbWomenKelseyProductionTitle = buildRBHQIntelligenceV1({
+  id: 'rb-women-kelsey-production-title',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'Kelsey Mitchell EXPLODES for 33 PTS On Second Night of Back-to-Back WINS | FULL HIGHLIGHTS',
+  hook: 'Kelsey Mitchell keeps forcing the production conversation',
+  source_name: 'Indiana Fever',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 30,
+  ai_score: 92,
+  virality_score: 92,
+  hook_strength: 88,
+  published_at: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+  text: 'Old candidate copy said Caitlin Clark credit distribution, but the title and footage are Kelsey Mitchell 33 PTS production, consistency, buckets, and basketball evidence.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const storedNotes = withStoredRBHQIntelligenceV1([], sports)
 const stored = getStoredRBHQIntelligenceV1(storedNotes)
 const fallback = getRBHQIntelligenceV1({ ...sportsClip, moderation_notes: storedNotes })
@@ -379,7 +415,7 @@ const rbWomenDailyPlan = buildDailyContentPlan([
   {
     id: 'rb-women-daily-plan-kelsey',
     channel_id: 'a1000000-0000-0000-0000-000000000004',
-    title: 'Kelsey Mitchell production versus star-system coverage keeps showing up',
+    title: 'Kelsey Mitchell EXPLODES for 33 PTS On Second Night of Back-to-Back WINS | FULL HIGHLIGHTS',
     hook: 'Kelsey Mitchell keeps bringing production while the star system decides the spotlight',
     source_name: 'Indiana Fever',
     source_type: 'youtube_rss',
@@ -390,7 +426,7 @@ const rbWomenDailyPlan = buildDailyContentPlan([
     virality_score: 70,
     hook_strength: 70,
     published_at: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
-    text: 'Kelsey Mitchell production versus star-system coverage with points, efficiency, buckets, and a clear popularity versus production debate from game footage.',
+    text: 'Old candidate copy said Caitlin Clark credit distribution, but the title and footage are Kelsey Mitchell 33 PTS production, consistency, buckets, and basketball evidence.',
     status: 'candidate',
     publish_status: 'not_ready',
   },
@@ -454,6 +490,26 @@ const rbWomenDailyPlan = buildDailyContentPlan([
     text: 'The league announced schedule updates, broadcast windows, ticket information, and general regular season details.',
     status: 'candidate',
     publish_status: 'not_ready',
+  },
+])
+const rbWomenKelseyDailyPlan = buildDailyContentPlan([
+  {
+    id: 'rb-women-daily-plan-kelsey-focused',
+    channel_id: 'a1000000-0000-0000-0000-000000000004',
+    title: 'Kelsey Mitchell EXPLODES for 33 PTS On Second Night of Back-to-Back WINS | FULL HIGHLIGHTS',
+    hook: 'Kelsey Mitchell keeps bringing production while the star system decides the spotlight',
+    source_name: 'Indiana Fever',
+    source_type: 'youtube_rss',
+    sport: 'basketball',
+    league: 'WNBA',
+    duration_seconds: 30,
+    ai_score: 90,
+    virality_score: 90,
+    hook_strength: 85,
+    published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    text: 'Old candidate copy said Caitlin Clark credit distribution, but the title and footage are Kelsey Mitchell 33 PTS production, consistency, buckets, and basketball evidence.',
+    status: 'approved_for_handoff',
+    publish_status: 'needs_clip_render',
   },
 ])
 
@@ -566,6 +622,16 @@ assert.ok(!rbWomenBasketballEvidenceGuardrail.reasons.some((reason) => reason.in
 assert.notEqual(rbWomenMvpRaceGuardrail.rbWomen?.rbAngle, 'race and representation')
 assert.equal(rbWomenRoutinePromoHold.rbWomen?.scoutLabel, 'hold')
 assert.equal(rbWomenRoutinePromoHold.urgency, 'hold')
+assert.equal(rbWomenPaigeProduction.rbWomen?.featuredPlayer, 'Paige Bueckers')
+assert.equal(rbWomenPaigeProduction.rbWomen?.primarySearchTopic, 'Paige Bueckers production')
+assert.equal(rbWomenPaigeProduction.rbWomen?.rbAngle, 'basketball evidence')
+assert.ok(rbWomenPaigeProduction.suggestedCaption.includes('Paige Bueckers'))
+assert.equal(rbWomenKelseyProductionTitle.rbWomen?.featuredPlayer, 'Kelsey Mitchell')
+assert.equal(rbWomenKelseyProductionTitle.rbWomen?.primarySearchTopic, 'Kelsey Mitchell production')
+assert.equal(rbWomenKelseyProductionTitle.rbWomen?.rbAngle, 'basketball evidence')
+assert.ok(rbWomenKelseyProductionTitle.suggestedCaption.includes('Kelsey Mitchell'))
+assert.ok(!rbWomenKelseyProductionTitle.suggestedCaption.includes('Caitlin Clark'))
+assert.ok(!rbWomenKelseyProductionTitle.operatorSummary.includes('Caitlin Clark'))
 assert.equal(buildRBHQIntelligenceV1({ ...sportsClip, text: 'A\'ja Wilson foul debate' }).rbWomen, undefined)
 assert.equal(buildRBHQIntelligenceV1({ ...arenaClip, text: 'Angel Reese quote debate' }).rbWomen, undefined)
 assert.ok(plan.suggestedPostingOrder.length >= 1)
@@ -605,6 +671,12 @@ assert.ok(rbWomenHold)
 assert.equal(rbWomenHold.scoutLabel, 'hold')
 assert.equal(rbWomenHold.sourceName, 'WNBA')
 assert.ok(rbWomenHold.reviewReason?.includes('generic league news'))
+const rbWomenKelseyPlan = rbWomenKelseyDailyPlan.topClipsToPostNow[0]
+assert.ok(rbWomenKelseyPlan)
+assert.equal(rbWomenKelseyPlan.playerEntity, 'Kelsey Mitchell')
+assert.ok(['basketball evidence', 'popularity versus production', 'unequal visibility'].includes(rbWomenKelseyPlan.rbAngle ?? ''))
+assert.ok(rbWomenKelseyPlan.captionDraft.includes('Kelsey Mitchell'))
+assert.ok(!rbWomenKelseyPlan.captionDraft.includes('Caitlin Clark'))
 
 console.log(JSON.stringify({
   sports,

@@ -10,6 +10,7 @@ import {
   type RBHQIntelligenceUrgency,
   type SourceCandidateSummary,
 } from './intelligence-v1'
+import { RB_WOMEN_CHANNEL_ID, rbWomenPhase1SourceForKey } from './rb-women-source-config'
 import {
   analyzeClipForTikTok,
   getStoredTikTokAnalysis,
@@ -1884,10 +1885,18 @@ type ClipCandidateQueryRow = {
   hashtags: string[] | null
   score: number | null
   score_breakdown: {
+    score?: number
     rankLabel?: string
     urgency?: string
     whyNow?: string
     operatorSummary?: string
+    suggestedCaption?: string
+    suggestedHashtags?: string[]
+    rbWomen?: {
+      featuredPlayer?: string | null
+      scoutLabel?: 'post_now' | 'develop' | 'hold'
+      rbAngle?: SourceCandidateSummary['rbAngle']
+    }
   } | null
   status: string
   // Supabase nested joins can be returned as arrays or objects depending on
@@ -1898,9 +1907,13 @@ type ClipCandidateQueryRow = {
     published_at: string | null
     source_channels: Array<{
       display_name: string
+      channel_key: string | null
+      enabled: boolean | null
       target_rbhq_channel_id: string | null
     }> | {
       display_name: string
+      channel_key: string | null
+      enabled: boolean | null
       target_rbhq_channel_id: string | null
     } | null
   }> | {
@@ -1909,9 +1922,13 @@ type ClipCandidateQueryRow = {
     published_at: string | null
     source_channels: Array<{
       display_name: string
+      channel_key: string | null
+      enabled: boolean | null
       target_rbhq_channel_id: string | null
     }> | {
       display_name: string
+      channel_key: string | null
+      enabled: boolean | null
       target_rbhq_channel_id: string | null
     } | null
   } | null
@@ -1943,6 +1960,47 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow): SourceCandidateSu
   const channelMeta = sc?.target_rbhq_channel_id
     ? getChannelMeta(sc.target_rbhq_channel_id)
     : null
+  const sourceConfig = rbWomenPhase1SourceForKey(sc?.channel_key)
+  const isRBWomen = sc?.target_rbhq_channel_id === RB_WOMEN_CHANNEL_ID
+  const intelligence = isRBWomen
+    ? buildRBHQIntelligenceV1({
+      id: row.id,
+      channel_id: sc?.target_rbhq_channel_id,
+      title: row.title,
+      hook: row.hook_text ?? row.title,
+      source_name: sc?.display_name ?? '',
+      source_type: 'youtube_rss',
+      description: row.caption,
+      text: row.caption,
+      ai_score: row.score,
+      virality_score: row.score,
+      hook_strength: row.score,
+      published_at: iv?.published_at ?? null,
+    })
+    : null
+  const rbWomen = breakdown.rbWomen ?? intelligence?.rbWomen ?? null
+  const rankLabel = breakdown.rankLabel ? normalizeRankLabel(breakdown.rankLabel) : intelligence?.rankLabel ?? normalizeRankLabel(null)
+  const urgency = breakdown.urgency ? normalizeUrgency(breakdown.urgency) : intelligence?.urgency ?? normalizeUrgency(null)
+  const suggestedCaption = isRBWomen && intelligence
+    ? intelligence.suggestedCaption
+    : typeof breakdown.suggestedCaption === 'string'
+      ? breakdown.suggestedCaption
+      : row.caption ?? ''
+  const suggestedHashtags = isRBWomen && intelligence
+    ? intelligence.suggestedHashtags
+    : Array.isArray(breakdown.suggestedHashtags)
+      ? breakdown.suggestedHashtags
+      : row.hashtags ?? []
+  const whyNow = isRBWomen && intelligence
+    ? intelligence.whyNow
+    : typeof breakdown.whyNow === 'string'
+      ? breakdown.whyNow
+      : ''
+  const operatorSummary = isRBWomen && intelligence
+    ? intelligence.operatorSummary
+    : typeof breakdown.operatorSummary === 'string'
+      ? breakdown.operatorSummary
+      : ''
   return {
     id: row.id,
     title: row.title,
@@ -1950,16 +2008,31 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow): SourceCandidateSu
     thumbnailUrl: iv?.thumbnail_url ?? null,
     publishedAt: iv?.published_at ?? null,
     sourceName: sc?.display_name ?? '',
+    sourceChannelKey: sc?.channel_key ?? null,
+    sourceActive: sc?.enabled ?? null,
     targetLane: channelMeta?.label ?? null,
     score: row.score ?? 0,
-    rankLabel: normalizeRankLabel(breakdown.rankLabel),
-    urgency: normalizeUrgency(breakdown.urgency),
-    hook: row.hook_text ?? '',
-    suggestedCaption: row.caption ?? '',
-    suggestedHashtags: row.hashtags ?? [],
-    whyNow: typeof breakdown.whyNow === 'string' ? breakdown.whyNow : '',
-    operatorSummary: typeof breakdown.operatorSummary === 'string' ? breakdown.operatorSummary : '',
+    rankLabel,
+    urgency,
+    hook: row.hook_text ?? intelligence?.hook ?? '',
+    playerEntity: rbWomen?.featuredPlayer ?? null,
+    scoutLabel: rbWomen?.scoutLabel ?? null,
+    rbAngle: rbWomen?.rbAngle ?? null,
+    reviewReason: urgency === 'hold'
+      ? intelligence?.reasons[0] ?? null
+      : null,
+    suggestedCaption,
+    suggestedHashtags,
+    whyNow,
+    operatorSummary,
+    ...(sourceConfig ? { sourceActive: sourceConfig.active && sc?.enabled !== false } : {}),
   }
+}
+
+function shouldIncludeSourceCandidate(summary: SourceCandidateSummary, channelIds?: string[]): boolean {
+  const rbWomenRequested = channelIds?.includes(RB_WOMEN_CHANNEL_ID) ?? false
+  if (!rbWomenRequested || summary.targetLane !== 'RB Women') return true
+  return summary.sourceActive !== false
 }
 
 export async function getSourceCandidates(
@@ -1972,8 +2045,8 @@ export async function getSourceCandidates(
     .select(
       `id, title, hook_text, caption, hashtags, score, score_breakdown, status,
        ingested_videos!inner (
-         video_url, thumbnail_url, published_at,
-         source_channels!inner ( display_name, target_rbhq_channel_id )
+        video_url, thumbnail_url, published_at,
+         source_channels!inner ( display_name, channel_key, enabled, target_rbhq_channel_id )
        )`,
     )
     .eq('status', 'candidate')
@@ -1991,5 +2064,7 @@ export async function getSourceCandidates(
     return []
   }
 
-  return ((data ?? []) as unknown as ClipCandidateQueryRow[]).map(toSourceCandidateSummary)
+  return ((data ?? []) as unknown as ClipCandidateQueryRow[])
+    .map(toSourceCandidateSummary)
+    .filter((summary) => shouldIncludeSourceCandidate(summary, input.channelIds))
 }

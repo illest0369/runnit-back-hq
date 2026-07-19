@@ -147,12 +147,16 @@ export type SourceCandidateSummary = {
   thumbnailUrl: string | null
   publishedAt: string | null
   sourceName: string
+  sourceChannelKey?: string | null
+  sourceActive?: boolean | null
   targetLane: string | null
   score: number
   rankLabel: RBHQIntelligenceRankLabel
   urgency: RBHQIntelligenceUrgency
   hook: string
   playerEntity?: string | null
+  scoutLabel?: RBWomenScoutLabel | null
+  rbAngle?: RBWomenEditorialAngle | null
   packageRenderStatus?: DailyContentPlanClip['packageRenderStatus']
   reviewReason?: string | null
   suggestedCaption: string
@@ -760,6 +764,24 @@ function rbWomenFeaturedPlayers(text: string): string[] {
   return players
 }
 
+function rbWomenPlayersFromInput(input: RBHQIntelligenceInput): {
+  featuredPlayers: string[]
+  titlePlayers: string[]
+} {
+  const titleText = [
+    input.title,
+    input.source_title,
+    input.hook,
+    input.recommended_hook,
+  ].map(compact).join(' ').toLowerCase()
+  const titlePlayers = rbWomenFeaturedPlayers(titleText)
+  const allPlayers = rbWomenFeaturedPlayers(textForSignals(input))
+  return {
+    titlePlayers,
+    featuredPlayers: [...titlePlayers, ...allPlayers.filter((player) => !titlePlayers.includes(player))],
+  }
+}
+
 function rbWomenTeamOrLeagueTags(input: RBHQIntelligenceInput, text: string): string[] {
   const tags: string[] = []
   const league = compact(input.league)
@@ -787,6 +809,7 @@ function rbWomenPrimarySearchTopic(input: RBHQIntelligenceInput, featuredPlayers
   if (featuredPlayer) {
     if (containsAny(text, ['star system', 'popularity versus production', 'popularity vs production'])) return `${featuredPlayer} popularity versus production`
     if (containsAny(text, ['unequal visibility', 'visibility', 'national conversation'])) return `${featuredPlayer} visibility gap`
+    if (rbWomenProductionSignal(text)) return `${featuredPlayer} production`
     if (containsAny(text, ['credit distribution', 'assist', 'assists'])) return `${featuredPlayer} credit distribution`
     if (debateTopic === 'officiating/fairness') return `${featuredPlayer} WNBA foul debate`
     if (debateTopic === 'veteran-versus-rookie') return `${featuredPlayer} veteran rookie matchup`
@@ -799,6 +822,13 @@ function rbWomenPrimarySearchTopic(input: RBHQIntelligenceInput, featuredPlayers
   if (pillar === 'college_basketball') return 'women college basketball'
   if (pillar === 'women_sports_expansion') return 'women sports expansion'
   return compact(input.league || input.sport || 'RB Women clip')
+}
+
+function rbWomenProductionSignal(text: string): boolean {
+  return (
+    containsAny(text, ['production', 'efficiency', 'stat line', 'box score']) ||
+    /\b\d{2}\s*(pts|points|rebounds|assists|ast|rebs)\b/.test(text)
+  )
 }
 
 function rbWomenStrongQuote(text: string): boolean {
@@ -826,7 +856,7 @@ function rbWomenEditorialAngle(text: string, pillar: RBWomenContentPillar): RBWo
     'women of color',
   ])) return 'race and representation'
   if (containsAny(text, ['star treatment', 'superstar whistle', 'special whistle'])) return 'star treatment'
-  if (pillar === 'elite_basketball' || containsAny(text, ['production', 'efficiency', 'stat line', 'box score', 'assist', 'rebound', 'points', 'bucket'])) return 'basketball evidence'
+  if (pillar === 'elite_basketball' || rbWomenProductionSignal(text) || containsAny(text, ['rebound', 'points', 'bucket'])) return 'basketball evidence'
   return 'basketball evidence'
 }
 
@@ -973,6 +1003,9 @@ function rbWomenCaption(input: {
   if (input.rbAngle === 'credit distribution') {
     return truncate(`${subject ?? 'This play'} is really about who gets credit when the assist creates the moment.`, 180)
   }
+  if (input.rbAngle === 'basketball evidence' && input.primarySearchTopic.toLowerCase().includes('production')) {
+    return truncate(`${subject ?? 'This player'} put production on the table, so the basketball has to lead the conversation.`, 180)
+  }
   if (input.rbAngle === 'popularity versus production') {
     return truncate(`${subject ?? 'This player'} put production on the table, so the star-system conversation has to deal with the basketball.`, 180)
   }
@@ -1015,13 +1048,26 @@ function rbWomenAngleHashtag(angle: RBWomenEditorialAngle): string {
 
 function buildRBWomenIntelligenceV1(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null): RBHQIntelligenceV1 {
   const text = textForSignals(input)
+  const titleText = rbWomenTitleSignalText(input)
+  const titleProductionSignal = rbWomenProductionSignal(titleText)
+  const titleCreditSignal = containsAny(titleText, ['assist', 'assists', 'credit distribution', 'who gets credit'])
   const hook = buildHook(input, analyzer)
-  const featuredPlayers = rbWomenFeaturedPlayers(text)
+  const { featuredPlayers, titlePlayers } = rbWomenPlayersFromInput(input)
   const featuredPlayer = featuredPlayers[0] ?? rbWomenFeaturedPlayer(text)
-  const debateTopic = rbWomenDebateTopic(text)
+  const outputFeaturedPlayers = titleProductionSignal && !titleCreditSignal && titlePlayers.length > 0
+    ? titlePlayers
+    : featuredPlayers
+  const outputFeaturedPlayer = outputFeaturedPlayers[0] ?? featuredPlayer
+  const rawDebateTopic = rbWomenDebateTopic(text)
+  const debateTopic = titleProductionSignal && !titleCreditSignal && rawDebateTopic === 'credit distribution'
+    ? null
+    : rawDebateTopic
   const pillar = rbWomenPillar(input, text, featuredPlayer, debateTopic)
-  const primarySearchTopic = rbWomenPrimarySearchTopic(input, featuredPlayers, debateTopic, pillar, text)
-  const rbAngle = rbWomenEditorialAngle(text, pillar)
+  const primarySearchTopic = rbWomenPrimarySearchTopic(input, outputFeaturedPlayers, debateTopic, pillar, text)
+  const rawRbAngle = rbWomenEditorialAngle(text, pillar)
+  const rbAngle = titleProductionSignal && !titleCreditSignal && rawRbAngle === 'credit distribution'
+    ? 'basketball evidence'
+    : rawRbAngle
   const genericLeagueNews = containsAny(text, RB_WOMEN_GENERIC_NEWS_TERMS)
   const requiresLongExplanation = containsAny(text, RB_WOMEN_CONTEXT_HEAVY_TERMS)
   const weakFirstTwoSeconds = hook.length < 30 || containsAny(hook.toLowerCase(), ['announced', 'schedule', 'rule might', 'explained'])
@@ -1041,7 +1087,7 @@ function buildRBWomenIntelligenceV1(input: RBHQIntelligenceInput, analyzer: TikT
     strongQuote: rbWomenStrongQuote(text) ? 15 : 0,
     veteranVersusRookieContext: debateTopic === 'veteran-versus-rookie' ? 10 : 0,
     rbAngleFit: rbAngle !== 'basketball evidence' ? 15 : 0,
-    basketballEvidence: containsAny(text, ['production', 'efficiency', 'stat line', 'box score', 'assist', 'assists', 'points', 'bucket', 'rebound']) ? 15 : 0,
+    basketballEvidence: rbWomenProductionSignal(text) || containsAny(text, ['assist', 'assists', 'bucket', 'rebound']) ? 15 : 0,
     officiatingFairnessMediaNarrative: debateTopic === 'officiating/fairness' || containsAny(text, ['media narrative', 'media coverage', 'coverage gap']) ? 10 : 0,
     strongVisual: containsAny(text, RB_WOMEN_VISUAL_TERMS) ? 15 : pillar === 'player_personality' && featuredPlayer ? 10 : 0,
     understandableWithoutContext: requiresLongExplanation ? 0 : 15,
@@ -1070,7 +1116,7 @@ function buildRBWomenIntelligenceV1(input: RBHQIntelligenceInput, analyzer: TikT
   const scoutLabel = rbWomenScoutLabel(decisionBand)
   const rankLabel = rbWomenRankForBand(decisionBand, score)
   const urgency = rbWomenUrgencyForBand(decisionBand)
-  const hooks = rbWomenHooks({ hook, title: input.title ?? '', featuredPlayer, featuredPlayers, debateTopic, primarySearchTopic, pillar })
+  const hooks = rbWomenHooks({ hook, title: input.title ?? '', featuredPlayer: outputFeaturedPlayer, featuredPlayers: outputFeaturedPlayers, debateTopic, primarySearchTopic, pillar })
   const hookType: RBWomenHookType = pillar === 'debate' ? 'debate' : pillar === 'player_personality' ? 'reaction' : 'search_first'
   const expectedEngagementType = rbWomenExpectedEngagementType(pillar, debateTopic, text)
   const pillarLabel = pillar.replace(/_/g, ' ')
@@ -1097,10 +1143,10 @@ function buildRBWomenIntelligenceV1(input: RBHQIntelligenceInput, analyzer: TikT
     positive.commentPotential ? 'RB Women positive: comment potential is clear.' : null,
     positive.emotionalCulturalRelevance ? 'RB Women positive: emotional/cultural relevance is present.' : null,
   ].filter((reason): reason is string => Boolean(reason)).slice(0, MAX_REASON_COUNT)
-  const commentPrompt = rbWomenCommentPrompt({ debateTopic, pillar, featuredPlayer })
-  const suggestedCaption = rbWomenCaption({ pillar, featuredPlayer, featuredPlayers, debateTopic, primarySearchTopic, rbAngle })
+  const commentPrompt = rbWomenCommentPrompt({ debateTopic, pillar, featuredPlayer: outputFeaturedPlayer })
+  const suggestedCaption = rbWomenCaption({ pillar, featuredPlayer: outputFeaturedPlayer, featuredPlayers: outputFeaturedPlayers, debateTopic, primarySearchTopic, rbAngle })
   const suggestedHashtags = uniqueHashtags([
-    ...rbWomenHashtags(input, text, featuredPlayers, pillar, debateTopic),
+    ...rbWomenHashtags(input, text, outputFeaturedPlayers, pillar, debateTopic),
     rbWomenAngleHashtag(rbAngle),
   ]).slice(0, 5)
   const whyNow = scoutLabel === 'post_now'
@@ -1124,8 +1170,8 @@ function buildRBWomenIntelligenceV1(input: RBHQIntelligenceInput, analyzer: TikT
       contentPillar: pillar,
       hookType,
       hooks,
-      featuredPlayer,
-      featuredPlayers,
+      featuredPlayer: outputFeaturedPlayer,
+      featuredPlayers: outputFeaturedPlayers,
       debateTopic,
       rbAngle,
       scoutLabel,
@@ -1665,27 +1711,33 @@ function toPlanClip(input: RBHQIntelligenceInput & {
     : typeof readPlanObject(clipPrep?.basis)?.timed_transcript_available === 'boolean'
       ? readPlanObject(clipPrep?.basis)?.timed_transcript_available as boolean
       : null
+  const rbWomenPlan = rbWomenPlanFields(input, intelligence)
+  const score = intelligence.score > 0
+    ? intelligence.score
+    : typeof input.ai_score === 'number' && Number.isFinite(input.ai_score)
+      ? clampScore(input.ai_score)
+      : intelligence.score
   return {
     id: input.id ?? null,
     title: compact(input.title || input.hook) || 'Untitled clip',
-    clipTopic: intelligence.rbWomen?.primarySearchTopic || compact(input.title || input.hook) || 'Untitled clip',
-    playerEntity: intelligence.rbWomen?.featuredPlayer ?? null,
+    clipTopic: rbWomenPlan.clipTopic,
+    playerEntity: rbWomenPlan.playerEntity,
     scoutLabel: rbWomenScoutLabel,
-    rbAngle: intelligence.rbWomen?.rbAngle ?? null,
+    rbAngle: rbWomenPlan.rbAngle,
     channelId: input.channel_id ?? null,
     lane: laneLabel(input),
     sourceName: input.source_name ?? null,
-    score: intelligence.score,
+    score,
     rankLabel: intelligence.rankLabel,
     urgency: intelligence.urgency,
     reasons: intelligence.reasons,
-    whyNow: intelligence.whyNow,
-    whyThisShouldPostNow: intelligence.whyNow,
-    operatorSummary: intelligence.operatorSummary,
-    suggestedCaption: intelligence.suggestedCaption,
-    captionDraft: intelligence.suggestedCaption,
-    suggestedHashtags: intelligence.suggestedHashtags,
-    hashtagPack: intelligence.suggestedHashtags,
+    whyNow: rbWomenPlan.whyNow,
+    whyThisShouldPostNow: rbWomenPlan.whyNow,
+    operatorSummary: rbWomenPlan.operatorSummary,
+    suggestedCaption: rbWomenPlan.suggestedCaption,
+    captionDraft: rbWomenPlan.suggestedCaption,
+    suggestedHashtags: rbWomenPlan.suggestedHashtags,
+    hashtagPack: rbWomenPlan.suggestedHashtags,
     packageRenderStatus,
     transcriptSourceStatus: {
       subtitleSource: compactPlanString(captionPrep?.subtitle_source) || null,
@@ -1740,6 +1792,99 @@ function readPlanObject(value: unknown): Record<string, unknown> | null {
 
 function compactPlanString(value: unknown): string {
   return typeof value === 'string' ? compact(value) : ''
+}
+
+function rbWomenTitleSignalText(input: RBHQIntelligenceInput): string {
+  return [
+    input.title,
+    input.source_title,
+    input.hook,
+    input.recommended_hook,
+  ].map(compact).join(' ').toLowerCase()
+}
+
+function rbWomenPlanFields(input: RBHQIntelligenceInput, intelligence: RBHQIntelligenceV1): {
+  clipTopic: string
+  playerEntity: string | null
+  rbAngle: RBWomenEditorialAngle | null
+  whyNow: string
+  operatorSummary: string
+  suggestedCaption: string
+  suggestedHashtags: string[]
+} {
+  if (input.channel_id !== 'a1000000-0000-0000-0000-000000000004' && laneLabel(input) !== 'RB Women') {
+    return {
+      clipTopic: compact(input.title || input.hook) || 'Untitled clip',
+      playerEntity: null,
+      rbAngle: null,
+      whyNow: intelligence.whyNow,
+      operatorSummary: intelligence.operatorSummary,
+      suggestedCaption: intelligence.suggestedCaption,
+      suggestedHashtags: intelligence.suggestedHashtags,
+    }
+  }
+
+  const text = textForSignals(input)
+  const titleText = rbWomenTitleSignalText(input)
+  const { featuredPlayers, titlePlayers } = rbWomenPlayersFromInput(input)
+  const stored = intelligence.rbWomen
+  const titlePlayer = titlePlayers[0] ?? null
+  const storedPlayer = stored?.featuredPlayer ?? null
+  const titleHasStoredPlayer = Boolean(storedPlayer && titleText.includes(storedPlayer.toLowerCase()))
+  const playerEntity = titlePlayer && (!storedPlayer || !titleHasStoredPlayer)
+    ? titlePlayer
+    : storedPlayer ?? featuredPlayers[0] ?? null
+  const titleHasCreditSignal = containsAny(titleText, ['assist', 'assists', 'credit distribution', 'who gets credit'])
+  const titleProductionSignal = rbWomenProductionSignal(titleText)
+  const storedAngle = stored?.rbAngle ?? null
+  const rbAngle = titleProductionSignal && storedAngle === 'credit distribution' && !titleHasCreditSignal
+    ? 'basketball evidence'
+    : storedAngle ?? rbWomenEditorialAngle(text, stored?.contentPillar ?? 'elite_basketball')
+  const planPlayers = playerEntity
+    ? [playerEntity, ...featuredPlayers.filter((player) => player !== playerEntity && titleText.includes(player.toLowerCase()))]
+    : featuredPlayers
+  const storedAngleProtected = stored?.rbAngle === 'unequal visibility' ||
+    stored?.rbAngle === 'media power' ||
+    stored?.rbAngle === 'popularity versus production'
+  const primarySearchTopic = titleProductionSignal && playerEntity && !storedAngleProtected
+    ? `${playerEntity} production`
+    : stored?.primarySearchTopic ?? rbWomenPrimarySearchTopic(input, planPlayers, stored?.debateTopic ?? null, stored?.contentPillar ?? 'elite_basketball', text)
+  const copyNeedsRefresh =
+    playerEntity !== storedPlayer ||
+    rbAngle !== storedAngle ||
+    titleProductionSignal
+  const debateTopic = rbAngle === 'credit distribution'
+    ? 'credit distribution'
+    : rbAngle === 'popularity versus production'
+      ? 'popularity versus production'
+      : stored?.debateTopic ?? null
+  const pillar = stored?.contentPillar ?? (titleProductionSignal ? 'elite_basketball' : 'women_sports_expansion')
+  const suggestedCaption = copyNeedsRefresh
+    ? rbWomenCaption({ pillar, featuredPlayer: playerEntity, featuredPlayers: planPlayers, debateTopic, primarySearchTopic, rbAngle })
+    : intelligence.suggestedCaption
+  const suggestedHashtags = copyNeedsRefresh
+    ? uniqueHashtags([
+      ...rbWomenHashtags(input, text, planPlayers, pillar, debateTopic),
+      rbWomenAngleHashtag(rbAngle),
+    ]).slice(0, 5)
+    : intelligence.suggestedHashtags
+  const topicLabel = debateTopic ?? signalSummary(input)
+  const whyNow = copyNeedsRefresh
+    ? truncate(`${stored?.scoutLabel === 'hold' ? 'Hold' : stored?.scoutLabel === 'develop' ? 'Develop' : 'Post now'}: ${primarySearchTopic} has ${topicLabel} plus ${rbAngle} inside the 72-hour RB Women scouting window.`, 180)
+    : intelligence.whyNow
+  const operatorSummary = copyNeedsRefresh
+    ? truncate(`RB Women ${(stored?.scoutLabel ?? (intelligence.urgency === 'hold' ? 'hold' : 'post_now')).replace(/_/g, ' ')}: ${Math.max(intelligence.score, Number(input.ai_score ?? 0))}/100 on ${primarySearchTopic}. Lead with the basketball, frame the ${rbAngle} without forcing a race-only read.`, 180)
+    : intelligence.operatorSummary
+
+  return {
+    clipTopic: primarySearchTopic,
+    playerEntity,
+    rbAngle,
+    whyNow,
+    operatorSummary,
+    suggestedCaption,
+    suggestedHashtags,
+  }
 }
 
 export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {
