@@ -7,6 +7,11 @@ import { config } from 'dotenv'
 
 import { buildRBHQIntelligenceV1 } from '../lib/intelligence-v1'
 import {
+  RB_WOMEN_CHANNEL_ID,
+  rbWomenPhase1ActiveSources,
+  rbWomenPhase1NoisySources,
+} from '../lib/rb-women-source-config'
+import {
   buildClipCandidateInsertRow,
   pollSourceChannel,
   type SourceChannelRow,
@@ -43,6 +48,16 @@ type SmokeResult = {
     editorialHashtagPrecedence: boolean
     analyzerCaptionFallback: boolean
     analyzerHashtagFallback: boolean
+  }
+  rbWomenSources: {
+    activePhase1Sources: string[]
+    noisyPhase1Sources: string[]
+    phase1FeedSetComplete: boolean
+    missingPhase1Feeds: string[]
+    hasWnbaCoreFeed: boolean
+    hasUsefulExpansionFeed: boolean
+    candidateCarriesSourceFilter: boolean
+    genericAnnouncementRejected: boolean
   }
   safety: {
     n8nRequired: false
@@ -337,6 +352,78 @@ function verifyIntelligencePrecedence(): SmokeResult['intelligence'] {
   }
 }
 
+function verifyRbWomenSources(): SmokeResult['rbWomenSources'] {
+  const active = rbWomenPhase1ActiveSources()
+  const noisy = rbWomenPhase1NoisySources()
+  const requiredPhase1FeedNames = [
+    'WNBA',
+    'Unrivaled Basketball',
+    'Indiana Fever',
+    'Dallas Wings',
+    'Minnesota Lynx',
+    'Las Vegas Aces',
+    'New York Liberty',
+    'Chicago Sky',
+    'Los Angeles Sparks',
+    'Phoenix Mercury',
+    'Seattle Storm',
+    'Atlanta Dream',
+    'Just Women\'s Sports',
+    'WNBA on NBC',
+    'TNT Sports US',
+    'All Women\'s Sports Network',
+  ]
+  const activeDisplayNames = new Set(active.map((source) => source.displayName))
+  const missingPhase1Feeds = requiredPhase1FeedNames.filter((name) => !activeDisplayNames.has(name))
+  const debateCandidate = buildClipCandidateInsertRow({
+    channel: {
+      id: randomUUID(),
+      channel_key: 'wnba_official',
+      display_name: 'WNBA',
+      rss_url: 'mock://youtube-rss',
+      target_rbhq_channel_id: RB_WOMEN_CHANNEL_ID,
+    },
+    video: {
+      id: randomUUID(),
+      title: 'Caitlin Clark foul debate has fans split after the whistle',
+      description: 'A recognizable WNBA player, a foul debate, and a clear officiating angle.',
+      published_at: new Date().toISOString(),
+    },
+    now: new Date().toISOString(),
+    id: randomUUID(),
+  })
+  const genericCandidate = buildClipCandidateInsertRow({
+    channel: {
+      id: randomUUID(),
+      channel_key: 'wnba_official',
+      display_name: 'WNBA',
+      rss_url: 'mock://youtube-rss',
+      target_rbhq_channel_id: RB_WOMEN_CHANNEL_ID,
+    },
+    video: {
+      id: randomUUID(),
+      title: 'WNBA announces updated broadcast schedule',
+      description: 'The league announced schedule and ticket information with no player angle.',
+      published_at: new Date().toISOString(),
+    },
+    now: new Date().toISOString(),
+    id: randomUUID(),
+  })
+  const debateFilter = debateCandidate.score_breakdown.rbWomenSource as { treatment?: string } | undefined
+  const genericFilter = genericCandidate.score_breakdown.rbWomenSource as { treatment?: string } | undefined
+
+  return {
+    activePhase1Sources: active.map((source) => source.channelKey),
+    noisyPhase1Sources: noisy.map((source) => source.channelKey),
+    phase1FeedSetComplete: missingPhase1Feeds.length === 0,
+    missingPhase1Feeds,
+    hasWnbaCoreFeed: active.some((source) => source.channelKey === 'wnba_official' && source.priority === 'core'),
+    hasUsefulExpansionFeed: active.some((source) => source.channelKey === 'all_womens_sports_network' && source.priority === 'useful'),
+    candidateCarriesSourceFilter: debateFilter?.treatment === 'advanced',
+    genericAnnouncementRejected: genericFilter?.treatment === 'rejected',
+  }
+}
+
 async function main() {
   const entries = loadFixture()
   assert(entries.length === 2, `Expected fixture to parse 2 unique entries, received ${entries.length}.`)
@@ -357,6 +444,12 @@ async function main() {
 
   const intelligence = verifyIntelligencePrecedence()
   assert(Object.values(intelligence).every(Boolean), 'Intelligence V1 precedence or candidate field smoke failed.')
+  const rbWomenSources = verifyRbWomenSources()
+  assert(rbWomenSources.phase1FeedSetComplete, `RB Women Phase 1 source config is missing: ${rbWomenSources.missingPhase1Feeds.join(', ')}`)
+  assert(rbWomenSources.hasWnbaCoreFeed, 'RB Women Phase 1 must include WNBA as a core source.')
+  assert(rbWomenSources.hasUsefulExpansionFeed, 'RB Women Phase 1 must include a useful women sports expansion source.')
+  assert(rbWomenSources.candidateCarriesSourceFilter, 'RB Women candidates must carry source filter metadata.')
+  assert(rbWomenSources.genericAnnouncementRejected, 'RB Women generic announcements must be rejected by source filters.')
   const productionCronPath = readProductionCronPath()
   assert(productionCronPath === '/api/cron/rss-poll', 'Production cron does not target safe RSS polling route.')
 
@@ -368,6 +461,7 @@ async function main() {
     },
     database,
     intelligence,
+    rbWomenSources,
     safety: {
       n8nRequired: false,
       livePublishStateSet: false,

@@ -44,6 +44,8 @@ export type TikTokStagingReadiness = {
 export type QueueStagingCandidate = {
   candidateStatus?: string | null
   clipPrepStatus?: string | null
+  suggestedClipStartSeconds?: number | string | null
+  suggestedClipEndSeconds?: number | string | null
 }
 
 export type QueueStagingPackage = {
@@ -80,6 +82,21 @@ function compact(value: unknown): string | null {
 
 function boolValue(value: unknown): boolean {
   return value === true
+}
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    if (Number.isFinite(parsed)) return parsed
+  }
+  return null
+}
+
+function hasSelectedClipRange(candidate: QueueStagingCandidate | null | undefined): boolean {
+  const start = readNumber(candidate?.suggestedClipStartSeconds)
+  const end = readNumber(candidate?.suggestedClipEndSeconds)
+  return start !== null && end !== null && end > start
 }
 
 function readUploaderResult(result: Record<string, unknown> | null | undefined): Record<string, unknown> {
@@ -172,9 +189,13 @@ export function buildTikTokStagingReadiness(
   const readyForManualPost = status === 'ready_for_manual_post'
   const candidateApproved = APPROVED_CANDIDATE_STATUSES.has(candidate?.candidateStatus ?? '')
   const clipPrepReady = candidate?.clipPrepStatus === 'ready'
+  const rbWomenMetadataOnlyRenderable = pkg?.browser_channel_key === 'rb_women' &&
+    candidate?.clipPrepStatus === 'metadata_only' &&
+    hasSelectedClipRange(candidate)
+  const clipPrepReadyForRetry = clipPrepReady || rbWomenMetadataOnlyRenderable
   const localRenderAttached = Boolean(pkg?.id) && pkg?.asset_status === 'attached' && Boolean(pkg?.local_asset_path)
   const readyForTikTokRetry = candidateApproved &&
-    clipPrepReady &&
+    clipPrepReadyForRetry &&
     localRenderAttached &&
     !readyForManualPost &&
     status !== 'requested'
@@ -182,13 +203,13 @@ export function buildTikTokStagingReadiness(
   const loginBlocked = status === 'blocked' && tikTokSession === 'missing'
   const prepCanContinue = loginBlocked
   const retryAfterAccessRestored = loginBlocked &&
-    clipPrepReady &&
+    clipPrepReadyForRetry &&
     localRenderAttached
 
   let missing: string | null = null
   if (!candidateId) missing = 'Missing Intelligence V1 candidate link.'
   else if (!candidateApproved) missing = 'Candidate must be approved first.'
-  else if (!clipPrepReady) missing = 'Clip Prep is not ready.'
+  else if (!clipPrepReadyForRetry) missing = 'Clip Prep is not ready.'
   else if (!pkg?.id) missing = 'Mac mini package is missing.'
   else if (!localRenderAttached) missing = 'Local render attachment is missing.'
   else if (readyForManualPost) missing = 'Ready for manual Post.'

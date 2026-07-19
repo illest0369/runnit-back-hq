@@ -102,39 +102,57 @@ const highScoreEvergreenCandidate = {
   risk_flags: [],
 }
 const highScoreEvergreen = buildRBHQIntelligenceV1(highScoreEvergreenCandidate)
-const rbWomenHighDebate = buildRBHQIntelligenceV1({
-  id: 'rb-women-high-debate',
+const rbWomenCaitlinFoulDebate = buildRBHQIntelligenceV1({
+  id: 'rb-women-caitlin-foul-debate',
   channel_id: 'a1000000-0000-0000-0000-000000000004',
-  title: 'A\'ja Wilson responds after controversial foul call sparks fairness debate',
-  hook: 'A\'ja did not hold back on that foul call',
+  title: 'Caitlin Clark acting foul debate splits WNBA fans',
+  hook: 'Caitlin Clark sold the contact and the whistle changed everything',
   source_name: 'WNBA',
   source_type: 'youtube_rss',
   sport: 'basketball',
   league: 'WNBA',
-  duration_seconds: 22,
+  duration_seconds: 20,
   ai_score: 70,
   virality_score: 70,
   hook_strength: 70,
   published_at: new Date().toISOString(),
-  text: 'A\'ja Wilson said rookies do not get the same whistle after a controversial foul call and fans are split about the officiating and fairness.',
+  text: 'Caitlin Clark acting foul debate after a controversial whistle. Fans are split on whether the officiating was fair or if she sold the contact.',
   moderation_notes: [],
   risk_flags: [],
 })
-const rbWomenPersonalityQuote = buildRBHQIntelligenceV1({
-  id: 'rb-women-personality-quote',
+const rbWomenKaylaOliviaMatchup = buildRBHQIntelligenceV1({
+  id: 'rb-women-kayla-olivia-matchup',
   channel_id: 'a1000000-0000-0000-0000-000000000004',
-  title: 'Angel Reese jokes about the rookie matchup after a big win',
-  hook: 'Angel Reese had the room laughing with this quote',
+  title: 'Kayla McBride vs Olivia Miles matchup gets physical late',
+  hook: 'Kayla McBride and Olivia Miles turned this matchup into a real test',
   source_name: 'WNBA',
   source_type: 'youtube_rss',
   sport: 'basketball',
   league: 'WNBA',
+  duration_seconds: 24,
+  ai_score: 65,
+  virality_score: 65,
+  hook_strength: 65,
+  published_at: new Date().toISOString(),
+  text: 'Kayla McBride veteran guard matchup versus Olivia Miles rookie pressure with defense, bucket trading, and a strong visual late-game basketball moment.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbWomenPaigeRepresentationQuote = buildRBHQIntelligenceV1({
+  id: 'rb-women-paige-representation-quote',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'Paige Bueckers representation quote lands with fans',
+  hook: 'Paige Bueckers said the quiet part in the best way',
+  source_name: 'NCAA Women\'s Basketball',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'NCAA WBB',
   duration_seconds: 18,
   ai_score: 65,
   virality_score: 65,
   hook_strength: 65,
   published_at: new Date().toISOString(),
-  text: 'Angel Reese joked about the rookie matchup and turned a normal postgame answer into a personality moment fans will quote.',
+  text: 'Paige Bueckers gave a representation quote about young girls seeing themselves in college basketball and fans reacted to the personality and meaning.',
   moderation_notes: [],
   risk_flags: [],
 })
@@ -174,6 +192,24 @@ const rbWomenContextHeavy = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbWomenNonWnbaAthleteStory = buildRBHQIntelligenceV1({
+  id: 'rb-women-non-wnba-athlete-story',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'Alex Morgan calls out the coverage gap in women\'s soccer',
+  hook: 'Alex Morgan made the media coverage point without overdoing it',
+  source_name: 'Women\'s Sports Network',
+  source_type: 'youtube_rss',
+  sport: 'soccer',
+  league: 'NWSL',
+  duration_seconds: 21,
+  ai_score: 60,
+  virality_score: 60,
+  hook_strength: 60,
+  published_at: new Date().toISOString(),
+  text: 'Alex Morgan athlete-centered women sports story about media coverage, league growth, player quote, fans reacting, and a clear human angle.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const storedNotes = withStoredRBHQIntelligenceV1([], sports)
 const stored = getStoredRBHQIntelligenceV1(storedNotes)
 const fallback = getRBHQIntelligenceV1({ ...sportsClip, moderation_notes: storedNotes })
@@ -199,6 +235,69 @@ const plan = buildDailyContentPlan([
   { ...arenaClip, status: 'pending', publish_status: 'not_ready' },
   { ...highScoreEvergreenCandidate, status: 'pending', publish_status: 'not_ready' },
 ], [sourceCandidateSummary])
+const rbWomenDailyPlan = buildDailyContentPlan([
+  {
+    id: 'rb-women-daily-plan-must-post',
+    channel_id: 'a1000000-0000-0000-0000-000000000004',
+    title: 'Caitlin Clark foul debate has fans split after the whistle',
+    hook: 'Caitlin Clark sold the contact and the whistle changed everything',
+    source_name: 'WNBA',
+    source_type: 'youtube_rss',
+    sport: 'basketball',
+    league: 'WNBA',
+    duration_seconds: 20,
+    ai_score: 70,
+    virality_score: 70,
+    hook_strength: 70,
+    published_at: new Date().toISOString(),
+    text: 'Caitlin Clark foul debate after a controversial whistle. Fans are split on whether the officiating was fair or if she sold the contact.',
+    status: 'approved_for_handoff',
+    publish_status: 'needs_clip_render',
+    package_readiness: {
+      macMiniPackageId: 'rb-women-package',
+      clipPrepStatus: 'metadata_only',
+      localRenderStatus: 'attached',
+      localRenderAttached: true,
+      localAssetPath: '/tmp/rb-women-package.mp4',
+    },
+  },
+  {
+    id: 'rb-women-daily-plan-maybe',
+    channel_id: 'a1000000-0000-0000-0000-000000000004',
+    title: 'Alex Morgan calls out the coverage gap in women\'s soccer',
+    hook: 'Alex Morgan made the media coverage point without overdoing it',
+    source_name: 'All Women\'s Sports Network',
+    source_type: 'youtube_rss',
+    sport: 'soccer',
+    league: 'NWSL',
+    duration_seconds: 21,
+    ai_score: 60,
+    virality_score: 60,
+    hook_strength: 60,
+    published_at: new Date().toISOString(),
+    text: 'Alex Morgan athlete-centered women sports story about media coverage, league growth, player quote, fans reacting, and a clear human angle.',
+    status: 'candidate',
+    publish_status: 'not_ready',
+  },
+  {
+    id: 'rb-women-daily-plan-hold',
+    channel_id: 'a1000000-0000-0000-0000-000000000004',
+    title: 'WNBA announces updated regular season broadcast schedule',
+    hook: 'The league announced the new schedule',
+    source_name: 'WNBA',
+    source_type: 'youtube_rss',
+    sport: 'basketball',
+    league: 'WNBA',
+    duration_seconds: 28,
+    ai_score: 70,
+    virality_score: 60,
+    hook_strength: 50,
+    published_at: new Date().toISOString(),
+    text: 'The league announced schedule updates, broadcast windows, ticket information, and general regular season details.',
+    status: 'candidate',
+    publish_status: 'not_ready',
+  },
+])
 
 assert.equal(stored?.score, sports.score)
 assert.equal(fallback.score, sports.score)
@@ -238,36 +337,63 @@ assert.ok(staleSourceCandidate.whyNow.includes('not in a live viral window'))
 assert.ok(!staleSourceCandidate.suggestedHashtags.includes('#PatchNotes'))
 assert.equal(highScoreEvergreen.urgency, 'evergreen')
 assert.equal(highScoreEvergreen.rankLabel, 'must_post')
-assert.ok(rbWomenHighDebate.score >= 80)
-assert.equal(rbWomenHighDebate.rankLabel, 'must_post')
-assert.equal(rbWomenHighDebate.urgency, 'post_now')
-assert.equal(rbWomenHighDebate.rbWomen?.contentPillar, 'debate_moment')
-assert.equal(rbWomenHighDebate.rbWomen?.featuredPlayer, 'A\'ja Wilson')
-assert.equal(rbWomenHighDebate.rbWomen?.debateTopic, 'officiating/fairness')
-assert.equal(rbWomenHighDebate.rbWomen?.expectedEngagementType, 'argumentative_comments')
-assert.equal(rbWomenHighDebate.rbWomen?.decisionBand, 'high_confidence')
-assert.equal(rbWomenHighDebate.rbWomen?.hooks.reaction.includes('A\'ja'), true)
-assert.equal(rbWomenHighDebate.rbWomen?.hooks.debate.includes('?'), true)
-assert.ok(rbWomenHighDebate.suggestedHashtags.length <= 5)
-assert.ok(rbWomenHighDebate.operatorSummary.includes('debate moment'))
-assert.ok(rbWomenHighDebate.whyNow.includes('fairness'))
-assert.ok(rbWomenHighDebate.rbWomen?.recommendedCommentPrompt.includes('fair'))
-assert.ok(rbWomenPersonalityQuote.score >= 80)
-assert.equal(rbWomenPersonalityQuote.rbWomen?.contentPillar, 'personality_culture')
-assert.equal(rbWomenPersonalityQuote.rbWomen?.featuredPlayer, 'Angel Reese')
-assert.equal(rbWomenPersonalityQuote.rbWomen?.expectedEngagementType, 'quote_reactions')
-assert.ok(rbWomenPersonalityQuote.rbWomen?.hooks.context.includes('Angel Reese'))
+assert.ok(rbWomenCaitlinFoulDebate.score >= 80)
+assert.equal(rbWomenCaitlinFoulDebate.rankLabel, 'must_post')
+assert.equal(rbWomenCaitlinFoulDebate.urgency, 'post_now')
+assert.equal(rbWomenCaitlinFoulDebate.rbWomen?.contentPillar, 'debate')
+assert.equal(rbWomenCaitlinFoulDebate.rbWomen?.featuredPlayer, 'Caitlin Clark')
+assert.equal(rbWomenCaitlinFoulDebate.rbWomen?.debateTopic, 'officiating/fairness')
+assert.equal(rbWomenCaitlinFoulDebate.rbWomen?.expectedEngagementType, 'argumentative_comments')
+assert.equal(rbWomenCaitlinFoulDebate.rbWomen?.decisionBand, 'high_confidence')
+assert.deepEqual(Object.keys(rbWomenCaitlinFoulDebate.rbWomen?.hooks ?? {}).sort(), ['debate', 'reaction', 'search_first'])
+assert.equal(rbWomenCaitlinFoulDebate.rbWomen?.hookType, 'debate')
+assert.equal(rbWomenCaitlinFoulDebate.rbWomen?.hooks.reaction.includes('Caitlin Clark'), true)
+assert.equal(rbWomenCaitlinFoulDebate.rbWomen?.hooks.debate.includes('?'), true)
+assert.ok(rbWomenCaitlinFoulDebate.rbWomen?.hooks.search_first.includes('Caitlin Clark'))
+assert.ok(rbWomenCaitlinFoulDebate.suggestedCaption.includes('Caitlin Clark'))
+assert.ok(rbWomenCaitlinFoulDebate.suggestedCaption.length <= 180)
+assert.ok(rbWomenCaitlinFoulDebate.suggestedHashtags.length <= 5)
+assert.ok(!rbWomenCaitlinFoulDebate.suggestedHashtags.some((tag) => ['#fyp', '#viral', '#trending'].includes(tag.toLowerCase())))
+assert.ok(rbWomenCaitlinFoulDebate.suggestedHashtags.includes('#CaitlinClark'))
+assert.ok(rbWomenCaitlinFoulDebate.operatorSummary.includes('debate'))
+assert.ok(rbWomenCaitlinFoulDebate.whyNow.includes('officiating'))
+assert.ok(rbWomenCaitlinFoulDebate.rbWomen?.suggestedPinnedComment.includes('whistle'))
+assert.ok(rbWomenKaylaOliviaMatchup.score >= 80)
+assert.equal(rbWomenKaylaOliviaMatchup.urgency, 'post_now')
+assert.equal(rbWomenKaylaOliviaMatchup.rbWomen?.contentPillar, 'debate')
+assert.equal(rbWomenKaylaOliviaMatchup.rbWomen?.featuredPlayer, 'Kayla McBride')
+assert.equal(rbWomenKaylaOliviaMatchup.rbWomen?.debateTopic, 'veteran-versus-rookie')
+assert.ok(rbWomenKaylaOliviaMatchup.rbWomen?.hooks.search_first.includes('Kayla McBride'))
+assert.ok(rbWomenKaylaOliviaMatchup.suggestedHashtags.includes('#KaylaMcBride'))
+assert.ok(rbWomenKaylaOliviaMatchup.suggestedHashtags.includes('#OliviaMiles'))
+assert.ok(rbWomenPaigeRepresentationQuote.score >= 80)
+assert.equal(rbWomenPaigeRepresentationQuote.rbWomen?.contentPillar, 'player_personality')
+assert.equal(rbWomenPaigeRepresentationQuote.rbWomen?.featuredPlayer, 'Paige Bueckers')
+assert.equal(rbWomenPaigeRepresentationQuote.rbWomen?.expectedEngagementType, 'quote_reactions')
+assert.equal(rbWomenPaigeRepresentationQuote.rbWomen?.primarySearchTopic, 'Paige Bueckers representation quote')
+assert.ok(rbWomenPaigeRepresentationQuote.rbWomen?.hooks.search_first.includes('Paige Bueckers'))
+assert.ok(rbWomenPaigeRepresentationQuote.suggestedCaption.includes('Paige Bueckers'))
+assert.ok(rbWomenPaigeRepresentationQuote.suggestedHashtags.includes('#PaigeBueckers'))
 assert.ok(rbWomenGenericAnnouncement.score < 50)
 assert.equal(rbWomenGenericAnnouncement.rankLabel, 'low_priority')
 assert.equal(rbWomenGenericAnnouncement.urgency, 'hold')
 assert.equal(rbWomenGenericAnnouncement.rbWomen?.decisionBand, 'reject')
-assert.equal(rbWomenGenericAnnouncement.rbWomen?.contentPillar, 'meaningful_league_story')
+assert.equal(rbWomenGenericAnnouncement.rbWomen?.contentPillar, 'women_sports_expansion')
 assert.ok(rbWomenGenericAnnouncement.reasons.some((reason) => reason.includes('generic league news')))
 assert.ok(rbWomenContextHeavy.score >= 50 && rbWomenContextHeavy.score <= 64)
 assert.equal(rbWomenContextHeavy.rankLabel, 'low_priority')
 assert.equal(rbWomenContextHeavy.urgency, 'hold')
 assert.equal(rbWomenContextHeavy.rbWomen?.decisionBand, 'hold_unless_timely')
 assert.ok(rbWomenContextHeavy.reasons.some((reason) => reason.includes('long explanation')))
+assert.ok(rbWomenNonWnbaAthleteStory.score >= 65 && rbWomenNonWnbaAthleteStory.score <= 79)
+assert.equal(rbWomenNonWnbaAthleteStory.urgency, 'today')
+assert.equal(rbWomenNonWnbaAthleteStory.rbWomen?.contentPillar, 'women_sports_expansion')
+assert.equal(rbWomenNonWnbaAthleteStory.rbWomen?.featuredPlayer, 'Alex Morgan')
+assert.equal(rbWomenNonWnbaAthleteStory.rbWomen?.primarySearchTopic, 'Alex Morgan media coverage')
+assert.equal(rbWomenNonWnbaAthleteStory.rbWomen?.expectedEngagementType, 'story_discussion')
+assert.ok(rbWomenNonWnbaAthleteStory.suggestedHashtags.includes('#AlexMorgan'))
+assert.ok(rbWomenNonWnbaAthleteStory.suggestedHashtags.includes('#NWSL'))
+assert.ok(!rbWomenNonWnbaAthleteStory.suggestedHashtags.includes('#WNBA'))
 assert.equal(buildRBHQIntelligenceV1({ ...sportsClip, text: 'A\'ja Wilson foul debate' }).rbWomen, undefined)
 assert.equal(buildRBHQIntelligenceV1({ ...arenaClip, text: 'Angel Reese quote debate' }).rbWomen, undefined)
 assert.ok(plan.suggestedPostingOrder.length >= 1)
@@ -275,6 +401,27 @@ assert.ok(plan.topClipsToPostNow.length + plan.strongAlternates.length >= 1)
 assert.ok(!plan.topClipsToPostNow.some((clip) => clip.id === highScoreEvergreenCandidate.id))
 assert.ok(plan.strongAlternates.some((clip) => clip.id === highScoreEvergreenCandidate.id))
 assert.equal(plan.sourceCandidates[0]?.operatorSummary, sourceCandidateSummary.operatorSummary)
+const rbWomenMustPost = rbWomenDailyPlan.topClipsToPostNow[0]
+assert.ok(rbWomenMustPost)
+assert.equal(rbWomenMustPost.clipTopic, 'Caitlin Clark WNBA foul debate')
+assert.equal(rbWomenMustPost.playerEntity, 'Caitlin Clark')
+assert.equal(rbWomenMustPost.sourceName, 'WNBA')
+assert.ok(rbWomenMustPost.score >= 80)
+assert.ok(rbWomenMustPost.whyNow.includes('officiating'))
+assert.ok(rbWomenMustPost.suggestedCaption.includes('Caitlin Clark'))
+assert.ok(rbWomenMustPost.suggestedHashtags.includes('#CaitlinClark'))
+assert.ok(rbWomenMustPost.operatorSummary.includes('RB Women'))
+assert.equal(rbWomenMustPost.packageRenderStatus.packageId, 'rb-women-package')
+assert.equal(rbWomenMustPost.packageRenderStatus.localRenderStatus, 'attached')
+assert.equal(rbWomenMustPost.packageRenderStatus.localRenderAttached, true)
+const rbWomenMaybe = rbWomenDailyPlan.strongAlternates.find((clip) => clip.id === 'rb-women-daily-plan-maybe')
+assert.ok(rbWomenMaybe)
+assert.equal(rbWomenMaybe.playerEntity, 'Alex Morgan')
+assert.ok(rbWomenMaybe.reviewReason)
+const rbWomenHold = rbWomenDailyPlan.holdOrLowPriority.find((clip) => clip.id === 'rb-women-daily-plan-hold')
+assert.ok(rbWomenHold)
+assert.equal(rbWomenHold.sourceName, 'WNBA')
+assert.ok(rbWomenHold.reviewReason?.includes('generic league news'))
 
 console.log(JSON.stringify({
   sports,
@@ -286,9 +433,12 @@ console.log(JSON.stringify({
   combatBoxingCandidate,
   staleSourceCandidate,
   highScoreEvergreen,
-  rbWomenHighDebate,
-  rbWomenPersonalityQuote,
+  rbWomenCaitlinFoulDebate,
+  rbWomenKaylaOliviaMatchup,
+  rbWomenPaigeRepresentationQuote,
   rbWomenGenericAnnouncement,
   rbWomenContextHeavy,
+  rbWomenNonWnbaAthleteStory,
   dailyPlan: plan,
+  rbWomenDailyPlan,
 }, null, 2))

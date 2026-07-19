@@ -254,6 +254,43 @@ async function main() {
     assert.equal(notYetStagedReadiness.tiktokStaging.eligible, true)
     assert.equal(notYetStagedReadiness.tiktokStaging.readyForManualPost, false)
 
+    const rbWomenMetadataOnlyCandidate = {
+      ...candidate,
+      target_channel_id: 'a1000000-0000-0000-0000-000000000004',
+      clip_prep_status: 'metadata_only',
+      clip_prep_confidence: 'low',
+      suggested_clip_start_seconds: 0,
+      suggested_clip_end_seconds: 20,
+    }
+    const rbWomenMetadataOnlyReadiness = buildQueueReadiness(candidateId, rbWomenMetadataOnlyCandidate, {
+      id: String(packageRow?.id),
+      lane_label: 'RB Women',
+      browser_channel_key: 'rb_women',
+      package_status: 'ready',
+      handoff_status: 'pending',
+      asset_status: 'attached',
+      local_asset_path: verifiedAssetPath,
+      tiktok_staging_status: 'not_requested',
+    })
+    assert.equal(rbWomenMetadataOnlyReadiness.clipPrepReady, false)
+    assert.equal(rbWomenMetadataOnlyReadiness.tiktokStaging.readyForTikTokRetry, true)
+    assert.equal(rbWomenMetadataOnlyReadiness.tiktokStaging.operatorState, 'ready_for_tiktok_retry')
+
+    const otherLaneMetadataOnlyReadiness = buildQueueReadiness(candidateId, {
+      ...rbWomenMetadataOnlyCandidate,
+    }, {
+      id: String(packageRow?.id),
+      lane_label: 'RB Sports',
+      browser_channel_key: 'rb_sports',
+      package_status: 'ready',
+      handoff_status: 'pending',
+      asset_status: 'attached',
+      local_asset_path: verifiedAssetPath,
+      tiktok_staging_status: 'not_requested',
+    })
+    assert.equal(otherLaneMetadataOnlyReadiness.tiktokStaging.readyForTikTokRetry, false)
+    assert.equal(otherLaneMetadataOnlyReadiness.tiktokStaging.operatorState, 'not_ready')
+
     const retryReadyReadiness = buildQueueReadiness(candidateId, candidate, {
       id: String(packageRow?.id),
       lane_label: String(packageRow?.lane_label),
@@ -328,6 +365,8 @@ async function main() {
         captionPrepSource: pkg.payload.captionPrep.subtitle_source,
         notYetStagedReadyForTikTokRetry: notYetStagedReadiness.tiktokStaging.readyForTikTokRetry,
         notYetStagedOperatorState: notYetStagedReadiness.tiktokStaging.operatorState,
+        rbWomenMetadataOnlyReadyForTikTokRetry: rbWomenMetadataOnlyReadiness.tiktokStaging.readyForTikTokRetry,
+        otherLaneMetadataOnlyReadyForTikTokRetry: otherLaneMetadataOnlyReadiness.tiktokStaging.readyForTikTokRetry,
         readyForTikTokRetry: retryReadyReadiness.tiktokStaging.readyForTikTokRetry,
         retryOperatorState: retryReadyReadiness.tiktokStaging.operatorState,
         tiktokLoginBlocked: loginBlockedReadiness.tiktokStaging.loginBlocked,

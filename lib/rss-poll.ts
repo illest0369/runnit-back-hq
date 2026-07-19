@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto'
 
 import { buildRBHQIntelligenceV1 } from './intelligence-v1'
+import {
+  RB_WOMEN_CHANNEL_ID,
+  classifyRBWomenSourceCandidate,
+  type RBWomenSourceCandidateFilter,
+} from './rb-women-source-config'
 import { supabaseAdminClient } from './supabase-admin'
 import { fetchYouTubeRss, type YouTubeRssEntry } from './youtube-rss'
 
@@ -39,6 +44,7 @@ export type ClipCandidateInsertRow = {
     reasons: string[]
     whyNow: string
     operatorSummary: string
+    rbWomenSource?: RBWomenSourceCandidateFilter
   }
   status: 'candidate'
   created_at: string
@@ -199,6 +205,14 @@ export function buildClipCandidateInsertRow(input: {
     source_type: 'youtube_rss',
     published_at: input.video.published_at,
   })
+  const rbWomenSource = input.channel.target_rbhq_channel_id === RB_WOMEN_CHANNEL_ID
+    ? classifyRBWomenSourceCandidate({
+        channelKey: input.channel.channel_key,
+        title: input.video.title,
+        description: input.video.description,
+        score: intel.score,
+      })
+    : null
 
   return {
     id: input.id,
@@ -217,6 +231,7 @@ export function buildClipCandidateInsertRow(input: {
       reasons: intel.reasons,
       whyNow: intel.whyNow,
       operatorSummary: intel.operatorSummary,
+      ...(rbWomenSource ? { rbWomenSource } : {}),
     },
     status: 'candidate',
     created_at: input.now,

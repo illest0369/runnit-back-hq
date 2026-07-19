@@ -21,6 +21,8 @@ import {
   type LocalRenderQualityValidation,
 } from '../lib/local-render-prep'
 import { refreshClipPrepForCandidate, type CaptionPrepV1, type ClipPrepV1 } from '../lib/clip-prep'
+import { CHANNEL_META } from '../lib/channel-meta'
+import { RB_WOMEN_CHANNEL_ID } from '../lib/rb-women-source-config'
 
 config({ path: '.env.local', quiet: true })
 config({ quiet: true })
@@ -31,6 +33,7 @@ type BatchItemStatus = 'rendered' | 'skipped' | 'source_missing' | 'validation_f
 
 type CandidateRow = QueueCandidateForReadiness & {
   id: string
+  target_channel_id?: string | null
   title?: string | null
   status?: string | null
   clip_prep_status?: string | null
@@ -41,7 +44,9 @@ type CandidateRow = QueueCandidateForReadiness & {
 type PackageRow = QueuePackageForReadiness & {
   id: string
   clip_candidate_id: string
+  target_channel_id?: string | null
   lane_label: string | null
+  browser_channel_key?: string | null
   source_title: string | null
   source_url: string | null
   caption: string | null
@@ -129,6 +134,7 @@ type BatchTarget = {
 }
 
 const APPROVED_CANDIDATE_STATUSES = ['approved', 'approved_for_review', 'approved_for_handoff', 'promoted']
+const RENDERABLE_CLIP_PREP_STATUSES = ['ready', 'metadata_only']
 
 function readArg(name: string): string | null {
   const index = process.argv.indexOf(name)
@@ -144,6 +150,21 @@ function readLimitArg(): number {
   const parsed = Number(readArg('--limit') ?? process.env.CLIP_PREP_BATCH_LIMIT ?? '')
   if (!Number.isFinite(parsed) || parsed <= 0) return 5
   return Math.min(50, Math.trunc(parsed))
+}
+
+function readTargetChannelIdArg(): string | null {
+  const explicit = readArg('--target-channel-id') ?? process.env.CLIP_PREP_BATCH_TARGET_CHANNEL_ID?.trim() ?? null
+  if (explicit) return explicit
+  const channel = readArg('--channel') ?? process.env.CLIP_PREP_BATCH_CHANNEL?.trim() ?? null
+  if (!channel) return null
+  const normalized = channel.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+  const aliases: Record<string, string> = {
+    rb_women: 'women',
+    women: 'women',
+    runnitbackwomen: 'women',
+  }
+  const slug = aliases[normalized] ?? normalized
+  return Object.values(CHANNEL_META).find((meta) => meta.slug === slug || meta.niche === slug || meta.handle === normalized)?.id ?? null
 }
 
 function createSupabase() {
@@ -180,6 +201,21 @@ function clipRange(candidate: CandidateRow | null, pkg: PackageRow | null): Batc
   const length = readNumber(clipPrep?.suggested_clip_length_seconds ?? candidate?.suggested_clip_length_seconds)
     ?? (start !== null && end !== null ? Number((end - start).toFixed(3)) : null)
   return { startSeconds: start, endSeconds: end, lengthSeconds: length }
+}
+
+function isRenderableClipPrep(candidate: CandidateRow | null, pkg: PackageRow | null): boolean {
+  const packageClipPrep = readObject(pkg?.package_payload?.clipPrep)
+  const status = candidate?.clip_prep_status ?? (typeof packageClipPrep?.status === 'string' ? packageClipPrep.status : null)
+  const range = clipRange(candidate, pkg)
+  const hasManualRange = range.startSeconds !== null && range.endSeconds !== null && range.endSeconds > range.startSeconds
+  if (!hasManualRange) return false
+  if (status === 'ready') return true
+  if (status !== 'metadata_only') return false
+  const rbWomenTarget = candidate?.target_channel_id === RB_WOMEN_CHANNEL_ID ||
+    pkg?.target_channel_id === RB_WOMEN_CHANNEL_ID ||
+    pkg?.browser_channel_key === 'rb_women'
+  if (!rbWomenTarget) return false
+  return true
 }
 
 function openingText(candidate: CandidateRow | null, pkg: PackageRow | null): string | null {
@@ -226,7 +262,7 @@ async function loadCandidateMap(db: BatchDb, candidateIds: string[]): Promise<Ma
   const { data, error } = await db
     .from('clip_candidates')
     .select(
-      `id, status, title, hook_text, caption, hashtags, score, score_breakdown,
+      `id, target_channel_id, status, title, hook_text, caption, hashtags, score, score_breakdown,
        clip_prep, suggested_clip_start_seconds, suggested_clip_end_seconds, suggested_clip_length_seconds,
        clip_reason, opening_text, edit_notes, asset_instructions, clip_prep_status, clip_prep_confidence`,
     )
@@ -241,7 +277,7 @@ async function loadExistingPackageMap(db: BatchDb, candidateIds: string[]): Prom
   const { data, error } = await db
     .from('mac_mini_clip_packages')
     .select(
-      `id, clip_candidate_id, lane_label, browser_channel_key, source_title, source_url, caption,
+      `id, clip_candidate_id, target_channel_id, lane_label, browser_channel_key, source_title, source_url, caption,
        package_status, handoff_status, asset_status, local_asset_path,
        dry_run_at, dry_run_result, dry_run_error,
        tiktok_staging_status, tiktok_staging_requested_at, tiktok_staging_at, tiktok_staging_error,
@@ -255,13 +291,13 @@ async function loadExistingPackageMap(db: BatchDb, candidateIds: string[]): Prom
 
 async function selectBatchTargets(
   db: BatchDb,
-  input: { limit: number; rerender?: boolean },
+  input: { limit: number; rerender?: boolean; targetChannelId?: string | null },
 ): Promise<BatchTarget[]> {
   const targets: BatchTarget[] = []
-  const { data: packageRows, error: packageError } = await db
+  let packageQuery = db
     .from('mac_mini_clip_packages')
     .select(
-      `id, clip_candidate_id, lane_label, browser_channel_key, source_title, source_url, caption,
+      `id, clip_candidate_id, target_channel_id, lane_label, browser_channel_key, source_title, source_url, caption,
        package_status, handoff_status, asset_status, local_asset_path,
        dry_run_at, dry_run_result, dry_run_error,
        tiktok_staging_status, tiktok_staging_requested_at, tiktok_staging_at, tiktok_staging_error,
@@ -270,6 +306,8 @@ async function selectBatchTargets(
     .neq('tiktok_staging_status', 'ready_for_manual_post')
     .order('updated_at', { ascending: false })
     .limit(Math.max(input.limit * 3, input.limit))
+  if (input.targetChannelId) packageQuery = packageQuery.eq('target_channel_id', input.targetChannelId)
+  const { data: packageRows, error: packageError } = await packageQuery
 
   if (packageError) throw new Error(packageError.message)
 
@@ -278,24 +316,26 @@ async function selectBatchTargets(
   for (const pkg of packages) {
     if (targets.length >= input.limit) break
     const candidate = candidateMap.get(pkg.clip_candidate_id) ?? null
-    if (candidate?.clip_prep_status !== 'ready') continue
+    if (!isRenderableClipPrep(candidate, pkg)) continue
     if (!input.rerender && pkg.asset_status === 'attached' && pkg.local_asset_path) continue
     targets.push({ candidateId: pkg.clip_candidate_id, pkg, candidate })
   }
 
   if (targets.length >= input.limit) return targets
 
-  const { data: candidateRows, error: candidateError } = await db
+  let candidateQuery = db
     .from('clip_candidates')
     .select(
-      `id, status, title, hook_text, caption, hashtags, score, score_breakdown,
+      `id, target_channel_id, status, title, hook_text, caption, hashtags, score, score_breakdown,
        clip_prep, suggested_clip_start_seconds, suggested_clip_end_seconds, suggested_clip_length_seconds,
        clip_reason, opening_text, edit_notes, asset_instructions, clip_prep_status, clip_prep_confidence`,
     )
-    .eq('clip_prep_status', 'ready')
+    .in('clip_prep_status', RENDERABLE_CLIP_PREP_STATUSES)
     .in('status', APPROVED_CANDIDATE_STATUSES)
     .order('updated_at', { ascending: false })
     .limit(Math.max((input.limit - targets.length) * 3, input.limit - targets.length))
+  if (input.targetChannelId) candidateQuery = candidateQuery.eq('target_channel_id', input.targetChannelId)
+  const { data: candidateRows, error: candidateError } = await candidateQuery
 
   if (candidateError) throw new Error(candidateError.message)
 
@@ -306,6 +346,7 @@ async function selectBatchTargets(
   for (const candidate of candidates) {
     if (targets.length >= input.limit) break
     const pkg = packageMap.get(candidate.id) ?? null
+    if (!isRenderableClipPrep(candidate, pkg)) continue
     if (pkg?.tiktok_staging_status === 'ready_for_manual_post') continue
     if (pkg && !input.rerender && pkg.asset_status === 'attached' && pkg.local_asset_path) continue
     targets.push({ candidateId: candidate.id, pkg, candidate })
@@ -314,11 +355,14 @@ async function selectBatchTargets(
   return targets
 }
 
-async function readyForTikTokRetryList(db: BatchDb): Promise<BatchLocalClipGenerationResult['readyForTikTokRetry']> {
-  const { data: packageRows, error: packageError } = await db
+async function readyForTikTokRetryList(
+  db: BatchDb,
+  input: { targetChannelId?: string | null } = {},
+): Promise<BatchLocalClipGenerationResult['readyForTikTokRetry']> {
+  let packageQuery = db
     .from('mac_mini_clip_packages')
     .select(
-      `id, clip_candidate_id, lane_label, browser_channel_key, source_title, source_url, caption,
+      `id, clip_candidate_id, target_channel_id, lane_label, browser_channel_key, source_title, source_url, caption,
        package_status, handoff_status, asset_status, local_asset_path,
        dry_run_at, dry_run_result, dry_run_error,
        tiktok_staging_status, tiktok_staging_requested_at, tiktok_staging_at, tiktok_staging_error,
@@ -327,6 +371,8 @@ async function readyForTikTokRetryList(db: BatchDb): Promise<BatchLocalClipGener
     .eq('asset_status', 'attached')
     .order('updated_at', { ascending: false })
     .limit(500)
+  if (input.targetChannelId) packageQuery = packageQuery.eq('target_channel_id', input.targetChannelId)
+  const { data: packageRows, error: packageError } = await packageQuery
 
   if (packageError) throw new Error(packageError.message)
   const packages = ((packageRows ?? []) as unknown as PackageRow[]).filter((pkg) => Boolean(pkg.local_asset_path))
@@ -423,11 +469,12 @@ export async function runBatchLocalClipGeneration(
     rerender?: boolean
     downloadSource?: boolean
     burnSubtitles?: boolean
+    targetChannelId?: string | null
     now?: () => Date
   } = {},
 ): Promise<BatchLocalClipGenerationResult> {
   const limit = Math.min(50, Math.max(1, Math.trunc(input.limit ?? 5)))
-  const targets = await selectBatchTargets(db, { limit, rerender: input.rerender })
+  const targets = await selectBatchTargets(db, { limit, rerender: input.rerender, targetChannelId: input.targetChannelId })
   const items: BatchLocalClipGenerationItem[] = []
   let downloaded = false
 
@@ -516,7 +563,7 @@ export async function runBatchLocalClipGeneration(
     }
   }
 
-  const readyForTikTokRetry = await readyForTikTokRetryList(db)
+  const readyForTikTokRetry = await readyForTikTokRetryList(db, { targetChannelId: input.targetChannelId })
   return {
     result: 'PASS',
     selectedCount: targets.length,
@@ -546,6 +593,7 @@ async function main() {
     rerender: hasFlag('--rerender'),
     downloadSource: hasFlag('--download-source'),
     burnSubtitles: hasFlag('--burn-subtitles'),
+    targetChannelId: readTargetChannelIdArg(),
   })
 
   console.log(JSON.stringify(result, null, 2))

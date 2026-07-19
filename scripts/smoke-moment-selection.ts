@@ -140,6 +140,24 @@ async function main() {
   assert.equal((overridden.update.score_breakdown.operatorSelection as Record<string, unknown>).acceptedRecommendation, false)
   assert.equal((overridden.update.score_breakdown.momentRecommendation as Record<string, unknown>).aiRecommendedStartSeconds, candidates[0].start_seconds)
 
+  const manualRangeOnly = buildOperatorMomentSelectionUpdate({
+    candidate: {
+      id: 'candidate-manual-range-only',
+      start_seconds: null,
+      end_seconds: null,
+      score_breakdown: { model: 'manual_operator_selection' },
+    },
+    selectedStartSeconds: 0,
+    selectedEndSeconds: 20,
+    selectedBy: 'smoke',
+    now: () => new Date('2026-07-13T12:07:00.000Z'),
+  })
+  assert.equal(manualRangeOnly.result.decision, 'accepted')
+  assert.equal(manualRangeOnly.update.status, 'approved_for_handoff')
+  assert.equal(manualRangeOnly.update.suggested_clip_start_seconds, 0)
+  assert.equal(manualRangeOnly.update.suggested_clip_end_seconds, 20)
+  assert.equal((manualRangeOnly.update.score_breakdown.operatorSelection as Record<string, unknown>).selectedLengthSeconds, 20)
+
   console.log(JSON.stringify({
     result: 'PASS',
     recommendations: candidates.map((candidate) => ({
@@ -154,6 +172,7 @@ async function main() {
     selection: {
       accepted: accepted.result.decision,
       overridden: overridden.result.decision,
+      manualRangeOnly: manualRangeOnly.result.decision,
     },
     aiMomentAnalyst: {
       defaultMode: deterministicWithAnalystOff.mode,

@@ -211,6 +211,7 @@ function packagePayload(input: {
   start: number
   end: number
   staleMetadataOnly?: boolean
+  targetChannelId?: string
 }) {
   const prep = input.staleMetadataOnly
     ? metadataOnlyClipPrepFixture(input.start, input.end)
@@ -226,7 +227,7 @@ function packagePayload(input: {
       label: 'RB Sports',
       slug: 'sports',
       browserChannelKey: 'rb_sports',
-      targetChannelId: 'a1000000-0000-0000-0000-000000000001',
+      targetChannelId: input.targetChannelId ?? 'a1000000-0000-0000-0000-000000000001',
     },
     source: {
       url: input.sourcePath,
@@ -273,12 +274,14 @@ function packageRow(input: {
   localAssetPath?: string | null
   stagingStatus?: string
   staleMetadataOnly?: boolean
+  targetChannelId?: string
 }) {
+  const targetChannelId = input.targetChannelId ?? 'a1000000-0000-0000-0000-000000000001'
   return {
     id: input.packageId,
     clip_candidate_id: input.candidateId,
     ingested_video_id: `video-${input.candidateId}`,
-    target_channel_id: 'a1000000-0000-0000-0000-000000000001',
+    target_channel_id: targetChannelId,
     lane_label: 'RB Sports',
     lane_slug: 'sports',
     browser_channel_key: 'rb_sports',
@@ -299,6 +302,7 @@ function packageRow(input: {
       start: 1,
       end: 3,
       staleMetadataOnly: input.staleMetadataOnly,
+      targetChannelId,
     }),
     package_status: 'ready',
     handoff_status: 'pending',
@@ -326,14 +330,16 @@ function candidateRow(input: {
   status?: string
   clipPrepStatus?: string
   staleMetadataOnly?: boolean
+  targetChannelId?: string
 }) {
+  const targetChannelId = input.targetChannelId ?? 'a1000000-0000-0000-0000-000000000001'
   const prep = input.staleMetadataOnly
     ? metadataOnlyClipPrepFixture(1, 3)
     : clipPrepFixture(1, 3)
   return {
     id: input.candidateId,
     ingested_video_id: `video-${input.candidateId}`,
-    target_channel_id: 'a1000000-0000-0000-0000-000000000001',
+    target_channel_id: targetChannelId,
     start_seconds: 1,
     end_seconds: 3,
     title: 'Smoke batch source',
@@ -371,7 +377,7 @@ function candidateRow(input: {
       duration_seconds: 5,
       source_channels: {
         display_name: 'Smoke',
-        target_rbhq_channel_id: 'a1000000-0000-0000-0000-000000000001',
+        target_rbhq_channel_id: targetChannelId,
       },
     },
   }
@@ -453,12 +459,28 @@ async function main() {
         candidateRow({ candidateId: 'candidate-create', sourcePath }),
         candidateRow({ candidateId: 'candidate-url', sourcePath: 'https://example.com/source.mp4' }),
         candidateRow({ candidateId: 'candidate-manual-post', sourcePath }),
+        candidateRow({
+          candidateId: 'candidate-rb-women-only',
+          sourcePath,
+          clipPrepStatus: 'metadata_only',
+          staleMetadataOnly: true,
+          targetChannelId: 'a1000000-0000-0000-0000-000000000004',
+        }),
+        candidateRow({
+          candidateId: 'candidate-other-lane-metadata-only',
+          sourcePath,
+          clipPrepStatus: 'metadata_only',
+          staleMetadataOnly: true,
+          targetChannelId: 'a1000000-0000-0000-0000-000000000001',
+        }),
       ],
       ingested_videos: [
         videoRow('candidate-existing', sourcePath),
         videoRow('candidate-create', sourcePath),
         videoRow('candidate-url', 'https://example.com/source.mp4'),
         videoRow('candidate-manual-post', sourcePath),
+        videoRow('candidate-rb-women-only', sourcePath),
+        videoRow('candidate-other-lane-metadata-only', sourcePath),
       ],
       source_channels: [
         {
@@ -474,6 +496,20 @@ async function main() {
       mac_mini_clip_packages: [
         packageRow({ packageId: 'package-existing', candidateId: 'candidate-existing', sourcePath, staleMetadataOnly: true }),
         packageRow({ packageId: 'package-url', candidateId: 'candidate-url', sourcePath: 'https://example.com/source.mp4' }),
+        packageRow({
+          packageId: 'package-rb-women-only',
+          candidateId: 'candidate-rb-women-only',
+          sourcePath,
+          staleMetadataOnly: true,
+          targetChannelId: 'a1000000-0000-0000-0000-000000000004',
+        }),
+        packageRow({
+          packageId: 'package-other-lane-metadata-only',
+          candidateId: 'candidate-other-lane-metadata-only',
+          sourcePath,
+          staleMetadataOnly: true,
+          targetChannelId: 'a1000000-0000-0000-0000-000000000001',
+        }),
         packageRow({
           packageId: 'package-manual-post',
           candidateId: 'candidate-manual-post',
@@ -494,6 +530,7 @@ async function main() {
       now: () => new Date('2026-07-14T12:30:00.000Z'),
     })
     assert.equal(dryRun.items.length, 3)
+    assert.ok(!dryRun.items.some((item) => item.candidateId === 'candidate-other-lane-metadata-only'))
     assert.equal(dryRun.items[0]?.status, 'rendered')
     assert.equal(dryRun.items[0]?.attached, false)
     assert.equal(dryRun.items[0]?.qualityValidation?.valid, true)
@@ -506,6 +543,10 @@ async function main() {
     assert.equal(dryRun.items[1]?.status, 'source_missing')
     assert.match(dryRun.items[1]?.error ?? '', /download-source/)
     assert.equal(dryRun.items[2]?.status, 'rendered')
+    assert.equal(dryRun.items[2]?.captionPrep?.subtitle_source, 'metadata_only')
+    assert.equal(dryRun.items[2]?.subtitleBurn?.requested, true)
+    assert.equal(dryRun.items[2]?.subtitleBurn?.burnedIn, false)
+    assert.match(dryRun.items[2]?.subtitleBurn?.skippedReason ?? '', /subtitle_source_metadata_only/)
     assert.ok(dryRun.items[2]?.packageId)
     assert.equal(dryRun.safety.downloadsVideo, false)
     assert.equal(dryRun.safety.uploadsVideo, false)
@@ -514,6 +555,22 @@ async function main() {
     assert.equal(dryRun.safety.triggersTikTokDryRun, false)
     assert.equal(dryRun.readyForTikTokRetry.count, 0)
     assert.equal(fetchCalls, 0)
+
+    const rbWomenOnly = await runBatchLocalClipGeneration(db as never, {
+      limit: 3,
+      assetRoot: root,
+      attach: false,
+      rerender: true,
+      downloadSource: false,
+      burnSubtitles: true,
+      targetChannelId: 'a1000000-0000-0000-0000-000000000004',
+      now: () => new Date('2026-07-14T12:32:00.000Z'),
+    })
+    assert.equal(rbWomenOnly.items.length, 1)
+    assert.equal(rbWomenOnly.items[0]?.candidateId, 'candidate-rb-women-only')
+    assert.equal(rbWomenOnly.items[0]?.status, 'rendered')
+    assert.equal(rbWomenOnly.items[0]?.captionPrep?.subtitle_source, 'metadata_only')
+    assert.equal(rbWomenOnly.items[0]?.subtitleBurn?.burnedIn, false)
 
     const attached = await runBatchLocalClipGeneration(db as never, {
       limit: 3,
@@ -536,6 +593,10 @@ async function main() {
         statuses: dryRun.items.map((item) => item.status),
         createdPackageId: dryRun.items.find((item) => item.candidateId === 'candidate-create')?.packageId ?? null,
         readyForTikTokRetryCount: dryRun.readyForTikTokRetry.count,
+      },
+      rbWomenOnly: {
+        statuses: rbWomenOnly.items.map((item) => item.status),
+        candidateIds: rbWomenOnly.items.map((item) => item.candidateId),
       },
       attached: {
         statuses: attached.items.map((item) => item.status),

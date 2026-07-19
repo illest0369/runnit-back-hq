@@ -59,8 +59,10 @@ export function buildOperatorMomentSelectionUpdate(input: {
   now?: () => Date
 }) {
   const breakdown = input.candidate.score_breakdown ?? {}
-  const aiStart = readNumber(breakdown.aiRecommendedStartSeconds) ?? readNumber(input.candidate.start_seconds)
-  const aiEnd = readNumber(breakdown.aiRecommendedEndSeconds) ?? readNumber(input.candidate.end_seconds)
+  const fallbackManualStart = input.selectedStartSeconds ?? null
+  const fallbackManualEnd = input.selectedEndSeconds ?? null
+  const aiStart = readNumber(breakdown.aiRecommendedStartSeconds) ?? readNumber(input.candidate.start_seconds) ?? fallbackManualStart
+  const aiEnd = readNumber(breakdown.aiRecommendedEndSeconds) ?? readNumber(input.candidate.end_seconds) ?? fallbackManualEnd
   if (aiStart === null || aiEnd === null) {
     throw new Error('Candidate does not have AI-recommended timestamps to select.')
   }

@@ -181,6 +181,8 @@ export function buildQueueReadiness(
     tiktokStaging: buildTikTokStagingReadiness(candidateId, {
       candidateStatus: candidate?.status ?? null,
       clipPrepStatus,
+      suggestedClipStartSeconds: candidate?.suggested_clip_start_seconds ?? null,
+      suggestedClipEndSeconds: candidate?.suggested_clip_end_seconds ?? null,
     }, pkg),
   }
 }
