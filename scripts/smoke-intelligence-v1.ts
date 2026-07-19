@@ -354,6 +354,206 @@ const rbWomenKelseyProductionTitle = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbSportsClutchNbaHighlight = buildRBHQIntelligenceV1({
+  id: 'rb-sports-clutch-nba',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'Lakers hit clutch game winner after controversial final possession',
+  hook: 'The final play changed the entire game',
+  source_name: 'NBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'NBA',
+  duration_seconds: 22,
+  ai_score: 75,
+  virality_score: 82,
+  hook_strength: 80,
+  published_at: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+  text: 'Lakers clutch game winner, controversial final possession, fan debate, and clear highlight evidence.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbSportsBadCallDevelop = buildRBHQIntelligenceV1({
+  id: 'rb-sports-bad-call',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'Lakers win after controversial bad call has fans split',
+  hook: 'The whistle changed the final possession',
+  source_name: 'NBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'NBA',
+  duration_seconds: 70,
+  ai_score: 65,
+  virality_score: 65,
+  hook_strength: 65,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Lakers controversial bad call, refs, final possession, and fans split over the whistle.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbSportsTradeFresh = buildRBHQIntelligenceV1({
+  id: 'rb-sports-trade-fresh',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'Breaking: Luka Doncic trade talks change the Lakers roster picture',
+  hook: 'This roster move changes the whole conference',
+  source_name: 'ESPN',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'NBA',
+  duration_seconds: 24,
+  ai_score: 75,
+  virality_score: 82,
+  hook_strength: 80,
+  published_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+  text: 'Breaking trade reaction, Luka Doncic, Lakers roster movement, sources, fan debate, and current NBA conversation.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbSportsScheduleHold = buildRBHQIntelligenceV1({
+  id: 'rb-sports-schedule-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'NBA announces updated broadcast schedule and ticket info',
+  hook: 'The league announced schedule details',
+  source_name: 'NBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'NBA',
+  duration_seconds: 20,
+  ai_score: 70,
+  virality_score: 60,
+  hook_strength: 50,
+  published_at: new Date().toISOString(),
+  text: 'Schedule, ticket, broadcast, and sponsor filler with no player, team, quote, or useful highlight moment.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbSportsBettingHold = buildRBHQIntelligenceV1({
+  id: 'rb-sports-betting-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'Best parlay odds and fantasy waiver picks for tonight',
+  hook: 'Sportsbook picks for the slate',
+  source_name: 'ESPN',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'NBA',
+  duration_seconds: 20,
+  ai_score: 70,
+  virality_score: 70,
+  hook_strength: 60,
+  published_at: new Date().toISOString(),
+  text: 'Sportsbook odds, prop bet, parlay, fantasy, waiver, and start/sit advice with no sports clip moment.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbSportsLongPodcastHold = buildRBHQIntelligenceV1({
+  id: 'rb-sports-long-podcast-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'Full episode podcast: evergreen debate without timestamps',
+  hook: 'Long podcast debate',
+  source_name: 'ESPN',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'NBA',
+  duration_seconds: 3600,
+  ai_score: 70,
+  virality_score: 70,
+  hook_strength: 60,
+  published_at: new Date().toISOString(),
+  text: 'Full episode podcast, evergreen debate, longform, no timestamps, and no useful short-form clip segment.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbSportsChiefsQuote = buildRBHQIntelligenceV1({
+  id: 'rb-sports-chiefs-quote',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'Patrick Mahomes and Andy Reid react after Chiefs playoff win',
+  hook: 'Mahomes and Reid had the quote after the game',
+  source_name: 'Kansas City Chiefs',
+  source_type: 'youtube_rss',
+  sport: 'football',
+  league: 'NFL',
+  duration_seconds: 28,
+  ai_score: 70,
+  virality_score: 74,
+  hook_strength: 74,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Chiefs playoff press conference reaction with Patrick Mahomes, Andy Reid, quote, and fan debate.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbSportsCowboysReaction = buildRBHQIntelligenceV1({
+  id: 'rb-sports-cowboys-reaction',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'Cowboys loss reaction gets heated after Dak Prescott quote',
+  hook: 'Dak had to answer for the loss',
+  source_name: 'Dallas Cowboys',
+  source_type: 'youtube_rss',
+  sport: 'football',
+  league: 'NFL',
+  duration_seconds: 26,
+  ai_score: 70,
+  virality_score: 74,
+  hook_strength: 74,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Cowboys upset loss reaction, Dak Prescott quote, fan debate, and team accountability.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbSportsDailyPlan = buildDailyContentPlan([
+  {
+    id: 'rb-sports-plan-post',
+    channel_id: 'a1000000-0000-0000-0000-000000000001',
+    title: 'Lakers hit clutch game winner after controversial final possession',
+    hook: 'The final play changed the entire game',
+    source_name: 'NBA',
+    source_type: 'youtube_rss',
+    sport: 'basketball',
+    league: 'NBA',
+    duration_seconds: 22,
+    ai_score: 75,
+    virality_score: 82,
+    hook_strength: 80,
+    published_at: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+    text: 'Lakers clutch game winner, controversial final possession, fan debate, and clear highlight evidence.',
+    status: 'candidate',
+    publish_status: 'not_ready',
+  },
+  {
+    id: 'rb-sports-plan-develop',
+    channel_id: 'a1000000-0000-0000-0000-000000000001',
+    title: 'Lakers win after controversial bad call has fans split',
+    hook: 'The whistle changed the final possession',
+    source_name: 'NBA',
+    source_type: 'youtube_rss',
+    sport: 'basketball',
+    league: 'NBA',
+    duration_seconds: 70,
+    ai_score: 65,
+    virality_score: 65,
+    hook_strength: 65,
+    published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    text: 'Lakers controversial bad call, refs, final possession, and fans split over the whistle.',
+    status: 'candidate',
+    publish_status: 'not_ready',
+  },
+  {
+    id: 'rb-sports-plan-hold',
+    channel_id: 'a1000000-0000-0000-0000-000000000001',
+    title: 'NBA announces updated broadcast schedule and ticket info',
+    hook: 'The league announced schedule details',
+    source_name: 'NBA',
+    source_type: 'youtube_rss',
+    sport: 'basketball',
+    league: 'NBA',
+    duration_seconds: 20,
+    ai_score: 70,
+    virality_score: 60,
+    hook_strength: 50,
+    published_at: new Date().toISOString(),
+    text: 'Schedule, ticket, broadcast, and sponsor filler with no player, team, quote, or useful highlight moment.',
+    status: 'candidate',
+    publish_status: 'not_ready',
+  },
+])
 const storedNotes = withStoredRBHQIntelligenceV1([], sports)
 const stored = getStoredRBHQIntelligenceV1(storedNotes)
 const fallback = getRBHQIntelligenceV1({ ...sportsClip, moderation_notes: storedNotes })
@@ -591,12 +791,15 @@ const rbWomenKelseyDailyPlan = buildDailyContentPlan([
 assert.equal(stored?.score, sports.score)
 assert.equal(fallback.score, sports.score)
 assert.ok(sports.score >= 0 && sports.score <= 100)
-assert.ok(sports.suggestedCaption.includes('breaking reaction'))
-assert.ok(sports.suggestedCaption.includes('Quick review:'))
+assert.equal(sports.rbSports?.scoutLabel, 'post_now')
+assert.equal(sports.rbSports?.rbAngle, 'trade / roster movement')
+assert.equal(sports.rbSports?.scoutingWindowHours, 48)
+assert.equal(sports.rbSports?.breakingWindowHours, 6)
+assert.ok(sports.suggestedCaption.includes('roster conversation'))
 assert.ok(!sports.suggestedCaption.includes('timeline has a take'))
-assert.ok(sports.whyNow.includes('breaking/news'))
-assert.ok(sports.whyNow.includes('0-3 hour viral window'))
-assert.ok(sports.operatorSummary.includes('post now in the 0-3 hour viral window'))
+assert.ok(sports.whyNow.includes('48-hour RB Sports scouting window'))
+assert.ok(sports.whyNow.includes('0-6 hour urgency'))
+assert.ok(sports.operatorSummary.includes('RB Sports post now'))
 assert.ok(sports.suggestedHashtags.some((tag) => tag.toLowerCase().includes('tradetalk')))
 assert.ok(arena.suggestedHashtags.some((tag) => tag.toLowerCase().includes('gaming')))
 assert.ok(arena.suggestedCaption.includes('gaming feed'))
@@ -624,8 +827,10 @@ assert.ok(combatBoxingCandidate.whyNow.includes('fight fans'))
 assert.equal(staleSourceCandidate.urgency, 'evergreen')
 assert.ok(staleSourceCandidate.whyNow.includes('not in a live viral window'))
 assert.ok(!staleSourceCandidate.suggestedHashtags.includes('#PatchNotes'))
-assert.equal(highScoreEvergreen.urgency, 'evergreen')
-assert.equal(highScoreEvergreen.rankLabel, 'must_post')
+assert.equal(highScoreEvergreen.urgency, 'hold')
+assert.equal(highScoreEvergreen.rankLabel, 'low_priority')
+assert.equal(highScoreEvergreen.rbSports?.scoutLabel, 'hold')
+assert.ok(highScoreEvergreen.reasons.some((reason) => reason.includes('48-hour scouting window')))
 assert.ok(rbWomenCaitlinFoulDebate.score >= 80)
 assert.equal(rbWomenCaitlinFoulDebate.rankLabel, 'must_post')
 assert.equal(rbWomenCaitlinFoulDebate.urgency, 'post_now')
@@ -709,10 +914,36 @@ assert.ok(!rbWomenKelseyProductionTitle.suggestedCaption.includes('Caitlin Clark
 assert.ok(!rbWomenKelseyProductionTitle.operatorSummary.includes('Caitlin Clark'))
 assert.equal(buildRBHQIntelligenceV1({ ...sportsClip, text: 'A\'ja Wilson foul debate' }).rbWomen, undefined)
 assert.equal(buildRBHQIntelligenceV1({ ...arenaClip, text: 'Angel Reese quote debate' }).rbWomen, undefined)
+assert.equal(rbSportsClutchNbaHighlight.rbSports?.scoutLabel, 'post_now')
+assert.equal(rbSportsClutchNbaHighlight.rbSports?.rbAngle, 'clutch proof')
+assert.equal(rbSportsClutchNbaHighlight.rbSports?.teamEntity, 'Lakers')
+assert.ok(rbSportsClutchNbaHighlight.suggestedCaption.includes('late-game proof'))
+assert.ok(rbSportsClutchNbaHighlight.suggestedHashtags.includes('#Clutch'))
+assert.ok(['post_now', 'develop'].includes(rbSportsBadCallDevelop.rbSports?.scoutLabel ?? ''))
+assert.equal(rbSportsBadCallDevelop.rbSports?.rbAngle, 'bad call / officiating heat')
+assert.equal(rbSportsBadCallDevelop.rbSports?.teamEntity, 'Lakers')
+assert.equal(rbSportsTradeFresh.rbSports?.scoutLabel, 'post_now')
+assert.equal(rbSportsTradeFresh.rbSports?.rbAngle, 'trade / roster movement')
+assert.equal(rbSportsTradeFresh.rbSports?.playerEntity, 'Luka Doncic')
+assert.ok(rbSportsTradeFresh.whyNow.includes('0-6 hour urgency'))
+assert.equal(rbSportsScheduleHold.rbSports?.scoutLabel, 'hold')
+assert.equal(rbSportsScheduleHold.urgency, 'hold')
+assert.ok(rbSportsScheduleHold.reasons.some((reason) => reason.includes('filler')))
+assert.equal(rbSportsBettingHold.rbSports?.scoutLabel, 'hold')
+assert.equal(rbSportsBettingHold.urgency, 'hold')
+assert.ok(rbSportsBettingHold.reasons.some((reason) => reason.includes('betting')))
+assert.equal(rbSportsLongPodcastHold.rbSports?.scoutLabel, 'hold')
+assert.equal(rbSportsLongPodcastHold.urgency, 'hold')
+assert.ok(rbSportsLongPodcastHold.reasons.some((reason) => reason.includes('longform') || reason.includes('segment')))
+assert.equal(rbSportsChiefsQuote.rbSports?.teamEntity, 'Chiefs')
+assert.equal(rbSportsChiefsQuote.rbSports?.playerEntity, 'Patrick Mahomes')
+assert.equal(rbSportsChiefsQuote.rbSports?.coachEntity, 'Andy Reid')
+assert.equal(rbSportsCowboysReaction.rbSports?.teamEntity, 'Cowboys')
+assert.equal(rbSportsCowboysReaction.rbSports?.playerEntity, 'Dak Prescott')
 assert.ok(plan.suggestedPostingOrder.length >= 1)
 assert.ok(plan.topClipsToPostNow.length + plan.strongAlternates.length >= 1)
 assert.ok(!plan.topClipsToPostNow.some((clip) => clip.id === highScoreEvergreenCandidate.id))
-assert.ok(plan.strongAlternates.some((clip) => clip.id === highScoreEvergreenCandidate.id))
+assert.ok(plan.holdOrLowPriority.some((clip) => clip.id === highScoreEvergreenCandidate.id))
 assert.equal(plan.sourceCandidates[0]?.operatorSummary, sourceCandidateSummary.operatorSummary)
 assert.equal(rbWomenSourceCandidatePlan.topClipsToPostNow.length, 1)
 assert.equal(rbWomenSourceCandidatePlan.strongAlternates.length, 1)
@@ -759,6 +990,30 @@ assert.equal(rbWomenKelseyPlan.playerEntity, 'Kelsey Mitchell')
 assert.ok(['basketball evidence', 'popularity versus production', 'unequal visibility'].includes(rbWomenKelseyPlan.rbAngle ?? ''))
 assert.ok(rbWomenKelseyPlan.captionDraft.includes('Kelsey Mitchell'))
 assert.ok(!rbWomenKelseyPlan.captionDraft.includes('Caitlin Clark'))
+const rbSportsPostNow = rbSportsDailyPlan.topClipsToPostNow[0]
+assert.ok(rbSportsPostNow)
+assert.equal(rbSportsDailyPlan.topClipsToPostNow.length, 1)
+assert.equal(rbSportsDailyPlan.strongAlternates.length, 1)
+assert.equal(rbSportsDailyPlan.holdOrLowPriority.length, 1)
+assert.equal(rbSportsPostNow.scoutLabel, 'post_now')
+assert.equal(rbSportsPostNow.lane, 'RB Sports')
+assert.equal(rbSportsPostNow.teamEntity, 'Lakers')
+assert.equal(rbSportsPostNow.rbAngle, 'clutch proof')
+assert.ok(rbSportsPostNow.clipTopic.includes('Lakers'))
+assert.ok(rbSportsPostNow.whyThisShouldPostNow.includes('48-hour RB Sports scouting window'))
+assert.ok(rbSportsPostNow.captionDraft.includes('late-game proof'))
+assert.ok(rbSportsPostNow.hashtagPack.includes('#RBSports'))
+assert.ok(rbSportsPostNow.operatorSummary.includes('RB Sports post now'))
+assert.equal(rbSportsPostNow.packageRenderStatus.localRenderAttached, false)
+const rbSportsDevelop = rbSportsDailyPlan.strongAlternates[0]
+assert.ok(rbSportsDevelop)
+assert.equal(rbSportsDevelop.scoutLabel, 'develop')
+assert.equal(rbSportsDevelop.rbAngle, 'bad call / officiating heat')
+assert.ok(rbSportsDevelop.reviewReason)
+const rbSportsHold = rbSportsDailyPlan.holdOrLowPriority[0]
+assert.ok(rbSportsHold)
+assert.equal(rbSportsHold.scoutLabel, 'hold')
+assert.ok(rbSportsHold.reviewReason?.includes('filler') || rbSportsHold.reviewReason?.includes('weak current'))
 
 console.log(JSON.stringify({
   sports,
@@ -780,6 +1035,13 @@ console.log(JSON.stringify({
   rbWomenKelseyStarSystem,
   rbWomenCaitlinAssistCredit,
   rbWomenRoutinePromoHold,
+  rbSportsClutchNbaHighlight,
+  rbSportsBadCallDevelop,
+  rbSportsTradeFresh,
+  rbSportsScheduleHold,
+  rbSportsBettingHold,
+  rbSportsLongPodcastHold,
+  rbSportsDailyPlan,
   dailyPlan: plan,
   rbWomenDailyPlan,
 }, null, 2))

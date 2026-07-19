@@ -32,6 +32,44 @@ export type RBWomenExpectedEngagementType =
   | 'highlight_replays'
   | 'story_discussion'
   | 'low_engagement'
+export type RBSportsScoutLabel = 'post_now' | 'develop' | 'hold'
+export type RBSportsDecisionBand = 'high_confidence' | 'operator_review' | 'hold_unless_timely' | 'reject'
+export type RBSportsEditorialAngle =
+  | 'breaking reaction'
+  | 'clutch proof'
+  | 'bad call / officiating heat'
+  | 'rivalry heat'
+  | 'trade / roster movement'
+  | 'injury / return'
+  | 'playoff stakes'
+  | 'star performance'
+  | 'upset reaction'
+  | 'coach/player quote'
+  | 'fan debate'
+  | 'highlight evidence'
+
+export type RBSportsIntelligenceMetadata = {
+  model: 'rb_sports_content_intelligence_v1'
+  channelKey: 'rb_sports'
+  tiktokHandle: '@runnitbacksports'
+  rbAngle: RBSportsEditorialAngle
+  scoutLabel: RBSportsScoutLabel
+  scoutingWindowHours: 48
+  breakingWindowHours: 6
+  primarySearchTopic: string
+  clipTopic: string
+  playerEntity: string | null
+  teamEntity: string | null
+  coachEntity: string | null
+  leagueEntity: string | null
+  entityType: 'player' | 'team' | 'coach' | 'league' | 'transaction' | 'injury' | 'unknown'
+  decisionBand: RBSportsDecisionBand
+  scoring: {
+    positive: Record<string, number>
+    penalties: Record<string, number>
+    rawScore: number
+  }
+}
 
 export type RBWomenIntelligenceMetadata = {
   model: 'rb_women_content_intelligence_v1'
@@ -70,6 +108,7 @@ export type RBHQIntelligenceV1 = {
   operatorSummary: string
   whyNow: string
   rbWomen?: RBWomenIntelligenceMetadata
+  rbSports?: RBSportsIntelligenceMetadata
 }
 
 export type RBHQIntelligenceInput = {
@@ -105,6 +144,7 @@ export type DailyContentPlanClip = {
   title: string
   clipTopic: string
   playerEntity: string | null
+  teamEntity?: string | null
   scoutLabel: RBWomenScoutLabel
   rbAngle: string | null
   channelId: string | null
@@ -155,8 +195,9 @@ export type SourceCandidateSummary = {
   urgency: RBHQIntelligenceUrgency
   hook: string
   playerEntity?: string | null
+  teamEntity?: string | null
   scoutLabel?: RBWomenScoutLabel | null
-  rbAngle?: RBWomenEditorialAngle | null
+  rbAngle?: RBWomenEditorialAngle | RBSportsEditorialAngle | null
   packageRenderStatus?: DailyContentPlanClip['packageRenderStatus']
   transcriptSourceStatus?: DailyContentPlanClip['transcriptSourceStatus']
   reviewReason?: string | null
@@ -1192,6 +1233,399 @@ function buildRBWomenIntelligenceV1(input: RBHQIntelligenceInput, analyzer: TikT
   }
 }
 
+const RB_SPORTS_PLAYER_NAMES = [
+  'lebron james',
+  'luka doncic',
+  'stephen curry',
+  'nikola jokic',
+  'giannis antetokounmpo',
+  'jayson tatum',
+  'anthony edwards',
+  'patrick mahomes',
+  'travis kelce',
+  'lamar jackson',
+  'josh allen',
+  'dak prescott',
+  'micah parsons',
+  'shohei ohtani',
+  'aaron judge',
+  'connor mcdavid',
+  'sidney crosby',
+]
+
+const RB_SPORTS_TEAM_NAMES = [
+  'lakers',
+  'los angeles lakers',
+  'warriors',
+  'golden state warriors',
+  'celtics',
+  'boston celtics',
+  'chiefs',
+  'kansas city chiefs',
+  'cowboys',
+  'dallas cowboys',
+  'eagles',
+  'philadelphia eagles',
+  'yankees',
+  'dodgers',
+  'maple leafs',
+  'oilers',
+]
+
+const RB_SPORTS_COACH_NAMES = [
+  'andy reid',
+  'steve kerr',
+  'jj redick',
+  'mike mccarthy',
+  'nick sirianni',
+  'doc rivers',
+]
+
+const RB_SPORTS_LEAGUE_NAMES = ['nba', 'nfl', 'mlb', 'nhl']
+
+const RB_SPORTS_DISPLAY_NAMES: Record<string, string> = {
+  'lebron james': 'LeBron James',
+  'luka doncic': 'Luka Doncic',
+  'stephen curry': 'Stephen Curry',
+  'nikola jokic': 'Nikola Jokic',
+  'giannis antetokounmpo': 'Giannis Antetokounmpo',
+  'jayson tatum': 'Jayson Tatum',
+  'anthony edwards': 'Anthony Edwards',
+  'patrick mahomes': 'Patrick Mahomes',
+  'travis kelce': 'Travis Kelce',
+  'lamar jackson': 'Lamar Jackson',
+  'josh allen': 'Josh Allen',
+  'dak prescott': 'Dak Prescott',
+  'micah parsons': 'Micah Parsons',
+  'shohei ohtani': 'Shohei Ohtani',
+  'aaron judge': 'Aaron Judge',
+  'connor mcdavid': 'Connor McDavid',
+  'sidney crosby': 'Sidney Crosby',
+  'lakers': 'Lakers',
+  'los angeles lakers': 'Los Angeles Lakers',
+  'warriors': 'Warriors',
+  'golden state warriors': 'Golden State Warriors',
+  'celtics': 'Celtics',
+  'boston celtics': 'Boston Celtics',
+  'chiefs': 'Chiefs',
+  'kansas city chiefs': 'Kansas City Chiefs',
+  'cowboys': 'Cowboys',
+  'dallas cowboys': 'Dallas Cowboys',
+  'eagles': 'Eagles',
+  'philadelphia eagles': 'Philadelphia Eagles',
+  'yankees': 'Yankees',
+  'dodgers': 'Dodgers',
+  'maple leafs': 'Maple Leafs',
+  'oilers': 'Oilers',
+  'andy reid': 'Andy Reid',
+  'steve kerr': 'Steve Kerr',
+  'jj redick': 'JJ Redick',
+  'mike mccarthy': 'Mike McCarthy',
+  'nick sirianni': 'Nick Sirianni',
+  'doc rivers': 'Doc Rivers',
+  nba: 'NBA',
+  nfl: 'NFL',
+  mlb: 'MLB',
+  nhl: 'NHL',
+}
+
+const RB_SPORTS_BREAKING_TERMS = ['breaking', 'just in', 'report', 'reports', 'reported', 'sources', 'confirmed']
+const RB_SPORTS_CLUTCH_TERMS = ['clutch', 'game winner', 'game-winner', 'buzzer beater', 'walk-off', 'walkoff', 'overtime', 'final play', 'late winner']
+const RB_SPORTS_OFFICIATING_TERMS = ['bad call', 'controversial call', 'officiating', 'ref', 'refs', 'flag', 'whistle', 'ejected', 'ejection']
+const RB_SPORTS_RIVALRY_TERMS = ['rivalry', 'rival', 'heated', 'trash talk', 'beef', 'calls out', 'called out']
+const RB_SPORTS_TRADE_TERMS = ['trade', 'traded', 'roster', 'free agency', 'signs', 'signed', 'waived', 'released', 'extension']
+const RB_SPORTS_INJURY_TERMS = ['injury', 'injured', 'return', 'returns', 'ruled out', 'questionable', 'cleared', 'back in']
+const RB_SPORTS_PLAYOFF_TERMS = ['playoff', 'playoffs', 'finals', 'championship', 'elimination', 'series', 'title']
+const RB_SPORTS_STAR_PERFORMANCE_TERMS = ['star', 'explodes', 'drops', 'goes off', 'career-high', 'career high', 'dominates', 'triple-double', 'touchdowns', 'home runs']
+const RB_SPORTS_UPSET_TERMS = ['upset', 'stunner', 'collapse', 'loss reaction', 'stunned', 'shocked']
+const RB_SPORTS_QUOTE_TERMS = ['quote', 'said', 'press conference', 'presser', 'responds', 'reaction', 'reacts', 'coach', 'player']
+const RB_SPORTS_FAN_DEBATE_TERMS = ['fans split', 'fan debate', 'debate', 'argue', 'internet reacts', 'timeline', 'viral']
+const RB_SPORTS_NOISE_TERMS = [
+  'betting',
+  'sportsbook',
+  'odds',
+  'parlay',
+  'prop bet',
+  'props',
+  'fantasy',
+  'waiver',
+  'start/sit',
+  'start sit',
+  'power rankings',
+  'ranking',
+  'rankings',
+  'schedule',
+  'ticket',
+  'tickets',
+  'merch',
+  'sponsor',
+  'sponsored',
+  'full episode',
+  'podcast',
+  'livestream',
+  'live stream',
+  'evergreen debate',
+  'top 10',
+  'best plays',
+  'highlight dump',
+  'compilation',
+]
+
+function rbSportsDisplayName(value: string): string {
+  return RB_SPORTS_DISPLAY_NAMES[value] ?? value.split(' ').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
+}
+
+function rbSportsMatches(text: string, values: string[]): string[] {
+  const matches: string[] = []
+  for (const value of values) {
+    if (!text.includes(value)) continue
+    const displayName = rbSportsDisplayName(value)
+    if (!matches.includes(displayName)) matches.push(displayName)
+  }
+  return matches
+}
+
+function rbSportsTitleSignalText(input: RBHQIntelligenceInput): string {
+  return [
+    input.title,
+    input.source_title,
+    input.hook,
+    input.recommended_hook,
+  ].map(compact).join(' ').toLowerCase()
+}
+
+function rbSportsEntitiesFromInput(input: RBHQIntelligenceInput): {
+  playerEntity: string | null
+  teamEntity: string | null
+  coachEntity: string | null
+  leagueEntity: string | null
+  entityType: RBSportsIntelligenceMetadata['entityType']
+} {
+  const titleText = rbSportsTitleSignalText(input)
+  const allText = textForSignals(input)
+  const players = [...rbSportsMatches(titleText, RB_SPORTS_PLAYER_NAMES), ...rbSportsMatches(allText, RB_SPORTS_PLAYER_NAMES)]
+  const teams = [...rbSportsMatches(titleText, RB_SPORTS_TEAM_NAMES), ...rbSportsMatches(allText, RB_SPORTS_TEAM_NAMES)]
+  const coaches = [...rbSportsMatches(titleText, RB_SPORTS_COACH_NAMES), ...rbSportsMatches(allText, RB_SPORTS_COACH_NAMES)]
+  const leagues = [
+    ...rbSportsMatches(titleText, RB_SPORTS_LEAGUE_NAMES),
+    ...rbSportsMatches(allText, RB_SPORTS_LEAGUE_NAMES),
+    compact(input.league).toUpperCase(),
+  ].filter(Boolean)
+  const unique = (values: string[]) => [...new Set(values)]
+  const playerEntity = unique(players)[0] ?? null
+  const teamEntity = unique(teams)[0] ?? null
+  const coachEntity = unique(coaches)[0] ?? null
+  const leagueEntity = unique(leagues)[0] ?? null
+  const lower = allText
+  const entityType: RBSportsIntelligenceMetadata['entityType'] =
+    playerEntity ? 'player' :
+      teamEntity ? 'team' :
+        coachEntity ? 'coach' :
+          containsAny(lower, RB_SPORTS_TRADE_TERMS) ? 'transaction' :
+            containsAny(lower, RB_SPORTS_INJURY_TERMS) ? 'injury' :
+              leagueEntity ? 'league' : 'unknown'
+  return { playerEntity, teamEntity, coachEntity, leagueEntity, entityType }
+}
+
+function rbSportsAngle(text: string): RBSportsEditorialAngle {
+  if (containsAny(text, RB_SPORTS_OFFICIATING_TERMS)) return 'bad call / officiating heat'
+  if (containsAny(text, RB_SPORTS_TRADE_TERMS)) return 'trade / roster movement'
+  if (containsAny(text, RB_SPORTS_INJURY_TERMS)) return 'injury / return'
+  if (containsAny(text, RB_SPORTS_CLUTCH_TERMS)) return 'clutch proof'
+  if (containsAny(text, RB_SPORTS_PLAYOFF_TERMS)) return 'playoff stakes'
+  if (containsAny(text, RB_SPORTS_RIVALRY_TERMS)) return 'rivalry heat'
+  if (containsAny(text, RB_SPORTS_STAR_PERFORMANCE_TERMS) || /\b\d{2}[-\s]*(pt|pts|points|reb|rebs|ast|td|touchdowns|hr|home runs)\b/.test(text)) return 'star performance'
+  if (containsAny(text, RB_SPORTS_UPSET_TERMS)) return 'upset reaction'
+  if (containsAny(text, RB_SPORTS_QUOTE_TERMS)) return 'coach/player quote'
+  if (containsAny(text, RB_SPORTS_FAN_DEBATE_TERMS)) return 'fan debate'
+  if (containsAny(text, RB_SPORTS_BREAKING_TERMS)) return 'breaking reaction'
+  return 'highlight evidence'
+}
+
+function rbSportsTopicForAngle(angle: RBSportsEditorialAngle, entities: ReturnType<typeof rbSportsEntitiesFromInput>, input: RBHQIntelligenceInput): string {
+  const subject = entities.playerEntity ?? entities.teamEntity ?? entities.coachEntity ?? entities.leagueEntity ?? compact(input.league || input.sport || 'RB Sports')
+  if (angle === 'trade / roster movement') return `${subject} roster movement`
+  if (angle === 'injury / return') return `${subject} injury return`
+  if (angle === 'bad call / officiating heat') return `${subject} officiating debate`
+  if (angle === 'clutch proof') return `${subject} clutch moment`
+  if (angle === 'playoff stakes') return `${subject} playoff stakes`
+  if (angle === 'star performance') return `${subject} star performance`
+  if (angle === 'upset reaction') return `${subject} upset reaction`
+  if (angle === 'coach/player quote') return `${subject} quote reaction`
+  if (angle === 'rivalry heat') return `${subject} rivalry heat`
+  if (angle === 'fan debate') return `${subject} fan debate`
+  if (angle === 'breaking reaction') return `${subject} breaking reaction`
+  return `${subject} highlight evidence`
+}
+
+function rbSportsDecisionBand(score: number): RBSportsDecisionBand {
+  if (score >= 82) return 'high_confidence'
+  if (score >= 66) return 'operator_review'
+  if (score >= 50) return 'hold_unless_timely'
+  return 'reject'
+}
+
+function rbSportsScoutLabel(decisionBand: RBSportsDecisionBand): RBSportsScoutLabel {
+  if (decisionBand === 'high_confidence') return 'post_now'
+  if (decisionBand === 'operator_review') return 'develop'
+  return 'hold'
+}
+
+function rbSportsRankForBand(band: RBSportsDecisionBand, score: number): RBHQIntelligenceRankLabel {
+  if (band === 'high_confidence') return 'must_post'
+  if (band === 'operator_review') return score >= 76 ? 'strong' : 'solid'
+  return 'low_priority'
+}
+
+function rbSportsUrgencyForBand(band: RBSportsDecisionBand): RBHQIntelligenceUrgency {
+  if (band === 'high_confidence') return 'post_now'
+  if (band === 'operator_review') return 'today'
+  return 'hold'
+}
+
+function rbSportsCaption(input: {
+  subject: string
+  angle: RBSportsEditorialAngle
+}): string {
+  if (input.angle === 'bad call / officiating heat') return truncate(`${input.subject} has the call everyone is going to argue about.`, 180)
+  if (input.angle === 'clutch proof') return truncate(`${input.subject} gave the timeline the late-game proof, not just another highlight.`, 180)
+  if (input.angle === 'trade / roster movement') return truncate(`${input.subject} changes the roster conversation right now.`, 180)
+  if (input.angle === 'injury / return') return truncate(`${input.subject} matters because the availability story changes the matchup.`, 180)
+  if (input.angle === 'playoff stakes') return truncate(`${input.subject} turned the stakes into the whole clip.`, 180)
+  if (input.angle === 'star performance') return truncate(`${input.subject} put the performance on tape, so lead with the evidence.`, 180)
+  if (input.angle === 'upset reaction') return truncate(`${input.subject} is the loss reaction people are about to replay.`, 180)
+  if (input.angle === 'coach/player quote') return truncate(`${input.subject} gave the quote that makes this more than a recap.`, 180)
+  if (input.angle === 'rivalry heat') return truncate(`${input.subject} made the rivalry feel current again.`, 180)
+  if (input.angle === 'fan debate') return truncate(`${input.subject} is the clip built for the comments.`, 180)
+  if (input.angle === 'breaking reaction') return truncate(`${input.subject} is moving fast enough to post while the reaction is still live.`, 180)
+  return truncate(`${input.subject} has enough sports evidence to test today.`, 180)
+}
+
+function rbSportsHashtags(input: RBHQIntelligenceInput, entities: ReturnType<typeof rbSportsEntitiesFromInput>, angle: RBSportsEditorialAngle): string[] {
+  const angleTags: Record<RBSportsEditorialAngle, string> = {
+    'breaking reaction': '#Breaking',
+    'clutch proof': '#Clutch',
+    'bad call / officiating heat': '#BadCall',
+    'rivalry heat': '#Rivalry',
+    'trade / roster movement': '#TradeTalk',
+    'injury / return': '#InjuryUpdate',
+    'playoff stakes': '#Playoffs',
+    'star performance': '#Highlights',
+    'upset reaction': '#Upset',
+    'coach/player quote': '#PressConference',
+    'fan debate': '#FanDebate',
+    'highlight evidence': '#Highlights',
+  }
+  return uniqueHashtags([
+    entities.leagueEntity ? `#${entities.leagueEntity}` : '',
+    entities.teamEntity ? `#${entities.teamEntity}` : '',
+    entities.playerEntity ? `#${entities.playerEntity}` : '',
+    input.league ? `#${input.league}` : '',
+    angleTags[angle],
+    '#RBSports',
+    '#RunnitBack',
+  ]).slice(0, 5)
+}
+
+function buildRBSportsIntelligenceV1(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null): RBHQIntelligenceV1 {
+  const text = textForSignals(input)
+  const hook = buildHook(input, analyzer)
+  const entities = rbSportsEntitiesFromInput(input)
+  const angle = rbSportsAngle(text)
+  const primarySearchTopic = rbSportsTopicForAngle(angle, entities, input)
+  const subject = entities.playerEntity ?? entities.teamEntity ?? entities.coachEntity ?? entities.leagueEntity ?? sentenceCase(primarySearchTopic)
+  const hours = recencyHours(input)
+  const outsideScoutWindow = isYouTubeRssSource(input) && hours !== null && hours > 48
+  const insideBreakingWindow = hours === null || hours <= 6
+  const noiseOnly = containsAny(text, RB_SPORTS_NOISE_TERMS) && !containsAny(text, [
+    ...RB_SPORTS_BREAKING_TERMS,
+    ...RB_SPORTS_CLUTCH_TERMS,
+    ...RB_SPORTS_OFFICIATING_TERMS,
+    ...RB_SPORTS_TRADE_TERMS,
+    ...RB_SPORTS_INJURY_TERMS,
+    ...RB_SPORTS_PLAYOFF_TERMS,
+  ])
+  const hasEntity = Boolean(entities.playerEntity || entities.teamEntity || entities.coachEntity || entities.leagueEntity || entities.entityType === 'transaction' || entities.entityType === 'injury')
+  const hasCurrentSignal = angle !== 'highlight evidence' || containsAny(text, ['highlight', 'reaction', 'fans', 'game'])
+  const usefulSegment = typeof input.duration_seconds !== 'number' || (input.duration_seconds >= 10 && input.duration_seconds <= 45)
+  const positive = {
+    recognizableEntity: hasEntity ? 18 : 0,
+    breakingWindow: insideBreakingWindow && containsAny(text, RB_SPORTS_BREAKING_TERMS) ? 14 : 0,
+    clutchOrBadCall: angle === 'clutch proof' || angle === 'bad call / officiating heat' ? 20 : 0,
+    tradeInjuryRoster: angle === 'trade / roster movement' || angle === 'injury / return' ? 18 : 0,
+    rivalryPlayoffUpset: ['rivalry heat', 'playoff stakes', 'upset reaction'].includes(angle) ? 15 : 0,
+    starPerformance: angle === 'star performance' ? 14 : 0,
+    quoteOrFanDebate: angle === 'coach/player quote' || angle === 'fan debate' ? 12 : 0,
+    sourceAuthority: sourceAuthoritySignal(input) ? 6 : 0,
+    usefulSegment: usefulSegment ? 8 : 0,
+    fanReadable: hook.length >= 18 ? 6 : 0,
+    freshness: hours === null ? 4 : hours <= 6 ? 12 : hours <= 24 ? 8 : hours <= 48 ? 4 : 0,
+  }
+  const penalties = {
+    noiseOnly: noiseOnly ? -35 : 0,
+    outsideScoutWindow: outsideScoutWindow ? -18 : 0,
+    noRecognizableEntity: hasEntity ? 0 : -12,
+    weakCurrentSignal: hasCurrentSignal ? 0 : -12,
+    outsideUsefulSegment: usefulSegment ? 0 : -15,
+  }
+  const rawScore = 20 +
+    Object.values(positive).reduce((total, value) => total + value, 0) +
+    Object.values(penalties).reduce((total, value) => total + value, 0)
+  const cappedScore = noiseOnly ? Math.min(rawScore, 48) : outsideScoutWindow ? Math.min(rawScore, 62) : rawScore
+  const score = clampScore(cappedScore)
+  const decisionBand = rbSportsDecisionBand(score)
+  const scoutLabel = rbSportsScoutLabel(decisionBand)
+  const rankLabel = rbSportsRankForBand(decisionBand, score)
+  const urgency = rbSportsUrgencyForBand(decisionBand)
+  const reasons = [
+    positive.recognizableEntity ? `RB Sports positive: recognizable entity (${subject}).` : null,
+    positive.breakingWindow ? 'RB Sports positive: breaking clip inside the 0-6 hour urgency window.' : null,
+    positive.clutchOrBadCall ? `RB Sports positive: ${angle} has strong comment potential.` : null,
+    positive.tradeInjuryRoster ? `RB Sports positive: ${angle} changes the current sports conversation.` : null,
+    positive.rivalryPlayoffUpset ? `RB Sports positive: ${angle} gives the clip stakes.` : null,
+    positive.starPerformance ? 'RB Sports positive: star performance evidence is clear.' : null,
+    positive.quoteOrFanDebate ? 'RB Sports positive: quote or fan-debate framing is clear.' : null,
+    noiseOnly ? 'RB Sports penalty: betting, fantasy, rankings, schedule, longform, or low-context filler.' : null,
+    outsideScoutWindow ? 'RB Sports penalty: outside the 48-hour scouting window.' : null,
+    penalties.noRecognizableEntity ? 'RB Sports penalty: no clear player, team, coach, league, transaction, or injury entity.' : null,
+    penalties.weakCurrentSignal ? 'RB Sports penalty: weak current sports-news or highlight signal.' : null,
+    penalties.outsideUsefulSegment ? 'RB Sports penalty: segment is outside the useful 10-45 second range.' : null,
+  ].filter((reason): reason is string => Boolean(reason)).slice(0, MAX_REASON_COUNT)
+  const whyNow = scoutLabel === 'post_now'
+    ? truncate(`Post now: ${primarySearchTopic} has ${angle} inside the 48-hour RB Sports scouting window${insideBreakingWindow ? ' with 0-6 hour urgency' : ''}.`, 180)
+    : truncate(`${scoutLabel === 'develop' ? 'Develop' : 'Hold'}: ${primarySearchTopic} needs operator review because ${reasons[0]?.replace(/^RB Sports (positive|penalty): /, '') ?? 'the signal is not post-now yet'}.`, 180)
+
+  return {
+    score,
+    rankLabel,
+    urgency,
+    reasons,
+    suggestedCaption: rbSportsCaption({ subject, angle }),
+    suggestedHashtags: rbSportsHashtags(input, entities, angle),
+    hook: truncate(`${subject}: ${angle} is the RB Sports angle.`, 110),
+    operatorSummary: truncate(`RB Sports ${scoutLabel.replace(/_/g, ' ')}: ${score}/100 on ${primarySearchTopic}. Keep it direct, fan-first, and evidence-led.`, 180),
+    whyNow,
+    rbSports: {
+      model: 'rb_sports_content_intelligence_v1',
+      channelKey: 'rb_sports',
+      tiktokHandle: '@runnitbacksports',
+      rbAngle: angle,
+      scoutLabel,
+      scoutingWindowHours: 48,
+      breakingWindowHours: 6,
+      primarySearchTopic,
+      clipTopic: primarySearchTopic,
+      playerEntity: entities.playerEntity,
+      teamEntity: entities.teamEntity,
+      coachEntity: entities.coachEntity,
+      leagueEntity: entities.leagueEntity,
+      entityType: entities.entityType,
+      decisionBand,
+      scoring: { positive, penalties, rawScore },
+    },
+  }
+}
+
 function detectedPatternSignals(text: string, lane: string): ViralSignalCategory[] {
   return VIRAL_SIGNAL_CATEGORIES.filter((category) => {
     if (category.lanes && !category.lanes.includes(lane)) return false
@@ -1600,6 +2034,9 @@ export function buildRBHQIntelligenceV1(input: RBHQIntelligenceInput): RBHQIntel
   if (laneSlug(input) === 'women') {
     return buildRBWomenIntelligenceV1(input, analyzer)
   }
+  if (input.channel_id === 'a1000000-0000-0000-0000-000000000001') {
+    return buildRBSportsIntelligenceV1(input, analyzer)
+  }
   const scoreBoost = viralSignalBoost(input, analyzer)
   const urgencyProbeScore = clampScore(baseScore(input, analyzer) + scoreBoost)
   const urgency = urgencyForInput(input, analyzer, urgencyProbeScore)
@@ -1638,6 +2075,7 @@ function parseIntelligenceCandidate(value: unknown): RBHQIntelligenceV1 | null {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   const candidate = value as Partial<RBHQIntelligenceV1>
   const rbWomen = readRecord(candidate.rbWomen)
+  const rbSports = readRecord(candidate.rbSports)
 
   return {
     score: clampScore(Number(candidate.score ?? 0)),
@@ -1654,6 +2092,7 @@ function parseIntelligenceCandidate(value: unknown): RBHQIntelligenceV1 | null {
     operatorSummary: truncate(compact(candidate.operatorSummary), 180),
     whyNow: truncate(compact(candidate.whyNow), 180),
     ...(rbWomen ? { rbWomen: rbWomen as RBWomenIntelligenceMetadata } : {}),
+    ...(rbSports ? { rbSports: rbSports as RBSportsIntelligenceMetadata } : {}),
   }
 }
 
@@ -1690,7 +2129,7 @@ function toPlanClip(input: RBHQIntelligenceInput & {
   )
   const clipPrep = readPlanObject(readiness?.clipPrep)
   const captionPrep = readPlanObject(clipPrep?.captionPrep ?? clipPrep?.caption_prep)
-  const rbWomenScoutLabel = intelligence.rbWomen?.scoutLabel ?? (
+  const rbWomenScoutLabel = intelligence.rbWomen?.scoutLabel ?? intelligence.rbSports?.scoutLabel ?? (
     intelligence.urgency === 'post_now'
       ? 'post_now'
       : intelligence.urgency === 'hold' || intelligence.rankLabel === 'low_priority'
@@ -1705,7 +2144,7 @@ function toPlanClip(input: RBHQIntelligenceInput & {
     localAssetPath: compactPlanString(readiness?.localAssetPath) || null,
   }
   const reviewReason = intelligence.urgency !== 'post_now' || intelligence.rankLabel === 'low_priority'
-    ? intelligence.reasons[0] ?? intelligence.operatorSummary ?? 'Needs human review before posting.'
+    ? reviewReasonForIntelligence(intelligence)
     : null
   const transcriptTimed = typeof clipPrep?.transcriptTimed === 'boolean'
     ? clipPrep.transcriptTimed
@@ -1713,6 +2152,7 @@ function toPlanClip(input: RBHQIntelligenceInput & {
       ? readPlanObject(clipPrep?.basis)?.timed_transcript_available as boolean
       : null
   const rbWomenPlan = rbWomenPlanFields(input, intelligence)
+  const lanePlan = rbSportsPlanFields(input, intelligence, rbWomenPlan)
   const score = intelligence.score > 0
     ? intelligence.score
     : typeof input.ai_score === 'number' && Number.isFinite(input.ai_score)
@@ -1721,10 +2161,11 @@ function toPlanClip(input: RBHQIntelligenceInput & {
   return {
     id: input.id ?? null,
     title: compact(input.title || input.hook) || 'Untitled clip',
-    clipTopic: rbWomenPlan.clipTopic,
-    playerEntity: rbWomenPlan.playerEntity,
+    clipTopic: lanePlan.clipTopic,
+    playerEntity: lanePlan.playerEntity,
+    teamEntity: lanePlan.teamEntity,
     scoutLabel: rbWomenScoutLabel,
-    rbAngle: rbWomenPlan.rbAngle,
+    rbAngle: lanePlan.rbAngle,
     channelId: input.channel_id ?? null,
     lane: laneLabel(input),
     sourceName: input.source_name ?? null,
@@ -1732,13 +2173,13 @@ function toPlanClip(input: RBHQIntelligenceInput & {
     rankLabel: intelligence.rankLabel,
     urgency: intelligence.urgency,
     reasons: intelligence.reasons,
-    whyNow: rbWomenPlan.whyNow,
-    whyThisShouldPostNow: rbWomenPlan.whyNow,
-    operatorSummary: rbWomenPlan.operatorSummary,
-    suggestedCaption: rbWomenPlan.suggestedCaption,
-    captionDraft: rbWomenPlan.suggestedCaption,
-    suggestedHashtags: rbWomenPlan.suggestedHashtags,
-    hashtagPack: rbWomenPlan.suggestedHashtags,
+    whyNow: lanePlan.whyNow,
+    whyThisShouldPostNow: lanePlan.whyNow,
+    operatorSummary: lanePlan.operatorSummary,
+    suggestedCaption: lanePlan.suggestedCaption,
+    captionDraft: lanePlan.suggestedCaption,
+    suggestedHashtags: lanePlan.suggestedHashtags,
+    hashtagPack: lanePlan.suggestedHashtags,
     packageRenderStatus,
     transcriptSourceStatus: {
       subtitleSource: compactPlanString(captionPrep?.subtitle_source) || null,
@@ -1757,7 +2198,34 @@ function isRBWomenPlanClip(clip: DailyContentPlanClip): boolean {
   return clip.channelId === 'a1000000-0000-0000-0000-000000000004' || clip.lane === 'RB Women'
 }
 
+function reviewReasonForIntelligence(intelligence: RBHQIntelligenceV1): string {
+  return intelligence.reasons.find((reason) => /penalty|hold|reject|needs|missing|outside|weak/i.test(reason)) ??
+    intelligence.reasons[0] ??
+    intelligence.operatorSummary ??
+    'Needs human review before posting.'
+}
+
+function isRBSportsPlanClip(clip: DailyContentPlanClip): boolean {
+  return clip.channelId === 'a1000000-0000-0000-0000-000000000001' || clip.lane === 'RB Sports'
+}
+
 function selectRBWomenScoutCycle(planClips: DailyContentPlanClip[], limit: number): DailyContentPlanClip[] {
+  const output: DailyContentPlanClip[] = []
+  const postNow = planClips.find((clip) => clip.scoutLabel === 'post_now')
+  if (postNow) output.push(postNow)
+  const develop = planClips.find((clip) => clip.scoutLabel === 'develop' && !output.some((item) => item.id === clip.id))
+  if (develop && output.length < limit) output.push(develop)
+  const hold = planClips.find((clip) => clip.scoutLabel === 'hold' && !output.some((item) => item.id === clip.id))
+  if (hold && output.length < limit) output.push(hold)
+  for (const clip of planClips) {
+    if (output.length >= limit) break
+    if (output.some((item) => item.id === clip.id)) continue
+    output.push(clip)
+  }
+  return output
+}
+
+function selectScoutCycle(planClips: DailyContentPlanClip[], limit: number): DailyContentPlanClip[] {
   const output: DailyContentPlanClip[] = []
   const postNow = planClips.find((clip) => clip.scoutLabel === 'post_now')
   if (postNow) output.push(postNow)
@@ -1809,7 +2277,7 @@ function rbWomenTitleSignalText(input: RBHQIntelligenceInput): string {
 function rbWomenPlanFields(input: RBHQIntelligenceInput, intelligence: RBHQIntelligenceV1): {
   clipTopic: string
   playerEntity: string | null
-  rbAngle: RBWomenEditorialAngle | null
+  rbAngle: string | null
   whyNow: string
   operatorSummary: string
   suggestedCaption: string
@@ -1890,6 +2358,40 @@ function rbWomenPlanFields(input: RBHQIntelligenceInput, intelligence: RBHQIntel
   }
 }
 
+function rbSportsPlanFields(
+  input: RBHQIntelligenceInput,
+  intelligence: RBHQIntelligenceV1,
+  fallback: ReturnType<typeof rbWomenPlanFields>,
+): ReturnType<typeof rbWomenPlanFields> & { teamEntity: string | null } {
+  if (input.channel_id !== 'a1000000-0000-0000-0000-000000000001' && laneLabel(input) !== 'RB Sports') {
+    return { ...fallback, teamEntity: null }
+  }
+
+  const text = textForSignals(input)
+  const stored = intelligence.rbSports
+  const entities = rbSportsEntitiesFromInput(input)
+  const rbAngle = stored?.rbAngle ?? rbSportsAngle(text)
+  const clipTopic = stored?.clipTopic ?? rbSportsTopicForAngle(rbAngle, entities, input)
+  const playerEntity = stored?.playerEntity ?? entities.playerEntity
+  const teamEntity = stored?.teamEntity ?? entities.teamEntity
+  const subject = playerEntity ?? teamEntity ?? stored?.coachEntity ?? stored?.leagueEntity ?? sentenceCase(clipTopic)
+  const suggestedCaption = intelligence.suggestedCaption || rbSportsCaption({ subject, angle: rbAngle })
+  const suggestedHashtags = intelligence.suggestedHashtags.length > 0
+    ? intelligence.suggestedHashtags
+    : rbSportsHashtags(input, entities, rbAngle)
+
+  return {
+    clipTopic,
+    playerEntity,
+    teamEntity,
+    rbAngle,
+    whyNow: intelligence.whyNow,
+    operatorSummary: intelligence.operatorSummary,
+    suggestedCaption,
+    suggestedHashtags,
+  }
+}
+
 function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContentPlanClip {
   const scoutLabel = source.scoutLabel ?? (
     source.urgency === 'post_now'
@@ -1916,6 +2418,7 @@ function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContent
     title: source.title,
     clipTopic: source.hook || source.title,
     playerEntity: source.playerEntity ?? null,
+    teamEntity: source.teamEntity ?? null,
     scoutLabel,
     rbAngle: source.rbAngle ?? null,
     channelId: source.targetLane === 'RB Women' ? 'a1000000-0000-0000-0000-000000000004' : null,
@@ -1950,24 +2453,27 @@ export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {
     : []
   const allPlanClips = [...clips.map(toPlanClip), ...sourceCandidatePlanClips].sort(byPriority)
   const rbWomenOnly = allPlanClips.length > 0 && allPlanClips.every(isRBWomenPlanClip)
+  const rbSportsOnly = allPlanClips.length > 0 && allPlanClips.every(isRBSportsPlanClip)
   const planClips = rbWomenOnly
     ? selectRBWomenScoutCycle(allPlanClips, Math.max(1, Math.trunc(input.maxCandidates ?? 3)))
-    : allPlanClips
+    : rbSportsOnly
+      ? selectScoutCycle(allPlanClips, Math.max(1, Math.trunc(input.maxCandidates ?? 3)))
+      : allPlanClips
   const topClipsToPostNow = planClips
-    .filter((clip) => rbWomenOnly ? clip.scoutLabel === 'post_now' : clip.urgency === 'post_now')
-    .slice(0, rbWomenOnly ? 1 : 6)
+    .filter((clip) => rbWomenOnly || rbSportsOnly ? clip.scoutLabel === 'post_now' : clip.urgency === 'post_now')
+    .slice(0, rbWomenOnly || rbSportsOnly ? 1 : 6)
   const strongAlternates = planClips
     .filter((clip) =>
       !topClipsToPostNow.some((topClip) => topClip.id === clip.id) &&
-      (rbWomenOnly
+      (rbWomenOnly || rbSportsOnly
         ? clip.scoutLabel === 'develop'
         : (clip.rankLabel === 'must_post' || clip.rankLabel === 'strong' || (clip.rankLabel === 'solid' && clip.urgency !== 'hold'))),
     )
-    .slice(0, rbWomenOnly ? 1 : 10)
+    .slice(0, rbWomenOnly || rbSportsOnly ? 1 : 10)
   const holdOrLowPriority = planClips
-    .filter((clip) => rbWomenOnly ? clip.scoutLabel === 'hold' : clip.urgency === 'hold' || clip.rankLabel === 'low_priority')
-    .slice(0, rbWomenOnly ? 1 : 10)
-  const suggestedPostingOrder = [...topClipsToPostNow, ...strongAlternates].sort(byPriority).slice(0, rbWomenOnly ? 3 : 12)
+    .filter((clip) => rbWomenOnly || rbSportsOnly ? clip.scoutLabel === 'hold' : clip.urgency === 'hold' || clip.rankLabel === 'low_priority')
+    .slice(0, rbWomenOnly || rbSportsOnly ? 1 : 10)
+  const suggestedPostingOrder = [...topClipsToPostNow, ...strongAlternates].sort(byPriority).slice(0, rbWomenOnly || rbSportsOnly ? 3 : 12)
   const lanes = new Map<string, number>()
   for (const clip of [...topClipsToPostNow, ...strongAlternates]) {
     lanes.set(clip.lane, (lanes.get(clip.lane) ?? 0) + 1)
