@@ -7,6 +7,11 @@ import { config } from 'dotenv'
 
 import { buildRBHQIntelligenceV1 } from '../lib/intelligence-v1'
 import {
+  RB_SPORTS_CHANNEL_ID,
+  rbSportsPhase1ActiveSources,
+  rbSportsPhase1NoisySources,
+} from '../lib/rb-sports-source-config'
+import {
   RB_WOMEN_CHANNEL_ID,
   rbWomenPhase1ActiveSources,
   rbWomenPhase1NoisySources,
@@ -58,6 +63,21 @@ type SmokeResult = {
     hasUsefulExpansionFeed: boolean
     candidateCarriesSourceFilter: boolean
     genericAnnouncementRejected: boolean
+  }
+  rbSportsSources: {
+    activePhase1Sources: string[]
+    noisyPhase1Sources: string[]
+    phase1ConfigComplete: boolean
+    missingActiveSources: string[]
+    hasOfficialLeagueFeed: boolean
+    hasOfficialTeamFeed: boolean
+    hasTrustedHighlightFeed: boolean
+    hasTrustedAnalysisFeed: boolean
+    discoverySourcesDisabled: boolean
+    candidateCarriesSourceFilter: boolean
+    breakingHighlightAdvanced: boolean
+    bettingFantasyRejected: boolean
+    scheduleFillerRejected: boolean
   }
   safety: {
     n8nRequired: false
@@ -424,6 +444,98 @@ function verifyRbWomenSources(): SmokeResult['rbWomenSources'] {
   }
 }
 
+function verifyRbSportsSources(): SmokeResult['rbSportsSources'] {
+  const active = rbSportsPhase1ActiveSources()
+  const noisy = rbSportsPhase1NoisySources()
+  const requiredActiveSources = [
+    'nba_official',
+    'nfl_official',
+    'mlb_official',
+    'nhl_official',
+    'espn_main',
+    'bleacher_report',
+    'house_of_highlights',
+    'cbs_sports',
+    'nbc_sports',
+    'los_angeles_lakers',
+    'kansas_city_chiefs',
+    'dallas_cowboys',
+  ]
+  const activeKeys = new Set(active.map((source) => source.channelKey))
+  const missingActiveSources = requiredActiveSources.filter((key) => !activeKeys.has(key))
+  const activeCategories = new Set(active.map((source) => source.category))
+  const breakingCandidate = buildClipCandidateInsertRow({
+    channel: {
+      id: randomUUID(),
+      channel_key: 'nba_official',
+      display_name: 'NBA',
+      rss_url: 'mock://youtube-rss',
+      target_rbhq_channel_id: RB_SPORTS_CHANNEL_ID,
+    },
+    video: {
+      id: randomUUID(),
+      title: 'Lakers hit clutch game winner after controversial bad call',
+      description: 'A named team, clutch play, bad call, and clear fan debate angle.',
+      published_at: new Date().toISOString(),
+    },
+    now: new Date().toISOString(),
+    id: randomUUID(),
+  })
+  const bettingCandidate = buildClipCandidateInsertRow({
+    channel: {
+      id: randomUUID(),
+      channel_key: 'espn_main',
+      display_name: 'ESPN',
+      rss_url: 'mock://youtube-rss',
+      target_rbhq_channel_id: RB_SPORTS_CHANNEL_ID,
+    },
+    video: {
+      id: randomUUID(),
+      title: 'Best parlay odds and fantasy waiver picks for tonight',
+      description: 'Sportsbook, prop bet, and fantasy-only advice with no clip moment.',
+      published_at: new Date().toISOString(),
+    },
+    now: new Date().toISOString(),
+    id: randomUUID(),
+  })
+  const scheduleCandidate = buildClipCandidateInsertRow({
+    channel: {
+      id: randomUUID(),
+      channel_key: 'nfl_official',
+      display_name: 'NFL',
+      rss_url: 'mock://youtube-rss',
+      target_rbhq_channel_id: RB_SPORTS_CHANNEL_ID,
+    },
+    video: {
+      id: randomUUID(),
+      title: 'NFL announces updated preseason broadcast schedule',
+      description: 'Schedule and ticket information with no player, team, or clip angle.',
+      published_at: new Date().toISOString(),
+    },
+    now: new Date().toISOString(),
+    id: randomUUID(),
+  })
+  const breakingFilter = breakingCandidate.score_breakdown.rbSportsSource as { treatment?: string } | undefined
+  const bettingFilter = bettingCandidate.score_breakdown.rbSportsSource as { treatment?: string } | undefined
+  const scheduleFilter = scheduleCandidate.score_breakdown.rbSportsSource as { treatment?: string } | undefined
+
+  return {
+    activePhase1Sources: active.map((source) => source.channelKey),
+    noisyPhase1Sources: noisy.map((source) => source.channelKey),
+    phase1ConfigComplete: missingActiveSources.length === 0,
+    missingActiveSources,
+    hasOfficialLeagueFeed: activeCategories.has('official_league_highlights_news'),
+    hasOfficialTeamFeed: activeCategories.has('official_team_channel'),
+    hasTrustedHighlightFeed: activeCategories.has('trusted_broadcast_highlight'),
+    hasTrustedAnalysisFeed: activeCategories.has('trusted_sports_media_analysis'),
+    discoverySourcesDisabled: noisy.some((source) => source.category === 'discovery_fan_reaction' && !source.active),
+    candidateCarriesSourceFilter: breakingFilter?.treatment === 'advanced',
+    breakingHighlightAdvanced: breakingFilter?.treatment === 'advanced',
+    bettingFantasyRejected: bettingFilter?.treatment === 'rejected',
+    scheduleFillerRejected: scheduleFilter?.treatment === 'rejected',
+  }
+}
+
 async function main() {
   const entries = loadFixture()
   assert(entries.length === 2, `Expected fixture to parse 2 unique entries, received ${entries.length}.`)
@@ -450,6 +562,17 @@ async function main() {
   assert(rbWomenSources.hasUsefulExpansionFeed, 'RB Women Phase 1 must include a useful women sports expansion source.')
   assert(rbWomenSources.candidateCarriesSourceFilter, 'RB Women candidates must carry source filter metadata.')
   assert(rbWomenSources.genericAnnouncementRejected, 'RB Women generic announcements must be rejected by source filters.')
+  const rbSportsSources = verifyRbSportsSources()
+  assert(rbSportsSources.phase1ConfigComplete, `RB Sports Phase 1 source config is missing: ${rbSportsSources.missingActiveSources.join(', ')}`)
+  assert(rbSportsSources.hasOfficialLeagueFeed, 'RB Sports Phase 1 must include official league highlight/news sources.')
+  assert(rbSportsSources.hasOfficialTeamFeed, 'RB Sports Phase 1 must include at least one official team source.')
+  assert(rbSportsSources.hasTrustedHighlightFeed, 'RB Sports Phase 1 must include trusted highlight/broadcast sources.')
+  assert(rbSportsSources.hasTrustedAnalysisFeed, 'RB Sports Phase 1 must include trusted sports media analysis sources.')
+  assert(rbSportsSources.discoverySourcesDisabled, 'RB Sports discovery/fan-reaction sources must be disabled by default.')
+  assert(rbSportsSources.candidateCarriesSourceFilter, 'RB Sports candidates must carry source filter metadata.')
+  assert(rbSportsSources.breakingHighlightAdvanced, 'RB Sports breaking/highlight candidates must advance by source filters.')
+  assert(rbSportsSources.bettingFantasyRejected, 'RB Sports betting/fantasy content must be rejected by source filters.')
+  assert(rbSportsSources.scheduleFillerRejected, 'RB Sports schedule filler must be rejected by source filters.')
   const productionCronPath = readProductionCronPath()
   assert(productionCronPath === '/api/cron/rss-poll', 'Production cron does not target safe RSS polling route.')
 
@@ -462,6 +585,7 @@ async function main() {
     database,
     intelligence,
     rbWomenSources,
+    rbSportsSources,
     safety: {
       n8nRequired: false,
       livePublishStateSet: false,

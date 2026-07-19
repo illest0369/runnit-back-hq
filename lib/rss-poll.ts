@@ -2,6 +2,11 @@ import { randomUUID } from 'node:crypto'
 
 import { buildRBHQIntelligenceV1 } from './intelligence-v1'
 import {
+  RB_SPORTS_CHANNEL_ID,
+  classifyRBSportsSourceCandidate,
+  type RBSportsSourceCandidateFilter,
+} from './rb-sports-source-config'
+import {
   RB_WOMEN_CHANNEL_ID,
   classifyRBWomenSourceCandidate,
   type RBWomenSourceCandidateFilter,
@@ -44,6 +49,7 @@ export type ClipCandidateInsertRow = {
     reasons: string[]
     whyNow: string
     operatorSummary: string
+    rbSportsSource?: RBSportsSourceCandidateFilter
     rbWomenSource?: RBWomenSourceCandidateFilter
   }
   status: 'candidate'
@@ -213,6 +219,14 @@ export function buildClipCandidateInsertRow(input: {
         score: intel.score,
       })
     : null
+  const rbSportsSource = input.channel.target_rbhq_channel_id === RB_SPORTS_CHANNEL_ID
+    ? classifyRBSportsSourceCandidate({
+        channelKey: input.channel.channel_key,
+        title: input.video.title,
+        description: input.video.description,
+        score: intel.score,
+      })
+    : null
 
   return {
     id: input.id,
@@ -231,6 +245,7 @@ export function buildClipCandidateInsertRow(input: {
       reasons: intel.reasons,
       whyNow: intel.whyNow,
       operatorSummary: intel.operatorSummary,
+      ...(rbSportsSource ? { rbSportsSource } : {}),
       ...(rbWomenSource ? { rbWomenSource } : {}),
     },
     status: 'candidate',

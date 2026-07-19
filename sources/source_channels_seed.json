@@ -28,6 +28,62 @@
     "notes": "Bleacher Report — fan-angle clips, reaction, viral sports"
   },
   {
+    "channel_key": "mlb_official",
+    "display_name": "MLB",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCoLrcjPV5PbUrUyXq5mjc_A",
+    "lane_key": "sports",
+    "notes": "Official MLB — full game highlights, walk-offs, ejections, roster movement"
+  },
+  {
+    "channel_key": "nhl_official",
+    "display_name": "NHL",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCqFMzb-4AUf6WAIbl132QKA",
+    "lane_key": "sports",
+    "notes": "Official NHL — game highlights, overtime winners, fights, playoff moments"
+  },
+  {
+    "channel_key": "house_of_highlights",
+    "display_name": "House of Highlights",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCqQo7ewe87aYAe7ub5UqXMw",
+    "lane_key": "sports",
+    "notes": "House of Highlights — high-signal sports moments, reactions, and debate clips"
+  },
+  {
+    "channel_key": "cbs_sports",
+    "display_name": "CBS Sports",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCja8sZ2T4ylIqjggA1Zuukg",
+    "lane_key": "sports",
+    "notes": "CBS Sports — breaking sports analysis, pressers, playoff and roster reaction"
+  },
+  {
+    "channel_key": "nbc_sports",
+    "display_name": "NBC Sports",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCqZQlzSHbVJrwrn5XvzrzcA",
+    "lane_key": "sports",
+    "notes": "NBC Sports — broadcast highlights, interviews, pressers, and playoff stakes"
+  },
+  {
+    "channel_key": "los_angeles_lakers",
+    "display_name": "Los Angeles Lakers",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC8CSt-oVqy8pUAoKSApTxQw",
+    "lane_key": "sports",
+    "notes": "Official Lakers — star pressure, press conferences, injuries, roster movement"
+  },
+  {
+    "channel_key": "kansas_city_chiefs",
+    "display_name": "Kansas City Chiefs",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC-hXefb6XBFSubWz6Ezf_lA",
+    "lane_key": "sports",
+    "notes": "Official Chiefs — coach/player pressers, rivalries, injury returns, playoff stakes"
+  },
+  {
+    "channel_key": "dallas_cowboys",
+    "display_name": "Dallas Cowboys",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCC0BPKJxAyxjQoRTYbpW0FQ",
+    "lane_key": "sports",
+    "notes": "Official Cowboys — team debate, press conferences, rivalry and roster movement"
+  },
+  {
     "channel_key": "ufc_official",
     "display_name": "UFC",
     "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCvgfXK4nTYKudb0rFR6noLA",
