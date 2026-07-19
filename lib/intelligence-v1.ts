@@ -806,13 +806,25 @@ function rbWomenStrongQuote(text: string): boolean {
 }
 
 function rbWomenEditorialAngle(text: string, pillar: RBWomenContentPillar): RBWomenEditorialAngle {
+  const representationText = text
+    .replace(/\bwithout forcing a race-only read\b/g, '')
+    .replace(/\bwithout forcing race-only framing\b/g, '')
+    .replace(/\bnot forcing a race-only read\b/g, '')
+    .replace(/\bnot forcing race-only framing\b/g, '')
   if (containsAny(text, ['popularity versus production', 'popularity vs production', 'all-star', 'all star', 'star system', 'production vs'])) return 'popularity versus production'
   if (containsAny(text, ['unequal visibility', 'visibility gap', 'national conversation', 'attention centers elsewhere', 'coverage gap'])) return 'unequal visibility'
   if (containsAny(text, ['assist', 'assists', 'credit distribution', 'who gets credit', 'credited'])) return 'credit distribution'
   if (containsAny(text, ['media power', 'media coverage', 'media narrative', 'coverage'])) return 'media power'
   if (containsAny(text, ['protected', 'criticized', 'criticism', 'called out'])) return 'who gets protected or criticized'
   if (containsAny(text, ['labor', 'leadership', 'cba', 'union', 'captain'])) return 'labor and leadership'
-  if (containsAny(text, ['representation', 'race', 'racial'])) return 'race and representation'
+  if (containsAny(representationText, [
+    'race and representation',
+    'racial',
+    'representation',
+    'black women',
+    'black athlete',
+    'women of color',
+  ])) return 'race and representation'
   if (containsAny(text, ['star treatment', 'superstar whistle', 'special whistle'])) return 'star treatment'
   if (pillar === 'elite_basketball' || containsAny(text, ['production', 'efficiency', 'stat line', 'box score', 'assist', 'rebound', 'points', 'bucket'])) return 'basketball evidence'
   return 'basketball evidence'

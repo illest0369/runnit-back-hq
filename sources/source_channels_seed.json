@@ -105,11 +105,133 @@
     "notes": "Official WNBA — game emotion, locker room, press, swagger"
   },
   {
+    "channel_key": "unrivaled_basketball",
+    "display_name": "Unrivaled Basketball",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCkom4cFUC0MLscNIGoK9Iog",
+    "lane_key": "women",
+    "notes": "Unrivaled Basketball — elite basketball, player personality, matchup clips"
+  },
+  {
+    "channel_key": "indiana_fever",
+    "display_name": "Indiana Fever",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC2FefohmBAtGBvZ8QHiy30A",
+    "lane_key": "women",
+    "notes": "Indiana Fever — Caitlin Clark, Aliyah Boston, team highlights, press reactions"
+  },
+  {
+    "channel_key": "dallas_wings",
+    "display_name": "Dallas Wings",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCp_qKS__cK3lqbS1B189K4w",
+    "lane_key": "women",
+    "notes": "Dallas Wings — Paige Bueckers, Arike Ogunbowale, player quotes, highlights"
+  },
+  {
+    "channel_key": "minnesota_lynx",
+    "display_name": "Minnesota Lynx",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC3rZAG71b0xSrWdn6NCvbkQ",
+    "lane_key": "women",
+    "notes": "Minnesota Lynx — Napheesa Collier, Kayla McBride, veteran production, press reactions"
+  },
+  {
+    "channel_key": "las_vegas_aces",
+    "display_name": "Las Vegas Aces",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCHRbuUvu9pVUQT6Fv9DGy_Q",
+    "lane_key": "women",
+    "notes": "Las Vegas Aces — A'ja Wilson, Kelsey Plum, star treatment, championship quotes"
+  },
+  {
+    "channel_key": "new_york_liberty",
+    "display_name": "New York Liberty",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCWSENPwIesalIOfEdwTGZlw",
+    "lane_key": "women",
+    "notes": "New York Liberty — Sabrina Ionescu, Breanna Stewart, media narratives, matchup tension"
+  },
+  {
+    "channel_key": "chicago_sky",
+    "display_name": "Chicago Sky",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UClV7t67vIenYud872co7Z2Q",
+    "lane_key": "women",
+    "notes": "Chicago Sky — Angel Reese, Kamilla Cardoso, player callouts, foul debate"
+  },
+  {
+    "channel_key": "los_angeles_sparks",
+    "display_name": "Los Angeles Sparks",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCxhSLhRmf_3JDuOF4ezqMKQ",
+    "lane_key": "women",
+    "notes": "Los Angeles Sparks — Cameron Brink, Kelsey Plum, player quotes, major highlights"
+  },
+  {
+    "channel_key": "phoenix_mercury",
+    "display_name": "Phoenix Mercury",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCcjwUjOqddcuhf813plJJPg",
+    "lane_key": "women",
+    "notes": "Phoenix Mercury — Kahleah Copper, Diana Taurasi, veteran angles, press reactions"
+  },
+  {
+    "channel_key": "seattle_storm",
+    "display_name": "Seattle Storm",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCv4xLXLA_aElluuaTWXN1jA",
+    "lane_key": "women",
+    "notes": "Seattle Storm — Nneka Ogwumike, Skylar Diggins, player quotes, highlights"
+  },
+  {
+    "channel_key": "atlanta_dream",
+    "display_name": "Atlanta Dream",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCRNuFQZsMUcmp0o9sVxzaaQ",
+    "lane_key": "women",
+    "notes": "Atlanta Dream — Rhyne Howard, Allisha Gray, matchup tension, major highlights"
+  },
+  {
+    "channel_key": "just_womens_sports",
+    "display_name": "Just Women's Sports",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCv5306tE1yjLn1D31PL7kFA",
+    "lane_key": "women",
+    "notes": "Just Women's Sports — WNBA, NWSL, college hoops, and athlete-led coverage"
+  },
+  {
+    "channel_key": "wnba_on_nbc",
+    "display_name": "WNBA on NBC",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCnpIw0_TKVaIBDTzV-AD-Tg",
+    "lane_key": "women",
+    "notes": "WNBA on NBC — WNBA highlights, interviews, media narratives, major moments"
+  },
+  {
+    "channel_key": "tnt_sports_us",
+    "display_name": "TNT Sports US",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCU7iRrk3xfpUk0R6VdyC1Ow",
+    "lane_key": "women",
+    "notes": "TNT Sports US — WNBA coverage, studio segments, player callouts, highlights"
+  },
+  {
+    "channel_key": "all_womens_sports_network",
+    "display_name": "All Women's Sports Network",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCKZOElURkZns2oYgBdvhRtw",
+    "lane_key": "women",
+    "notes": "All Women's Sports Network — athlete quotes, media narratives, personality moments"
+  },
+  {
     "channel_key": "nwsl_official",
     "display_name": "NWSL",
     "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCL4xu08EDu0ZFZsBJUB0chw",
     "lane_key": "women",
-    "notes": "Official NWSL — goals, reactions, player moments"
+    "enabled": false,
+    "notes": "Disabled for RB Women Phase 1: soccer-heavy experimental source, not basketball-first"
+  },
+  {
+    "channel_key": "the_womens_game",
+    "display_name": "The Women's Game",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCbhLeBd783Nmk0XNV_bMt3A",
+    "lane_key": "women",
+    "enabled": false,
+    "notes": "Disabled for RB Women Phase 1: soccer-heavy experimental source, not basketball-first"
+  },
+  {
+    "channel_key": "cbs_sports_w_golazo",
+    "display_name": "CBS Sports W Golazo",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCX_tjI6Q_4JD1E3234CwemA",
+    "lane_key": "women",
+    "enabled": false,
+    "notes": "Disabled for RB Women Phase 1: soccer-heavy experimental source, not basketball-first"
   },
   {
     "channel_key": "espn_w",
@@ -126,27 +248,6 @@
     "lane_key": "women",
     "enabled": false,
     "notes": "Disabled: valid feed, but latest entries are stale and low-quality for Daily Plan"
-  },
-  {
-    "channel_key": "the_womens_game",
-    "display_name": "The Women's Game",
-    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCbhLeBd783Nmk0XNV_bMt3A",
-    "lane_key": "women",
-    "notes": "The Women's Game — women's soccer interviews, analysis, and player stories"
-  },
-  {
-    "channel_key": "just_womens_sports",
-    "display_name": "Just Women's Sports",
-    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCv5306tE1yjLn1D31PL7kFA",
-    "lane_key": "women",
-    "notes": "Just Women's Sports — WNBA, NWSL, college hoops, and athlete-led coverage"
-  },
-  {
-    "channel_key": "cbs_sports_w_golazo",
-    "display_name": "CBS Sports W Golazo",
-    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCX_tjI6Q_4JD1E3234CwemA",
-    "lane_key": "women",
-    "notes": "CBS Sports W Golazo — women's soccer, NWSL, USWNT, and Attacking Third coverage"
   },
   {
     "channel_key": "espn_cfb",

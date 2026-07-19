@@ -264,6 +264,42 @@ const rbWomenCaitlinAssistCredit = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbWomenBasketballEvidenceGuardrail = buildRBHQIntelligenceV1({
+  id: 'rb-women-basketball-evidence-guardrail',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'Highlights: Kelsey Mitchell and Caitlin Clark lead Fever past Liberty',
+  hook: 'Caitlin Clark elite basketball is the clip topic to watch',
+  source_name: 'WNBA on NBC',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 24,
+  ai_score: 90,
+  virality_score: 90,
+  hook_strength: 90,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'RB Women post now: 95/100 on Caitlin Clark elite basketball. Lead with the basketball, frame the basketball evidence without forcing a race-only read. Kelsey Mitchell scored 33 points and Caitlin Clark added 17 points and 7 assists in game highlights.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbWomenMvpRaceGuardrail = buildRBHQIntelligenceV1({
+  id: 'rb-women-mvp-race-guardrail',
+  channel_id: 'a1000000-0000-0000-0000-000000000004',
+  title: 'How Paige Bueckers, Olivia Miles, Breanna Stewart stack up in WNBA MVP race',
+  hook: 'The MVP race is about production versus attention',
+  source_name: 'WNBA on NBC',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 30,
+  ai_score: 88,
+  virality_score: 88,
+  hook_strength: 88,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Paige Bueckers, Olivia Miles, Breanna Stewart, and Aja Wilson are in an MVP race driven by points, assists, efficiency, production, and star-system coverage.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const rbWomenRoutinePromoHold = buildRBHQIntelligenceV1({
   id: 'rb-women-routine-promo-hold',
   channel_id: 'a1000000-0000-0000-0000-000000000004',
@@ -525,6 +561,9 @@ assert.equal(rbWomenKelseyStarSystem.rbWomen?.rbAngle, 'popularity versus produc
 assert.equal(rbWomenCaitlinAssistCredit.rbWomen?.rbAngle, 'credit distribution')
 assert.ok(rbWomenCaitlinAssistCredit.suggestedCaption.includes('who gets credit'))
 assert.ok(!rbWomenCaitlinAssistCredit.suggestedCaption.toLowerCase().includes('generic praise'))
+assert.notEqual(rbWomenBasketballEvidenceGuardrail.rbWomen?.rbAngle, 'race and representation')
+assert.ok(!rbWomenBasketballEvidenceGuardrail.reasons.some((reason) => reason.includes('race and representation')))
+assert.notEqual(rbWomenMvpRaceGuardrail.rbWomen?.rbAngle, 'race and representation')
 assert.equal(rbWomenRoutinePromoHold.rbWomen?.scoutLabel, 'hold')
 assert.equal(rbWomenRoutinePromoHold.urgency, 'hold')
 assert.equal(buildRBHQIntelligenceV1({ ...sportsClip, text: 'A\'ja Wilson foul debate' }).rbWomen, undefined)

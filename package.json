@@ -59,6 +59,7 @@
     "tiktok:session-check": "tsx scripts/tiktok-web-upload-dry-run.ts --session-check",
     "import:apify": "tsx scripts/run-apify-import.ts",
     "source-system:summary": "tsx scripts/source-system-summary.ts",
+    "source-system:rb-women": "tsx scripts/rb-women-source-qa.ts",
     "worker:clips": "node dist/workers/startWorker.js",
     "worker:post:dry-run": "node dist/workers/startPostDryRunWorker.js",
     "worker:post:dry-run:local": "RBHQ_POST_QUEUE_NAME=rbhq-post-local-dry-run node dist/workers/startPostDryRunWorker.js"

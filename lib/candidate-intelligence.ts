@@ -116,7 +116,6 @@ export function buildCandidateIntelligenceV1Update(input: {
     source_name: source?.display_name,
     source_type: sourceTypeFor(input.video),
     description: input.video.description,
-    text: input.candidate.summary,
     duration_seconds: readNumber(input.video.duration_seconds),
     published_at: input.video.published_at,
     created_at: input.candidate.created_at,
