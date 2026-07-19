@@ -1899,6 +1899,11 @@ type ClipCandidateQueryRow = {
     }
   } | null
   status: string
+  clip_prep_status?: string | null
+  clip_prep?: unknown
+  suggested_clip_start_seconds?: number | string | null
+  suggested_clip_end_seconds?: number | string | null
+  suggested_clip_length_seconds?: number | string | null
   // Supabase nested joins can be returned as arrays or objects depending on
   // relationship metadata in the target project.
   ingested_videos: Array<{
@@ -1934,9 +1939,30 @@ type ClipCandidateQueryRow = {
   } | null
 }
 
+type SourceCandidatePackageRow = {
+  id: string
+  clip_candidate_id: string
+  package_status: string | null
+  handoff_status: string | null
+  asset_status: string | null
+  local_asset_path: string | null
+  package_payload: Record<string, unknown> | null
+  updated_at: string | null
+}
+
 function firstJoined<T>(value: T | T[] | null | undefined): T | null {
   if (Array.isArray(value)) return value[0] ?? null
   return value ?? null
+}
+
+function readSourceCandidateObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function readSourceCandidateString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
 function normalizeRankLabel(value: unknown): RBHQIntelligenceRankLabel {
@@ -1953,7 +1979,7 @@ function normalizeUrgency(value: unknown): RBHQIntelligenceUrgency {
   return 'hold'
 }
 
-function toSourceCandidateSummary(row: ClipCandidateQueryRow): SourceCandidateSummary {
+function toSourceCandidateSummary(row: ClipCandidateQueryRow, pkg: SourceCandidatePackageRow | null = null): SourceCandidateSummary {
   const iv = firstJoined(row.ingested_videos)
   const sc = firstJoined(iv?.source_channels)
   const breakdown = row.score_breakdown ?? {}
@@ -1967,7 +1993,7 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow): SourceCandidateSu
       id: row.id,
       channel_id: sc?.target_rbhq_channel_id,
       title: row.title,
-      hook: row.hook_text ?? row.title,
+      hook: row.title,
       source_name: sc?.display_name ?? '',
       source_type: 'youtube_rss',
       description: row.caption,
@@ -1978,7 +2004,7 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow): SourceCandidateSu
       published_at: iv?.published_at ?? null,
     })
     : null
-  const rbWomen = breakdown.rbWomen ?? intelligence?.rbWomen ?? null
+  const rbWomen = isRBWomen && intelligence ? intelligence.rbWomen ?? null : breakdown.rbWomen ?? null
   const rankLabel = breakdown.rankLabel ? normalizeRankLabel(breakdown.rankLabel) : intelligence?.rankLabel ?? normalizeRankLabel(null)
   const urgency = breakdown.urgency ? normalizeUrgency(breakdown.urgency) : intelligence?.urgency ?? normalizeUrgency(null)
   const suggestedCaption = isRBWomen && intelligence
@@ -2001,6 +2027,33 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow): SourceCandidateSu
     : typeof breakdown.operatorSummary === 'string'
       ? breakdown.operatorSummary
       : ''
+  const packageClipPrep = readSourceCandidateObject(pkg?.package_payload?.clipPrep)
+  const packageCaptionPrep = readSourceCandidateObject(packageClipPrep?.caption_prep)
+  const candidateClipPrep = readSourceCandidateObject(row.clip_prep)
+  const candidateCaptionPrep = readSourceCandidateObject(candidateClipPrep?.caption_prep)
+  const captionPrep = packageCaptionPrep ?? candidateCaptionPrep
+  const clipPrepStatus = readSourceCandidateString(packageClipPrep?.status) ??
+    row.clip_prep_status ??
+    readSourceCandidateString(candidateClipPrep?.status)
+  const transcriptBasis = readSourceCandidateObject(packageClipPrep?.basis) ?? readSourceCandidateObject(candidateClipPrep?.basis)
+  const transcriptTimed = typeof transcriptBasis?.timed_transcript_available === 'boolean'
+    ? transcriptBasis.timed_transcript_available
+    : readSourceCandidateObject(captionPrep?.transcript_segment_range) !== null
+  const packageRenderStatus = pkg
+    ? {
+      packageId: pkg.id,
+      clipPrepStatus,
+      localRenderStatus: pkg.asset_status,
+      localRenderAttached: pkg.asset_status === 'attached' && Boolean(pkg.local_asset_path),
+      localAssetPath: pkg.local_asset_path,
+    }
+    : undefined
+  const transcriptSourceStatus = {
+    subtitleSource: readSourceCandidateString(captionPrep?.subtitle_source),
+    transcriptTimed,
+    sourceType: 'youtube_rss',
+    sourceStatus: clipPrepStatus ?? (iv?.video_url ? 'available' : null),
+  }
   return {
     id: row.id,
     title: row.title,
@@ -2014,10 +2067,12 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow): SourceCandidateSu
     score: row.score ?? 0,
     rankLabel,
     urgency,
-    hook: row.hook_text ?? intelligence?.hook ?? '',
+    hook: isRBWomen && intelligence ? intelligence.hook : row.hook_text ?? intelligence?.hook ?? '',
     playerEntity: rbWomen?.featuredPlayer ?? null,
     scoutLabel: rbWomen?.scoutLabel ?? null,
     rbAngle: rbWomen?.rbAngle ?? null,
+    packageRenderStatus,
+    transcriptSourceStatus,
     reviewReason: urgency === 'hold'
       ? intelligence?.reasons[0] ?? null
       : null,
@@ -2044,14 +2099,20 @@ export async function getSourceCandidates(
     .from('clip_candidates')
     .select(
       `id, title, hook_text, caption, hashtags, score, score_breakdown, status,
+       clip_prep_status, clip_prep, suggested_clip_start_seconds, suggested_clip_end_seconds, suggested_clip_length_seconds,
        ingested_videos!inner (
         video_url, thumbnail_url, published_at,
          source_channels!inner ( display_name, channel_key, enabled, target_rbhq_channel_id )
        )`,
     )
-    .eq('status', 'candidate')
     .order('score', { ascending: false })
     .limit(input.limit ?? 20)
+  const rbWomenRequested = input.channelIds?.includes(RB_WOMEN_CHANNEL_ID) ?? false
+  if (rbWomenRequested) {
+    query = query.in('status', ['candidate', 'approved', 'approved_for_review', 'approved_for_handoff', 'promoted'])
+  } else {
+    query = query.eq('status', 'candidate')
+  }
 
   if (input.channelIds && input.channelIds.length > 0) {
     query = query.in('target_channel_id', input.channelIds)
@@ -2064,7 +2125,24 @@ export async function getSourceCandidates(
     return []
   }
 
-  return ((data ?? []) as unknown as ClipCandidateQueryRow[])
-    .map(toSourceCandidateSummary)
+  const rows = (data ?? []) as unknown as ClipCandidateQueryRow[]
+  const candidateIds = rows.map((row) => row.id)
+  const { data: packageRows, error: packageError } = candidateIds.length > 0
+    ? await supabaseAdmin
+      .from('mac_mini_clip_packages')
+      .select('id, clip_candidate_id, package_status, handoff_status, asset_status, local_asset_path, package_payload, updated_at')
+      .in('clip_candidate_id', candidateIds)
+      .order('updated_at', { ascending: false })
+    : { data: [], error: null }
+  if (packageError) {
+    console.warn('[getSourceCandidates] package query failed', packageError.message)
+  }
+  const packagesByCandidate = new Map<string, SourceCandidatePackageRow>()
+  for (const pkg of (packageRows ?? []) as unknown as SourceCandidatePackageRow[]) {
+    if (!packagesByCandidate.has(pkg.clip_candidate_id)) packagesByCandidate.set(pkg.clip_candidate_id, pkg)
+  }
+
+  return rows
+    .map((row) => toSourceCandidateSummary(row, packagesByCandidate.get(row.id) ?? null))
     .filter((summary) => shouldIncludeSourceCandidate(summary, input.channelIds))
 }

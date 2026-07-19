@@ -158,6 +158,7 @@ export type SourceCandidateSummary = {
   scoutLabel?: RBWomenScoutLabel | null
   rbAngle?: RBWomenEditorialAngle | null
   packageRenderStatus?: DailyContentPlanClip['packageRenderStatus']
+  transcriptSourceStatus?: DailyContentPlanClip['transcriptSourceStatus']
   reviewReason?: string | null
   suggestedCaption: string
   suggestedHashtags: string[]
@@ -826,8 +827,8 @@ function rbWomenPrimarySearchTopic(input: RBHQIntelligenceInput, featuredPlayers
 
 function rbWomenProductionSignal(text: string): boolean {
   return (
-    containsAny(text, ['production', 'efficiency', 'stat line', 'box score']) ||
-    /\b\d{2}\s*(pts|points|rebounds|assists|ast|rebs)\b/.test(text)
+    containsAny(text, ['production', 'efficiency', 'stat line', 'box score', 'performance']) ||
+    /\b\d{2}[-\s]*(pt|pts|point|points|rebounds|assists|ast|rebs)\b/.test(text)
   )
 }
 
@@ -1781,6 +1782,8 @@ function byPriority(left: DailyContentPlanClip, right: DailyContentPlanClip): nu
   }
   const urgencyDelta = urgencyOrder[left.urgency] - urgencyOrder[right.urgency]
   if (urgencyDelta !== 0) return urgencyDelta
+  const packageDelta = Number(right.packageRenderStatus.localRenderAttached) - Number(left.packageRenderStatus.localRenderAttached)
+  if (packageDelta !== 0) return packageDelta
   return right.score - left.score
 }
 
@@ -1887,11 +1890,65 @@ function rbWomenPlanFields(input: RBHQIntelligenceInput, intelligence: RBHQIntel
   }
 }
 
+function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContentPlanClip {
+  const scoutLabel = source.scoutLabel ?? (
+    source.urgency === 'post_now'
+      ? 'post_now'
+      : source.urgency === 'hold' || source.rankLabel === 'low_priority'
+        ? 'hold'
+        : 'develop'
+  )
+  const packageRenderStatus = source.packageRenderStatus ?? {
+    packageId: null,
+    clipPrepStatus: null,
+    localRenderStatus: null,
+    localRenderAttached: false,
+    localAssetPath: null,
+  }
+  const transcriptSourceStatus = source.transcriptSourceStatus ?? {
+    subtitleSource: null,
+    transcriptTimed: null,
+    sourceType: 'youtube_rss',
+    sourceStatus: source.videoUrl ? 'available' : null,
+  }
+  return {
+    id: source.id,
+    title: source.title,
+    clipTopic: source.hook || source.title,
+    playerEntity: source.playerEntity ?? null,
+    scoutLabel,
+    rbAngle: source.rbAngle ?? null,
+    channelId: source.targetLane === 'RB Women' ? 'a1000000-0000-0000-0000-000000000004' : null,
+    lane: source.targetLane ?? 'RBHQ',
+    sourceName: source.sourceName,
+    score: source.score,
+    rankLabel: source.rankLabel,
+    urgency: source.urgency,
+    reasons: source.reviewReason ? [source.reviewReason] : [],
+    whyNow: source.whyNow,
+    whyThisShouldPostNow: source.whyNow,
+    operatorSummary: source.operatorSummary,
+    suggestedCaption: source.suggestedCaption,
+    captionDraft: source.suggestedCaption,
+    suggestedHashtags: source.suggestedHashtags,
+    hashtagPack: source.suggestedHashtags,
+    packageRenderStatus,
+    transcriptSourceStatus,
+    reviewReason: source.reviewReason ?? (scoutLabel === 'post_now' ? null : source.operatorSummary),
+    status: 'candidate',
+    publishStatus: packageRenderStatus.localRenderAttached ? 'needs_clip_render' : 'not_ready',
+    createdAt: source.publishedAt,
+  }
+}
+
 export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {
   status?: string | null
   publish_status?: string | null
 }>(clips: T[], sourceCandidates: SourceCandidateSummary[] = [], input: { maxCandidates?: number | null } = {}): DailyContentPlan {
-  const allPlanClips = clips.map(toPlanClip).sort(byPriority)
+  const sourceCandidatePlanClips = clips.length === 0 && sourceCandidates.length > 0 && sourceCandidates.every((source) => source.targetLane === 'RB Women')
+    ? sourceCandidates.map(sourceCandidateToPlanClip)
+    : []
+  const allPlanClips = [...clips.map(toPlanClip), ...sourceCandidatePlanClips].sort(byPriority)
   const rbWomenOnly = allPlanClips.length > 0 && allPlanClips.every(isRBWomenPlanClip)
   const planClips = rbWomenOnly
     ? selectRBWomenScoutCycle(allPlanClips, Math.max(1, Math.trunc(input.maxCandidates ?? 3)))

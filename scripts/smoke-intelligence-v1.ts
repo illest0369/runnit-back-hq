@@ -379,6 +379,81 @@ const plan = buildDailyContentPlan([
   { ...arenaClip, status: 'pending', publish_status: 'not_ready' },
   { ...highScoreEvergreenCandidate, status: 'pending', publish_status: 'not_ready' },
 ], [sourceCandidateSummary])
+const rbWomenSourceCandidatePlan = buildDailyContentPlan([], [
+  {
+    id: 'rb-women-source-kelsey',
+    title: 'Kelsey Mitchell EXPLODES for 33 PTS On Second Night of Back-to-Back WINS | FULL HIGHLIGHTS',
+    videoUrl: 'https://www.youtube.com/watch?v=KELSEY',
+    thumbnailUrl: null,
+    publishedAt: new Date().toISOString(),
+    sourceName: 'Indiana Fever',
+    targetLane: 'RB Women',
+    score: 100,
+    rankLabel: 'must_post',
+    urgency: 'post_now',
+    hook: 'Kelsey Mitchell production is the clip topic to watch.',
+    playerEntity: 'Kelsey Mitchell',
+    scoutLabel: 'post_now',
+    rbAngle: 'basketball evidence',
+    packageRenderStatus: {
+      packageId: 'rb-women-kelsey-package',
+      clipPrepStatus: 'metadata_only',
+      localRenderStatus: 'attached',
+      localRenderAttached: true,
+      localAssetPath: '/tmp/rb-women-kelsey.mp4',
+    },
+    transcriptSourceStatus: {
+      subtitleSource: 'metadata_only',
+      transcriptTimed: false,
+      sourceType: 'youtube_rss',
+      sourceStatus: 'metadata_only',
+    },
+    suggestedCaption: 'Kelsey Mitchell put production on the table, so the basketball has to lead the conversation.',
+    suggestedHashtags: ['#KelseyMitchell', '#BasketballHighlights', '#RunnitBackWomen'],
+    whyNow: 'Post now: Kelsey Mitchell production has story plus basketball evidence inside the 72-hour RB Women scouting window.',
+    operatorSummary: 'RB Women post now: 85/100 on Kelsey Mitchell production. Lead with the basketball.',
+  },
+  {
+    id: 'rb-women-source-caitlin-develop',
+    title: 'Highlights: Caitlin Clark drops 45 points, reaches 200 career 3-pointers | WNBA on NBC | 07/17/26',
+    videoUrl: 'https://www.youtube.com/watch?v=CAITLIN',
+    thumbnailUrl: null,
+    publishedAt: new Date().toISOString(),
+    sourceName: 'WNBA on NBC',
+    targetLane: 'RB Women',
+    score: 95,
+    rankLabel: 'must_post',
+    urgency: 'post_now',
+    hook: 'Caitlin Clark production is the clip topic to watch.',
+    playerEntity: 'Caitlin Clark',
+    scoutLabel: 'develop',
+    rbAngle: 'basketball evidence',
+    suggestedCaption: 'Caitlin Clark put production on the table, so the basketball has to lead the conversation.',
+    suggestedHashtags: ['#CaitlinClark', '#WNBA', '#RunnitBackWomen'],
+    whyNow: 'Develop: Caitlin Clark production needs operator judgment on story and basketball evidence before it becomes post-now.',
+    operatorSummary: 'RB Women develop: 75/100 on Caitlin Clark production.',
+  },
+  {
+    id: 'rb-women-source-hold',
+    title: 'Sue Bird has high praise for Olivia Miles 🙌',
+    videoUrl: 'https://www.youtube.com/shorts/HOLD',
+    thumbnailUrl: null,
+    publishedAt: new Date().toISOString(),
+    sourceName: 'WNBA on NBC',
+    targetLane: 'RB Women',
+    score: 100,
+    rankLabel: 'must_post',
+    urgency: 'post_now',
+    hook: 'Where do you land on this veteran-versus-rookie moment?',
+    playerEntity: 'Olivia Miles',
+    scoutLabel: 'hold',
+    rbAngle: 'basketball evidence',
+    suggestedCaption: 'Olivia Miles made the veteran-versus-rookie feel immediate.',
+    suggestedHashtags: ['#OliviaMiles', '#WNBA', '#RunnitBackWomen'],
+    whyNow: 'Hold: Olivia Miles veteran rookie matchup needs operator judgment before it becomes post-now.',
+    operatorSummary: 'RB Women hold: 55/100 on Olivia Miles veteran rookie matchup.',
+  },
+])
 const rbWomenDailyPlan = buildDailyContentPlan([
   {
     id: 'rb-women-daily-plan-flaujae',
@@ -639,6 +714,13 @@ assert.ok(plan.topClipsToPostNow.length + plan.strongAlternates.length >= 1)
 assert.ok(!plan.topClipsToPostNow.some((clip) => clip.id === highScoreEvergreenCandidate.id))
 assert.ok(plan.strongAlternates.some((clip) => clip.id === highScoreEvergreenCandidate.id))
 assert.equal(plan.sourceCandidates[0]?.operatorSummary, sourceCandidateSummary.operatorSummary)
+assert.equal(rbWomenSourceCandidatePlan.topClipsToPostNow.length, 1)
+assert.equal(rbWomenSourceCandidatePlan.strongAlternates.length, 1)
+assert.equal(rbWomenSourceCandidatePlan.holdOrLowPriority.length, 1)
+assert.equal(rbWomenSourceCandidatePlan.topClipsToPostNow[0]?.playerEntity, 'Kelsey Mitchell')
+assert.equal(rbWomenSourceCandidatePlan.topClipsToPostNow[0]?.rbAngle, 'basketball evidence')
+assert.equal(rbWomenSourceCandidatePlan.topClipsToPostNow[0]?.packageRenderStatus.localRenderAttached, true)
+assert.equal(rbWomenSourceCandidatePlan.topClipsToPostNow[0]?.transcriptSourceStatus.subtitleSource, 'metadata_only')
 const rbWomenMustPost = rbWomenDailyPlan.topClipsToPostNow[0]
 assert.ok(rbWomenMustPost)
 assert.equal(rbWomenDailyPlan.topClipsToPostNow.length, 1)
