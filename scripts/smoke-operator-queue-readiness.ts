@@ -90,7 +90,7 @@ class MemorySupabase {
   }
 }
 
-async function createSmokeMp4(assetPath: string) {
+async function createSmokeMp4(assetPath: string, durationSeconds = 1) {
   await mkdir(path.dirname(assetPath), { recursive: true })
   await execFileAsync(
     'ffmpeg',
@@ -101,7 +101,7 @@ async function createSmokeMp4(assetPath: string) {
       '-i',
       'testsrc2=size=160x90:rate=24',
       '-t',
-      '1',
+      String(durationSeconds),
       '-c:v',
       'libx264',
       '-pix_fmt',
@@ -123,16 +123,22 @@ async function main() {
   try {
     const assetRoot = path.join(process.cwd(), 'tmp', 'retry-ready-asset-validation-smoke')
     const verifiedAssetPath = path.join(assetRoot, 'verified.mp4')
+    const combatVerifiedAssetPath = path.join(assetRoot, 'combat-short.mp4')
     const unreadableAssetPath = path.join(assetRoot, 'unreadable.mp4')
     await rm(assetRoot, { recursive: true, force: true })
     await mkdir(assetRoot, { recursive: true })
     await createSmokeMp4(verifiedAssetPath)
+    await createSmokeMp4(combatVerifiedAssetPath, 12.5)
     await writeFile(unreadableAssetPath, 'not an mp4')
 
     const verifiedAsset = await validateRetryReadyLocalAsset(verifiedAssetPath)
     assert.equal(verifiedAsset.asset_validation, 'verified')
     assert.equal(verifiedAsset.locallyVerified, true)
     assert.ok((verifiedAsset.durationSeconds ?? 0) > 0)
+    const combatVerifiedAsset = await validateRetryReadyLocalAsset(combatVerifiedAssetPath)
+    assert.equal(combatVerifiedAsset.asset_validation, 'verified')
+    assert.equal(combatVerifiedAsset.locallyVerified, true)
+    assert.ok((combatVerifiedAsset.durationSeconds ?? 0) >= 8)
 
     const missingAssetValidation = await validateRetryReadyLocalAsset(path.join(assetRoot, 'missing.mp4'))
     assert.equal(missingAssetValidation.asset_validation, 'missing')
@@ -291,6 +297,119 @@ async function main() {
     assert.equal(otherLaneMetadataOnlyReadiness.tiktokStaging.readyForTikTokRetry, false)
     assert.equal(otherLaneMetadataOnlyReadiness.tiktokStaging.operatorState, 'not_ready')
 
+    const rbCombatManualShortCaptionPrep = {
+      version: 'rbhq-caption-prep-v1',
+      subtitle_source: 'metadata_only',
+      transcript_segments: [],
+      suggested_subtitle_style: {
+        preset: 'bold-lower-third',
+        position: 'lower_third_caption_safe',
+        max_lines: 2,
+        burned_in: false,
+      },
+      safety: {
+        burned_in: false,
+        uploads_video: false,
+        posts_video: false,
+      },
+    }
+    const rbCombatManualShortCandidate = {
+      ...candidate,
+      target_channel_id: 'a1000000-0000-0000-0000-000000000003',
+      status: 'approved_for_handoff',
+      score_breakdown: {
+        model: 'rbhq_intelligence_v1',
+        rankLabel: 'must_post',
+        urgency: 'post_now',
+        reasons: [
+          'RB Combat positive: recognizable fighter, promotion, or event (Suablack).',
+          'RB Combat positive: knockout proof has strong replay value.',
+        ],
+        whyNow: 'Post now: Suablack knockout proof has knockout proof inside the 48-hour RB Combat scouting window.',
+        operatorSummary: 'RB Combat post now: 84/100 on Suablack knockout proof.',
+        rbCombat: {
+          scoutLabel: 'post_now',
+          rbAngle: 'knockout proof',
+        },
+      },
+      clip_prep_status: 'metadata_only',
+      clip_prep_confidence: 'low',
+      suggested_clip_start_seconds: 0,
+      suggested_clip_end_seconds: 12.5,
+      suggested_clip_length_seconds: 12.5,
+      clip_prep: {
+        version: 'rbhq-clip-prep-v1',
+        status: 'metadata_only',
+        confidence: 'low',
+        basis: {
+          source_name: 'ONE Championship',
+          transcript_available: false,
+          timed_transcript_available: false,
+        },
+        caption_prep: rbCombatManualShortCaptionPrep,
+      },
+    }
+    const rbCombatManualShortPackage = {
+      id: String(packageRow?.id),
+      lane_label: 'RB Combat',
+      browser_channel_key: 'rb_combat',
+      package_status: 'ready' as const,
+      handoff_status: 'pending' as const,
+      asset_status: 'attached' as const,
+      local_asset_path: combatVerifiedAssetPath,
+      tiktok_staging_status: 'not_requested' as const,
+      package_payload: {
+        source: {
+          name: 'ONE Championship',
+        },
+        captionPrep: rbCombatManualShortCaptionPrep,
+      },
+    }
+    const rbCombatManualShortReadiness = buildQueueReadiness(candidateId, rbCombatManualShortCandidate, rbCombatManualShortPackage)
+    assert.equal(rbCombatManualShortReadiness.clipPrepReady, false)
+    assert.equal(rbCombatManualShortReadiness.localRenderAttached, true)
+    assert.equal(rbCombatManualShortReadiness.tiktokStaging.readyForTikTokRetry, true)
+    assert.equal(rbCombatManualShortReadiness.tiktokStaging.operatorState, 'ready_for_tiktok_retry')
+
+    const rbCombatDevelopReadiness = buildQueueReadiness(candidateId, {
+      ...rbCombatManualShortCandidate,
+      score_breakdown: {
+        ...rbCombatManualShortCandidate.score_breakdown,
+        rankLabel: 'strong',
+        urgency: 'today',
+        rbCombat: {
+          scoutLabel: 'develop',
+          rbAngle: 'knockout proof',
+        },
+      },
+    }, rbCombatManualShortPackage)
+    assert.equal(rbCombatDevelopReadiness.tiktokStaging.readyForTikTokRetry, false)
+
+    const rbCombatHoldReadiness = buildQueueReadiness(candidateId, {
+      ...rbCombatManualShortCandidate,
+      score_breakdown: {
+        ...rbCombatManualShortCandidate.score_breakdown,
+        rankLabel: 'low_priority',
+        urgency: 'hold',
+        rbCombat: {
+          scoutLabel: 'hold',
+          rbAngle: 'knockout proof',
+        },
+      },
+    }, rbCombatManualShortPackage)
+    assert.equal(rbCombatHoldReadiness.tiktokStaging.readyForTikTokRetry, false)
+
+    const rbCombatDisabledSourceReadiness = buildQueueReadiness(candidateId, rbCombatManualShortCandidate, {
+      ...rbCombatManualShortPackage,
+      package_payload: {
+        source: {
+          name: 'Combat Betting Picks Watchlist',
+        },
+        captionPrep: rbCombatManualShortCaptionPrep,
+      },
+    })
+    assert.equal(rbCombatDisabledSourceReadiness.tiktokStaging.readyForTikTokRetry, false)
+
     const retryReadyReadiness = buildQueueReadiness(candidateId, candidate, {
       id: String(packageRow?.id),
       lane_label: String(packageRow?.lane_label),
@@ -367,6 +486,10 @@ async function main() {
         notYetStagedOperatorState: notYetStagedReadiness.tiktokStaging.operatorState,
         rbWomenMetadataOnlyReadyForTikTokRetry: rbWomenMetadataOnlyReadiness.tiktokStaging.readyForTikTokRetry,
         otherLaneMetadataOnlyReadyForTikTokRetry: otherLaneMetadataOnlyReadiness.tiktokStaging.readyForTikTokRetry,
+        rbCombatManualShortReadyForTikTokRetry: rbCombatManualShortReadiness.tiktokStaging.readyForTikTokRetry,
+        rbCombatDevelopReadyForTikTokRetry: rbCombatDevelopReadiness.tiktokStaging.readyForTikTokRetry,
+        rbCombatHoldReadyForTikTokRetry: rbCombatHoldReadiness.tiktokStaging.readyForTikTokRetry,
+        rbCombatDisabledSourceReadyForTikTokRetry: rbCombatDisabledSourceReadiness.tiktokStaging.readyForTikTokRetry,
         readyForTikTokRetry: retryReadyReadiness.tiktokStaging.readyForTikTokRetry,
         retryOperatorState: retryReadyReadiness.tiktokStaging.operatorState,
         tiktokLoginBlocked: loginBlockedReadiness.tiktokStaging.loginBlocked,
@@ -376,6 +499,8 @@ async function main() {
       assetValidation: {
         verified: verifiedAsset.asset_validation,
         verifiedDurationSeconds: verifiedAsset.durationSeconds,
+        combatVerified: combatVerifiedAsset.asset_validation,
+        combatVerifiedDurationSeconds: combatVerifiedAsset.durationSeconds,
         missing: missingAssetValidation.asset_validation,
         unreadable: unreadableAsset.asset_validation,
       },

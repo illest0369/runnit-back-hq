@@ -1,4 +1,9 @@
 import type { MacMiniAssetStatus, MacMiniHandoffStatus, MacMiniPackageStatus } from './mac-mini-handoff'
+import {
+  RB_COMBAT_CHANNEL_ID,
+  RB_COMBAT_PHASE1_SOURCES,
+  rbCombatPhase1SourceForKey,
+} from './rb-combat-source-config'
 
 export type TikTokStagingStatus =
   | 'not_requested'
@@ -44,8 +49,12 @@ export type TikTokStagingReadiness = {
 export type QueueStagingCandidate = {
   candidateStatus?: string | null
   clipPrepStatus?: string | null
+  targetChannelId?: string | null
+  scoreBreakdown?: Record<string, unknown> | null
+  clipPrep?: unknown
   suggestedClipStartSeconds?: number | string | null
   suggestedClipEndSeconds?: number | string | null
+  suggestedClipLengthSeconds?: number | string | null
 }
 
 export type QueueStagingPackage = {
@@ -59,6 +68,7 @@ export type QueueStagingPackage = {
   dry_run_at?: string | null
   dry_run_error?: string | null
   dry_run_result?: Record<string, unknown> | null
+  package_payload?: Record<string, unknown> | null
   tiktok_staging_status?: TikTokStagingStatus | null
   tiktok_staging_requested_at?: string | null
   tiktok_staging_at?: string | null
@@ -70,6 +80,17 @@ const APPROVED_CANDIDATE_STATUSES = new Set([
   'approved_for_review',
   'approved_for_handoff',
   'promoted',
+])
+
+const RB_COMBAT_MANUAL_SHORT_ANGLES = new Set([
+  'knockout proof',
+  'submission proof',
+  'callout',
+  'stare-down heat',
+  'weigh-in drama',
+  'judging controversy',
+  'title fight stakes',
+  'post-fight reaction',
 ])
 
 function objectValue(value: unknown): Record<string, unknown> {
@@ -93,10 +114,23 @@ function readNumber(value: unknown): number | null {
   return null
 }
 
-function hasSelectedClipRange(candidate: QueueStagingCandidate | null | undefined): boolean {
+function selectedClipRange(candidate: QueueStagingCandidate | null | undefined): {
+  start: number | null
+  end: number | null
+  length: number | null
+} {
   const start = readNumber(candidate?.suggestedClipStartSeconds)
   const end = readNumber(candidate?.suggestedClipEndSeconds)
-  return start !== null && end !== null && end > start
+  const explicitLength = readNumber(candidate?.suggestedClipLengthSeconds)
+  const length = explicitLength ?? (start !== null && end !== null && end > start
+    ? Number((end - start).toFixed(3))
+    : null)
+  return { start, end, length }
+}
+
+function hasSelectedClipRange(candidate: QueueStagingCandidate | null | undefined): boolean {
+  const range = selectedClipRange(candidate)
+  return range.start !== null && range.end !== null && range.end > range.start
 }
 
 function readUploaderResult(result: Record<string, unknown> | null | undefined): Record<string, unknown> {
@@ -129,6 +163,98 @@ function normalizeStatus(value: unknown): TikTokStagingStatus {
     return value
   }
   return 'not_requested'
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.map((item) => compact(item)).filter((item): item is string => Boolean(item))
+    : []
+}
+
+function readCaptionPrep(candidate: QueueStagingCandidate | null | undefined, pkg: QueueStagingPackage | null | undefined): Record<string, unknown> {
+  const packagePayload = objectValue(pkg?.package_payload)
+  const packageClipPrep = objectValue(packagePayload.clipPrep)
+  const candidateClipPrep = objectValue(candidate?.clipPrep)
+  return objectValue(packagePayload.captionPrep).version === 'rbhq-caption-prep-v1'
+    ? objectValue(packagePayload.captionPrep)
+    : objectValue(packageClipPrep.caption_prep).version === 'rbhq-caption-prep-v1'
+      ? objectValue(packageClipPrep.caption_prep)
+      : objectValue(candidateClipPrep.caption_prep).version === 'rbhq-caption-prep-v1'
+        ? objectValue(candidateClipPrep.caption_prep)
+        : {}
+}
+
+function readRBCombatScoutLabel(candidate: QueueStagingCandidate | null | undefined): string | null {
+  const breakdown = objectValue(candidate?.scoreBreakdown)
+  const rbCombat = objectValue(breakdown.rbCombat)
+  const explicit = compact(rbCombat.scoutLabel)
+  if (explicit) return explicit
+  const urgency = compact(breakdown.urgency)
+  const rankLabel = compact(breakdown.rankLabel)
+  if (urgency === 'post_now' && (rankLabel === 'must_post' || !rankLabel)) return 'post_now'
+  return urgency || null
+}
+
+function readRBCombatAngle(candidate: QueueStagingCandidate | null | undefined): string | null {
+  const breakdown = objectValue(candidate?.scoreBreakdown)
+  const rbCombat = objectValue(breakdown.rbCombat)
+  const explicit = compact(rbCombat.rbAngle)
+  if (explicit && RB_COMBAT_MANUAL_SHORT_ANGLES.has(explicit)) return explicit
+
+  const clipPrep = objectValue(candidate?.clipPrep)
+  const text = [
+    explicit,
+    compact(breakdown.whyNow),
+    compact(breakdown.operatorSummary),
+    compact(clipPrep.clip_reason),
+    ...stringArray(breakdown.reasons),
+  ].join(' ').toLowerCase()
+  return [...RB_COMBAT_MANUAL_SHORT_ANGLES].find((angle) => text.includes(angle)) ?? null
+}
+
+function rbCombatSourceActive(pkg: QueueStagingPackage | null | undefined): boolean {
+  const packagePayload = objectValue(pkg?.package_payload)
+  const sourcePayload = objectValue(packagePayload.source)
+  const sourceName = compact(sourcePayload.key) ?? compact(sourcePayload.channelKey) ?? compact(sourcePayload.name)
+  const source = rbCombatPhase1SourceForKey(sourceName) ??
+    RB_COMBAT_PHASE1_SOURCES.find((item) => item.displayName.toLowerCase() === sourceName?.toLowerCase())
+  return source?.active === true
+}
+
+function transcriptMissingWithoutBurnClaim(candidate: QueueStagingCandidate | null | undefined, pkg: QueueStagingPackage | null | undefined): boolean {
+  const clipPrep = objectValue(candidate?.clipPrep)
+  const basis = objectValue(clipPrep.basis)
+  const captionPrep = readCaptionPrep(candidate, pkg)
+  const subtitleSource = compact(captionPrep.subtitle_source)
+  const style = objectValue(captionPrep.suggested_subtitle_style)
+  const safety = objectValue(captionPrep.safety)
+  const transcriptUnavailable = subtitleSource === 'metadata_only' ||
+    subtitleSource === 'unavailable' ||
+    basis.timed_transcript_available === false ||
+    basis.transcript_available === false
+  const burnedSubtitlesClaimed = style.burned_in === true || safety.burned_in === true
+  return transcriptUnavailable && !burnedSubtitlesClaimed
+}
+
+function rbCombatManualShortRenderable(input: {
+  candidate: QueueStagingCandidate | null | undefined
+  pkg: QueueStagingPackage | null | undefined
+  localRenderAttached: boolean
+}): boolean {
+  const { candidate, pkg } = input
+  const rbCombatLane = pkg?.browser_channel_key === 'rb_combat' ||
+    pkg?.lane_label === 'RB Combat' ||
+    candidate?.targetChannelId === RB_COMBAT_CHANNEL_ID
+  if (!rbCombatLane) return false
+  if (candidate?.clipPrepStatus !== 'metadata_only') return false
+  if (!input.localRenderAttached) return false
+  if (!rbCombatSourceActive(pkg)) return false
+  if (readRBCombatScoutLabel(candidate) !== 'post_now') return false
+  if (!readRBCombatAngle(candidate)) return false
+  const range = selectedClipRange(candidate)
+  if (range.start === null || range.end === null || range.end <= range.start) return false
+  if (range.length === null || range.length < 8 || range.length > 45) return false
+  return transcriptMissingWithoutBurnClaim(candidate, pkg)
 }
 
 function operatorStateFor(input: {
@@ -192,8 +318,9 @@ export function buildTikTokStagingReadiness(
   const rbWomenMetadataOnlyRenderable = pkg?.browser_channel_key === 'rb_women' &&
     candidate?.clipPrepStatus === 'metadata_only' &&
     hasSelectedClipRange(candidate)
-  const clipPrepReadyForRetry = clipPrepReady || rbWomenMetadataOnlyRenderable
   const localRenderAttached = Boolean(pkg?.id) && pkg?.asset_status === 'attached' && Boolean(pkg?.local_asset_path)
+  const rbCombatManualShortReady = rbCombatManualShortRenderable({ candidate, pkg, localRenderAttached })
+  const clipPrepReadyForRetry = clipPrepReady || rbWomenMetadataOnlyRenderable || rbCombatManualShortReady
   const readyForTikTokRetry = candidateApproved &&
     clipPrepReadyForRetry &&
     localRenderAttached &&

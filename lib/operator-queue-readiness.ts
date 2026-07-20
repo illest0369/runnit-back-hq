@@ -26,6 +26,7 @@ export type QueueCandidateReadiness = {
 
 export type QueueCandidateForReadiness = {
   id: string
+  target_channel_id?: string | null
   status?: string | null
   hook_text?: string | null
   caption?: string | null
@@ -69,6 +70,7 @@ export type QueuePackageForReadiness = {
   dry_run_at?: string | null
   dry_run_result?: Record<string, unknown> | null
   dry_run_error?: string | null
+  package_payload?: Record<string, unknown> | null
   tiktok_staging_status?: TikTokStagingStatus | null
   tiktok_staging_requested_at?: string | null
   tiktok_staging_at?: string | null
@@ -181,8 +183,12 @@ export function buildQueueReadiness(
     tiktokStaging: buildTikTokStagingReadiness(candidateId, {
       candidateStatus: candidate?.status ?? null,
       clipPrepStatus,
+      targetChannelId: candidate?.target_channel_id ?? null,
+      scoreBreakdown: candidate?.score_breakdown ?? null,
+      clipPrep: candidate?.clip_prep ?? null,
       suggestedClipStartSeconds: candidate?.suggested_clip_start_seconds ?? null,
       suggestedClipEndSeconds: candidate?.suggested_clip_end_seconds ?? null,
+      suggestedClipLengthSeconds: candidate?.suggested_clip_length_seconds ?? null,
     }, pkg),
   }
 }

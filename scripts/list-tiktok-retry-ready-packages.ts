@@ -111,7 +111,7 @@ async function main() {
     ? await supabase
       .from('clip_candidates')
       .select(
-        `id, status, clip_prep_status, clip_prep_confidence, clip_prep,
+        `id, target_channel_id, status, score_breakdown, clip_prep_status, clip_prep_confidence, clip_prep,
          suggested_clip_start_seconds, suggested_clip_end_seconds, suggested_clip_length_seconds,
          clip_reason, opening_text, edit_notes, asset_instructions`,
       )
