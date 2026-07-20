@@ -1255,6 +1255,7 @@ const RB_SPORTS_PLAYER_NAMES = [
   'caitlin clark',
   'roman henry',
   'marquice pless',
+  'lionel messi',
 ]
 
 const RB_SPORTS_TEAM_NAMES = [
@@ -1284,6 +1285,8 @@ const RB_SPORTS_TEAM_NAMES = [
   'oilers',
   'mokan elite',
   'az unity',
+  'spain',
+  'argentina',
 ]
 
 const RB_SPORTS_COACH_NAMES = [
@@ -1295,7 +1298,7 @@ const RB_SPORTS_COACH_NAMES = [
   'doc rivers',
 ]
 
-const RB_SPORTS_LEAGUE_NAMES = ['nba', 'nfl', 'mlb', 'nhl']
+const RB_SPORTS_LEAGUE_NAMES = ['fifa world cup', 'world cup', 'nba', 'nfl', 'mlb', 'nhl', 'fifa']
 
 const RB_SPORTS_DISPLAY_NAMES: Record<string, string> = {
   lebron: 'LeBron James',
@@ -1319,6 +1322,7 @@ const RB_SPORTS_DISPLAY_NAMES: Record<string, string> = {
   'caitlin clark': 'Caitlin Clark',
   'roman henry': 'Roman Henry',
   'marquice pless': 'Marquice Pless',
+  'lionel messi': 'Lionel Messi',
   'lakers': 'Lakers',
   'los angeles lakers': 'Los Angeles Lakers',
   'warriors': 'Warriors',
@@ -1345,6 +1349,8 @@ const RB_SPORTS_DISPLAY_NAMES: Record<string, string> = {
   'oilers': 'Oilers',
   'mokan elite': 'MOKAN Elite',
   'az unity': 'AZ Unity',
+  spain: 'Spain',
+  argentina: 'Argentina',
   'andy reid': 'Andy Reid',
   'steve kerr': 'Steve Kerr',
   'jj redick': 'JJ Redick',
@@ -1355,6 +1361,9 @@ const RB_SPORTS_DISPLAY_NAMES: Record<string, string> = {
   nfl: 'NFL',
   mlb: 'MLB',
   nhl: 'NHL',
+  fifa: 'FIFA',
+  'fifa world cup': 'FIFA World Cup',
+  'world cup': 'World Cup',
 }
 
 const RB_SPORTS_BREAKING_TERMS = ['breaking', 'just in', 'report', 'reports', 'reported', 'sources', 'confirmed']
@@ -1429,7 +1438,10 @@ const RB_SPORTS_PROPER_NAME_STOP_WORDS = new Set([
   'mlb season',
   'peach jam',
   'eybl peach',
+  'fifa world',
+  'fifa world cup',
   'world cup',
+  'world cup game',
   'world final',
 ])
 

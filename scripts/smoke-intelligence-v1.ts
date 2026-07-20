@@ -516,6 +516,24 @@ const rbSportsSummerLeagueTeams = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbSportsWorldCupEntities = buildRBHQIntelligenceV1({
+  id: 'rb-sports-world-cup-entities',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'Spain takes down Argentina to win 2026 FIFA World Cup | Is this Lionel Messi\'s final World Cup game?',
+  hook: 'Messi and Argentina lose the World Cup final',
+  source_name: 'CBS Sports',
+  source_type: 'youtube_rss',
+  sport: 'soccer',
+  league: 'FIFA World Cup',
+  duration_seconds: 34,
+  ai_score: 79,
+  virality_score: 79,
+  hook_strength: 75,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Spain beat Argentina in the FIFA World Cup final, Lionel Messi future reaction, playoff stakes, and global soccer debate.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const rbSportsChiefsQuote = buildRBHQIntelligenceV1({
   id: 'rb-sports-chiefs-quote',
   channel_id: 'a1000000-0000-0000-0000-000000000001',
@@ -1078,7 +1096,15 @@ assert.equal(rbSportsPeachJamEntities.rbSports?.rbAngle, 'playoff stakes')
 assert.equal(rbSportsSummerLeagueTeams.rbSports?.playerEntity, null)
 assert.equal(rbSportsSummerLeagueTeams.rbSports?.teamEntity, 'Nuggets')
 assert.notEqual(rbSportsSummerLeagueTeams.rbSports?.playerEntity, 'Las Vegas')
+assert.notEqual(rbSportsSummerLeagueTeams.rbSports?.playerEntity, 'Summer League')
 assert.ok(rbSportsSummerLeagueTeams.suggestedCaption.includes('Nuggets'))
+assert.equal(rbSportsWorldCupEntities.rbSports?.playerEntity, 'Lionel Messi')
+assert.equal(rbSportsWorldCupEntities.rbSports?.teamEntity, 'Spain')
+assert.equal(rbSportsWorldCupEntities.rbSports?.leagueEntity, 'FIFA World Cup')
+assert.notEqual(rbSportsWorldCupEntities.rbSports?.playerEntity, 'Fifa World')
+assert.notEqual(rbSportsWorldCupEntities.rbSports?.playerEntity, 'FIFA World Cup')
+assert.notEqual(rbSportsWorldCupEntities.rbSports?.playerEntity, 'World Cup')
+assert.ok(rbSportsWorldCupEntities.suggestedHashtags.includes('#LionelMessi'))
 assert.equal(rbSportsChiefsQuote.rbSports?.teamEntity, 'Chiefs')
 assert.equal(rbSportsChiefsQuote.rbSports?.playerEntity, 'Patrick Mahomes')
 assert.equal(rbSportsChiefsQuote.rbSports?.coachEntity, 'Andy Reid')
