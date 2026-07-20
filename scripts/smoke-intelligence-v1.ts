@@ -750,6 +750,78 @@ const rbCombatStaleRepostHold = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbCombatFlyingKneeFullFightHold = buildRBHQIntelligenceV1({
+  id: 'rb-combat-flying-knee-full-fight-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'CRAZY Flying Knee! Aliff vs. Ramadan Ondash | Muay Thai Full Fight With No Commentary',
+  hook: 'Full fight upload from ONE Championship',
+  source_name: 'ONE Championship',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'ONE Championship',
+  duration_seconds: 1800,
+  ai_score: 78,
+  virality_score: 78,
+  hook_strength: 65,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Full fight, no commentary, Muay Thai, flying knee, and no verified short segment.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatFilipinoPowerFullFightHold = buildRBHQIntelligenceV1({
+  id: 'rb-combat-filipino-power-full-fight-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'FILIPINO POWER Lito Adiwang vs. Eko Roni Saputra | MMA Full Fight',
+  hook: 'Full fight upload from ONE Championship',
+  source_name: 'ONE Championship',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'ONE Championship',
+  duration_seconds: 1800,
+  ai_score: 78,
+  virality_score: 76,
+  hook_strength: 65,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Full fight, no verified short segment, and no new fight-week hook or result context.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatPflPredictionsHold = buildRBHQIntelligenceV1({
+  id: 'rb-combat-pfl-predictions-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'PFL Summer Series Austin 2026 Weigh-In Show: Eblen vs Kasanganay | Predictions & Full Card Breakdown',
+  hook: 'PFL full card predictions show',
+  source_name: 'PFL MMA',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'PFL',
+  duration_seconds: 1800,
+  ai_score: 78,
+  virality_score: 76,
+  hook_strength: 65,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Predictions, full card breakdown, weigh-in show, and no verified short fighter segment.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatCanLitoExtraction = buildRBHQIntelligenceV1({
+  id: 'rb-combat-can-lito-extraction',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'SCRAPPING Can Lito Adiwang knockout Antonio Cesar at ONE Fight Night 45?',
+  hook: 'The ONE Fight Night question is built around Lito Adiwang and Antonio Cesar',
+  source_name: 'ONE Championship',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'ONE Championship',
+  duration_seconds: 24,
+  ai_score: 70,
+  virality_score: 74,
+  hook_strength: 70,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Lito Adiwang, Antonio Cesar, ONE Fight Night, knockout question, and fighter matchup context.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const rbSportsDailyPlan = buildDailyContentPlan([
   {
     id: 'rb-sports-plan-post',
@@ -1395,6 +1467,26 @@ assert.ok(rbCombatLongPodcastHold.reasons.some((reason) => reason.includes('long
 assert.equal(rbCombatStaleRepostHold.rbCombat?.scoutLabel, 'hold')
 assert.equal(rbCombatStaleRepostHold.urgency, 'hold')
 assert.ok(rbCombatStaleRepostHold.reasons.some((reason) => reason.includes('stale reposts') || reason.includes('7-day')))
+assert.equal(rbCombatFlyingKneeFullFightHold.rbCombat?.scoutLabel, 'hold')
+assert.notEqual(rbCombatFlyingKneeFullFightHold.rbCombat?.fighterEntity, 'Crazy Flying')
+assert.equal(rbCombatFlyingKneeFullFightHold.rbCombat?.fighterEntity, 'Ramadan Ondash')
+assert.equal(rbCombatFlyingKneeFullFightHold.rbCombat?.divisionOrTitleContext, null)
+assert.ok(rbCombatFlyingKneeFullFightHold.reasons.some((reason) => reason.includes('longform') || reason.includes('segment')))
+assert.equal(rbCombatFilipinoPowerFullFightHold.rbCombat?.scoutLabel, 'hold')
+assert.notEqual(rbCombatFilipinoPowerFullFightHold.rbCombat?.fighterEntity, 'Filipino Power')
+assert.equal(rbCombatFilipinoPowerFullFightHold.rbCombat?.fighterEntity, 'Lito Adiwang')
+assert.equal(rbCombatFilipinoPowerFullFightHold.rbCombat?.opponentEntity, 'Eko Roni Saputra')
+assert.equal(rbCombatFilipinoPowerFullFightHold.rbCombat?.divisionOrTitleContext, null)
+assert.ok(rbCombatFilipinoPowerFullFightHold.reasons.some((reason) => reason.includes('longform') || reason.includes('segment')))
+assert.equal(rbCombatPflPredictionsHold.rbCombat?.scoutLabel, 'hold')
+assert.equal(rbCombatPflPredictionsHold.rbCombat?.promotionEntity, 'PFL')
+assert.equal(rbCombatPflPredictionsHold.rbCombat?.eventEntity, 'Weigh-in')
+assert.notEqual(rbCombatPflPredictionsHold.rbCombat?.fighterEntity, 'Pfl Summer')
+assert.notEqual(rbCombatPflPredictionsHold.rbCombat?.opponentEntity, 'Series Austin')
+assert.ok(rbCombatPflPredictionsHold.reasons.some((reason) => reason.includes('betting picks') || reason.includes('longform')))
+assert.notEqual(rbCombatCanLitoExtraction.rbCombat?.fighterEntity, 'Can Lito')
+assert.equal(rbCombatCanLitoExtraction.rbCombat?.fighterEntity, 'Lito Adiwang')
+assert.equal(rbCombatCanLitoExtraction.rbCombat?.opponentEntity, 'Antonio Cesar')
 assert.ok(plan.suggestedPostingOrder.length >= 1)
 assert.ok(plan.topClipsToPostNow.length + plan.strongAlternates.length >= 1)
 assert.ok(!plan.topClipsToPostNow.some((clip) => clip.id === highScoreEvergreenCandidate.id))

@@ -1832,6 +1832,15 @@ const RB_COMBAT_FIGHTER_NAMES = [
   'tyson fury',
   'arjun singh',
   'miguel torres',
+  'ali kelat',
+  'elies abdelali',
+  'lito adiwang',
+  'eko roni saputra',
+  'antonio cesar',
+  'ramadan ondash',
+  'suablack',
+  'tawanchai',
+  'jo nattawut',
 ]
 
 const RB_COMBAT_PROMOTION_NAMES = [
@@ -1883,7 +1892,7 @@ const RB_COMBAT_STAREDOWN_TERMS = ['stare-down', 'staredown', 'faceoff', 'face-o
 const RB_COMBAT_WEIGH_IN_TERMS = ['weigh-in', 'weigh in', 'misses weight', 'missed weight', 'scale']
 const RB_COMBAT_JUDGING_TERMS = ['bad judging', 'controversial decision', 'split decision', 'robbery', 'scorecard', 'scorecards', 'judges']
 const RB_COMBAT_INJURY_TERMS = ['injury', 'injured', 'withdrawal', 'withdraws', 'pulls out', 'replacement', 'short notice']
-const RB_COMBAT_TITLE_TERMS = ['title fight', 'belt', 'championship', 'champion', 'undisputed', 'interim title']
+const RB_COMBAT_TITLE_TERMS = ['title fight', 'belt', 'undisputed', 'interim title']
 const RB_COMBAT_RIVALRY_TERMS = ['rivalry', 'rival', 'beef', 'bad blood', 'heated', 'trash talk']
 const RB_COMBAT_QUOTE_TERMS = ['quote', 'said', 'responds', 'response', 'viral quote', 'did not hold back']
 const RB_COMBAT_POST_FIGHT_TERMS = ['post-fight', 'post fight', 'after ufc', 'after the fight', 'reaction', 'reacts']
@@ -1894,6 +1903,12 @@ const RB_COMBAT_NOISE_TERMS = [
   'best bet',
   'picks',
   'prediction',
+  'predictions',
+  'full card breakdown',
+  'card breakdown',
+  'live in hd',
+  'full fight',
+  'no commentary',
   'full episode',
   'podcast',
   'live stream',
@@ -1937,6 +1952,32 @@ const RB_COMBAT_PROPER_NAME_STOP_WORDS = new Set([
   'free fight',
 ])
 
+const RB_COMBAT_PROPER_NAME_BLOCKED_WORDS = new Set([
+  'crazy',
+  'filipino',
+  'flying',
+  'knee',
+  'power',
+  'showstopper',
+  'muay',
+  'thai',
+  'kickboxing',
+  'knockouts',
+  'highlight',
+  'highlights',
+  'comeback',
+  'commentary',
+  'full',
+  'can',
+  'pfl',
+  'summer',
+  'series',
+  'austin',
+  'card',
+  'breakdown',
+  'predictions',
+])
+
 const RB_COMBAT_DISPLAY_NAMES: Record<string, string> = {
   'islam makhachev': 'Islam Makhachev',
   'ilia topuria': 'Ilia Topuria',
@@ -1962,6 +2003,15 @@ const RB_COMBAT_DISPLAY_NAMES: Record<string, string> = {
   'tyson fury': 'Tyson Fury',
   'arjun singh': 'Arjun Singh',
   'miguel torres': 'Miguel Torres',
+  'ali kelat': 'Ali Kelat',
+  'elies abdelali': 'Elies Abdelali',
+  'lito adiwang': 'Lito Adiwang',
+  'eko roni saputra': 'Eko Roni Saputra',
+  'antonio cesar': 'Antonio Cesar',
+  'ramadan ondash': 'Ramadan Ondash',
+  suablack: 'Suablack',
+  tawanchai: 'Tawanchai',
+  'jo nattawut': 'Jo Nattawut',
   ufc: 'UFC',
   'espn mma': 'ESPN MMA',
   'one championship': 'ONE Championship',
@@ -1984,11 +2034,21 @@ function rbCombatDisplayName(value: string): string {
   return RB_COMBAT_DISPLAY_NAMES[value] ?? value.split(' ').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
 }
 
+function rbCombatTermPattern(value: string): RegExp {
+  const escaped = compact(value).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`(^|[^a-z0-9])${escaped.replace(/\\ /g, '\\s+')}([^a-z0-9]|$)`, 'i')
+}
+
+function rbCombatContainsAny(text: string, values: string[]): boolean {
+  return values.some((value) => rbCombatTermPattern(value).test(text))
+}
+
 function rbCombatMatches(text: string, values: string[]): string[] {
   const matches: Array<{ value: string; index: number }> = []
   for (const value of values) {
-    const index = text.indexOf(value)
-    if (index < 0) continue
+    const match = rbCombatTermPattern(value).exec(text)
+    if (!match) continue
+    const index = match.index
     const displayName = rbCombatDisplayName(value)
     if (!matches.some((match) => match.value === displayName)) matches.push({ value: displayName, index })
   }
@@ -2025,6 +2085,7 @@ function rbCombatTitleProperNameCandidates(input: RBHQIntelligenceInput): string
       if (RB_COMBAT_PROMOTION_NAMES.includes(lower) || RB_COMBAT_EVENT_NAMES.includes(lower)) continue
       const words = lower.split(/\s+/).filter(Boolean)
       if (words.some((word) => ['fight', 'night', 'ufc', 'mma', 'boxing', 'rank', 'title', 'event', 'weigh', 'conference'].includes(word))) continue
+      if (words.some((word) => RB_COMBAT_PROPER_NAME_BLOCKED_WORDS.has(word))) continue
       const displayName = rbCombatDisplayName(lower)
       if (!candidates.includes(displayName)) candidates.push(displayName)
     }
@@ -2065,7 +2126,7 @@ function rbCombatEntitiesFromInput(input: RBHQIntelligenceInput): {
     null
   const divisionOrTitleContext = rbCombatMatches(titleText, RB_COMBAT_DIVISION_TERMS)[0] ??
     rbCombatMatches(allText, RB_COMBAT_DIVISION_TERMS)[0] ??
-    (containsAny(allText, RB_COMBAT_TITLE_TERMS) ? 'Title fight' : null)
+    (rbCombatContainsAny(titleText, RB_COMBAT_TITLE_TERMS) ? 'Title fight' : null)
   const resultContext = rbCombatMatches(titleText, RB_COMBAT_RESULT_TERMS)[0] ??
     rbCombatMatches(allText, RB_COMBAT_RESULT_TERMS)[0] ??
     null
@@ -2081,18 +2142,18 @@ function rbCombatEntitiesFromInput(input: RBHQIntelligenceInput): {
 }
 
 function rbCombatAngle(text: string): RBCombatEditorialAngle {
-  if (containsAny(text, RB_COMBAT_JUDGING_TERMS)) return 'judging controversy'
-  if (containsAny(text, RB_COMBAT_INJURY_TERMS)) return 'injury / withdrawal'
-  if (containsAny(text, RB_COMBAT_SUBMISSION_TERMS)) return 'submission proof'
-  if (containsAny(text, RB_COMBAT_KNOCKOUT_TERMS)) return 'knockout proof'
-  if (containsAny(text, RB_COMBAT_WEIGH_IN_TERMS)) return 'weigh-in drama'
-  if (containsAny(text, RB_COMBAT_STAREDOWN_TERMS)) return 'stare-down heat'
-  if (containsAny(text, RB_COMBAT_PRESSER_TERMS)) return 'press conference tension'
-  if (containsAny(text, RB_COMBAT_CALLOUT_TERMS)) return 'callout'
-  if (containsAny(text, RB_COMBAT_TITLE_TERMS)) return 'title fight stakes'
-  if (containsAny(text, RB_COMBAT_RIVALRY_TERMS)) return 'rivalry heat'
-  if (containsAny(text, RB_COMBAT_QUOTE_TERMS)) return 'viral fighter quote'
-  if (containsAny(text, RB_COMBAT_POST_FIGHT_TERMS)) return 'post-fight reaction'
+  if (rbCombatContainsAny(text, RB_COMBAT_JUDGING_TERMS)) return 'judging controversy'
+  if (rbCombatContainsAny(text, RB_COMBAT_INJURY_TERMS)) return 'injury / withdrawal'
+  if (rbCombatContainsAny(text, RB_COMBAT_SUBMISSION_TERMS)) return 'submission proof'
+  if (rbCombatContainsAny(text, RB_COMBAT_KNOCKOUT_TERMS)) return 'knockout proof'
+  if (rbCombatContainsAny(text, RB_COMBAT_WEIGH_IN_TERMS)) return 'weigh-in drama'
+  if (rbCombatContainsAny(text, RB_COMBAT_STAREDOWN_TERMS)) return 'stare-down heat'
+  if (rbCombatContainsAny(text, RB_COMBAT_PRESSER_TERMS)) return 'press conference tension'
+  if (rbCombatContainsAny(text, RB_COMBAT_CALLOUT_TERMS)) return 'callout'
+  if (rbCombatContainsAny(text, RB_COMBAT_TITLE_TERMS)) return 'title fight stakes'
+  if (rbCombatContainsAny(text, RB_COMBAT_RIVALRY_TERMS)) return 'rivalry heat'
+  if (rbCombatContainsAny(text, RB_COMBAT_QUOTE_TERMS)) return 'viral fighter quote'
+  if (rbCombatContainsAny(text, RB_COMBAT_POST_FIGHT_TERMS)) return 'post-fight reaction'
   return 'fight evidence'
 }
 
@@ -2191,6 +2252,7 @@ function rbCombatHashtags(input: RBHQIntelligenceInput, entities: ReturnType<typ
 
 function buildRBCombatIntelligenceV1(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null): RBHQIntelligenceV1 {
   const text = textForSignals(input)
+  const titleText = rbCombatTitleSignalText(input)
   const hook = buildHook(input, analyzer)
   const entities = rbCombatEntitiesFromInput(input)
   const angle = rbCombatAngle(text)
@@ -2206,7 +2268,16 @@ function buildRBCombatIntelligenceV1(input: RBHQIntelligenceInput, analyzer: Tik
   const outsideFightWeekWindow = isYouTubeRssSource(input) && hours !== null && hours > 168
   const insideBreakingWindow = hours === null || hours <= 6
   const usableWithinFightWeek = fightWeekAngle && !outsideFightWeekWindow
-  const noiseOnly = containsAny(text, RB_COMBAT_NOISE_TERMS) && !containsAny(text, [
+  const noisyFormat = rbCombatContainsAny(titleText, [
+    'full fight',
+    'no commentary',
+    'full card breakdown',
+    'card breakdown',
+    'live in hd',
+    'prediction',
+    'predictions',
+  ])
+  const noiseOnly = rbCombatContainsAny(text, RB_COMBAT_NOISE_TERMS) && !rbCombatContainsAny(text, [
     ...RB_COMBAT_KNOCKOUT_TERMS,
     ...RB_COMBAT_SUBMISSION_TERMS,
     ...RB_COMBAT_CALLOUT_TERMS,
@@ -2244,11 +2315,12 @@ function buildRBCombatIntelligenceV1(input: RBHQIntelligenceInput, analyzer: Tik
     noRecognizableEntity: hasEntity ? 0 : -12,
     weakFightSignal: hasFightSignal ? 0 : -12,
     outsideUsefulSegment: usefulSegment ? 0 : -15,
+    noisyFormat: noisyFormat ? -25 : 0,
   }
   const rawScore = 20 +
     Object.values(positive).reduce((total, value) => total + value, 0) +
     Object.values(penalties).reduce((total, value) => total + value, 0)
-  const cappedScore = noiseOnly
+  const cappedScore = noiseOnly || noisyFormat
     ? Math.min(rawScore, 48)
     : outsideFightWeekWindow
       ? Math.min(rawScore, 50)
@@ -2268,6 +2340,7 @@ function buildRBCombatIntelligenceV1(input: RBHQIntelligenceInput, analyzer: Tik
     positive.titleOrRivalry ? `RB Combat positive: ${angle} gives the clip stakes.` : null,
     positive.quoteOrPostFight ? 'RB Combat positive: quote or post-fight reaction is clear.' : null,
     noiseOnly ? 'RB Combat penalty: betting picks, longform, rankings, stale reposts, training, or low-context compilations.' : null,
+    noisyFormat ? 'RB Combat penalty: full-fight, live-stream, prediction, or breakdown format needs timestamps before posting.' : null,
     penalties.outsideScoutWindow ? 'RB Combat penalty: outside the 48-hour scouting window.' : null,
     penalties.outsideFightWeekWindow ? 'RB Combat penalty: outside the 7-day fight-week window.' : null,
     penalties.noRecognizableEntity ? 'RB Combat penalty: no clear fighter, opponent, promotion, event, division, or result context.' : null,
