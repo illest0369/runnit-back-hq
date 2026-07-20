@@ -498,6 +498,24 @@ const rbSportsPeachJamEntities = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbSportsSummerLeagueTeams = buildRBHQIntelligenceV1({
+  id: 'rb-sports-summer-league-teams',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'NUGGETS vs RAPTORS | LAS VEGAS SUMMER LEAGUE | FULL GAME HIGHLIGHTS | July 19, 2026',
+  hook: 'Summer League highlights with team context',
+  source_name: 'NBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'NBA',
+  duration_seconds: 30,
+  ai_score: 80,
+  virality_score: 80,
+  hook_strength: 76,
+  published_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+  text: 'Nuggets vs Raptors, Las Vegas Summer League, full game highlights, NBA, and current team development evidence.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const rbSportsChiefsQuote = buildRBHQIntelligenceV1({
   id: 'rb-sports-chiefs-quote',
   channel_id: 'a1000000-0000-0000-0000-000000000001',
@@ -978,6 +996,10 @@ assert.ok(rbSportsWnbaSpilloverHold.reasons.some((reason) => reason.includes('RB
 assert.equal(rbSportsPeachJamEntities.rbSports?.playerEntity, 'Roman Henry')
 assert.equal(rbSportsPeachJamEntities.rbSports?.teamEntity, 'MOKAN Elite')
 assert.equal(rbSportsPeachJamEntities.rbSports?.rbAngle, 'playoff stakes')
+assert.equal(rbSportsSummerLeagueTeams.rbSports?.playerEntity, null)
+assert.equal(rbSportsSummerLeagueTeams.rbSports?.teamEntity, 'Nuggets')
+assert.notEqual(rbSportsSummerLeagueTeams.rbSports?.playerEntity, 'Las Vegas')
+assert.ok(rbSportsSummerLeagueTeams.suggestedCaption.includes('Nuggets'))
 assert.equal(rbSportsChiefsQuote.rbSports?.teamEntity, 'Chiefs')
 assert.equal(rbSportsChiefsQuote.rbSports?.playerEntity, 'Patrick Mahomes')
 assert.equal(rbSportsChiefsQuote.rbSports?.coachEntity, 'Andy Reid')
