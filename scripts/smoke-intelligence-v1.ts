@@ -606,6 +606,150 @@ const rbSportsCowboysReaction = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbCombatKnockoutPostNow = buildRBHQIntelligenceV1({
+  id: 'rb-combat-knockout-post-now',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'UFC: Islam Makhachev scores brutal KO after title fight callout',
+  hook: 'Islam put the finish on tape and called for the next belt',
+  source_name: 'UFC',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'UFC',
+  duration_seconds: 24,
+  ai_score: 76,
+  virality_score: 82,
+  hook_strength: 82,
+  published_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+  text: 'Islam Makhachev brutal KO, title fight callout, UFC finish, post-fight reaction, and clear highlight evidence.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatSubmissionTitle = buildRBHQIntelligenceV1({
+  id: 'rb-combat-submission-title',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'ONE Championship title fight ends in submission after wild final round',
+  hook: 'The title fight changed on one submission sequence',
+  source_name: 'ONE Championship',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'ONE Championship',
+  duration_seconds: 32,
+  ai_score: 72,
+  virality_score: 76,
+  hook_strength: 76,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'ONE Championship title fight, submission, tap, championship stakes, and fight fans reacting.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatCalloutStaredown = buildRBHQIntelligenceV1({
+  id: 'rb-combat-callout-staredown',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'Canelo Alvarez and Terence Crawford stare-down turns heated at weigh-in',
+  hook: 'Canelo and Crawford turned the faceoff into the fight-week clip',
+  source_name: 'DAZN Boxing',
+  source_type: 'youtube_rss',
+  sport: 'boxing',
+  league: 'DAZN Boxing',
+  duration_seconds: 28,
+  ai_score: 72,
+  virality_score: 78,
+  hook_strength: 78,
+  published_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+  text: 'Canelo Alvarez, Terence Crawford, weigh-in drama, stare-down heat, faceoff, rivalry heat, and title fight stakes.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatJudgingControversy = buildRBHQIntelligenceV1({
+  id: 'rb-combat-judging-controversy',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'PFL split decision has fighters and fans calling robbery',
+  hook: 'The scorecards became the whole fight story',
+  source_name: 'PFL MMA',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'PFL',
+  duration_seconds: 30,
+  ai_score: 70,
+  virality_score: 78,
+  hook_strength: 76,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'PFL controversial decision, split decision, scorecards, judges, robbery, and fans arguing about the result.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatInjuryWithdrawal = buildRBHQIntelligenceV1({
+  id: 'rb-combat-injury-withdrawal',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'ESPN MMA: Alex Pereira injury forces short-notice UFC replacement',
+  hook: 'The injury changes the entire card',
+  source_name: 'ESPN MMA',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'UFC',
+  duration_seconds: 20,
+  ai_score: 70,
+  virality_score: 76,
+  hook_strength: 76,
+  published_at: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+  text: 'Breaking injury withdrawal, Alex Pereira, UFC replacement, short notice card change, and fight news.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatBettingHold = buildRBHQIntelligenceV1({
+  id: 'rb-combat-betting-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'UFC best bets, parlay odds, and prop picks for tonight',
+  hook: 'Betting picks for the fight card',
+  source_name: 'ESPN MMA',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'UFC',
+  duration_seconds: 20,
+  ai_score: 72,
+  virality_score: 70,
+  hook_strength: 60,
+  published_at: new Date().toISOString(),
+  text: 'Betting odds, parlay picks, prop picks, predictions, and no fight clip moment.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatLongPodcastHold = buildRBHQIntelligenceV1({
+  id: 'rb-combat-long-podcast-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'Full episode podcast: UFC rankings debate without timestamps',
+  hook: 'Long podcast fight debate',
+  source_name: 'MMA Fighting',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'UFC',
+  duration_seconds: 3900,
+  ai_score: 72,
+  virality_score: 70,
+  hook_strength: 60,
+  published_at: new Date().toISOString(),
+  text: 'Full episode podcast, rankings debate, longform, no timestamps, and no useful short fight segment.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatStaleRepostHold = buildRBHQIntelligenceV1({
+  id: 'rb-combat-stale-repost-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'Free fight: classic knockout repost from five years ago',
+  hook: 'Classic fight replay',
+  source_name: 'UFC',
+  source_type: 'youtube_rss',
+  sport: 'mma',
+  league: 'UFC',
+  duration_seconds: 1800,
+  ai_score: 74,
+  virality_score: 70,
+  hook_strength: 60,
+  published_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+  text: 'Free fight, classic fight, old fight repost, low-context highlight compilation, and no new fight-week context.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const rbSportsDailyPlan = buildDailyContentPlan([
   {
     id: 'rb-sports-plan-post',
@@ -658,6 +802,62 @@ const rbSportsDailyPlan = buildDailyContentPlan([
     hook_strength: 50,
     published_at: new Date().toISOString(),
     text: 'Schedule, ticket, broadcast, and sponsor filler with no player, team, quote, or useful highlight moment.',
+    status: 'candidate',
+    publish_status: 'not_ready',
+  },
+])
+const rbCombatDailyPlan = buildDailyContentPlan([
+  {
+    id: 'rb-combat-plan-post',
+    channel_id: 'a1000000-0000-0000-0000-000000000003',
+    title: 'UFC: Islam Makhachev scores brutal KO after title fight callout',
+    hook: 'Islam put the finish on tape and called for the next belt',
+    source_name: 'UFC',
+    source_type: 'youtube_rss',
+    sport: 'mma',
+    league: 'UFC',
+    duration_seconds: 24,
+    ai_score: 76,
+    virality_score: 82,
+    hook_strength: 82,
+    published_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(),
+    text: 'Islam Makhachev brutal KO, title fight callout, UFC finish, post-fight reaction, and clear highlight evidence.',
+    status: 'candidate',
+    publish_status: 'not_ready',
+  },
+  {
+    id: 'rb-combat-plan-develop',
+    channel_id: 'a1000000-0000-0000-0000-000000000003',
+    title: 'Canelo Alvarez and Terence Crawford stare-down turns heated at weigh-in',
+    hook: 'Canelo and Crawford turned the faceoff into the fight-week clip',
+    source_name: 'DAZN Boxing',
+    source_type: 'youtube_rss',
+    sport: 'boxing',
+    league: 'DAZN Boxing',
+    duration_seconds: 70,
+    ai_score: 64,
+    virality_score: 68,
+    hook_strength: 68,
+    published_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    text: 'Canelo Alvarez, Terence Crawford, weigh-in drama, stare-down heat, faceoff, rivalry heat, and title fight stakes.',
+    status: 'candidate',
+    publish_status: 'not_ready',
+  },
+  {
+    id: 'rb-combat-plan-hold',
+    channel_id: 'a1000000-0000-0000-0000-000000000003',
+    title: 'UFC best bets, parlay odds, and prop picks for tonight',
+    hook: 'Betting picks for the fight card',
+    source_name: 'ESPN MMA',
+    source_type: 'youtube_rss',
+    sport: 'mma',
+    league: 'UFC',
+    duration_seconds: 20,
+    ai_score: 72,
+    virality_score: 70,
+    hook_strength: 60,
+    published_at: new Date().toISOString(),
+    text: 'Betting odds, parlay picks, prop picks, predictions, and no fight clip moment.',
     status: 'candidate',
     publish_status: 'not_ready',
   },
@@ -1008,9 +1208,11 @@ assert.ok(futbolTournamentCandidate.suggestedCaption.includes('futbol feed'))
 assert.ok(futbolTournamentCandidate.operatorSummary.includes('RB Futbol'))
 assert.ok(cfbSourceCandidate.suggestedCaption.includes('college football feed'))
 assert.ok(cfbSourceCandidate.whyNow.includes('college football timeline'))
-assert.ok(combatBoxingCandidate.suggestedHashtags.includes('#CombatSports'))
+assert.equal(combatBoxingCandidate.rbCombat?.rbAngle, 'stare-down heat')
+assert.equal(combatBoxingCandidate.rbCombat?.promotionEntity, 'DAZN Boxing')
+assert.ok(combatBoxingCandidate.suggestedHashtags.includes('#RBCombat'))
 assert.ok(!combatBoxingCandidate.suggestedHashtags.includes('#UFC'))
-assert.ok(combatBoxingCandidate.whyNow.includes('fight fans'))
+assert.ok(combatBoxingCandidate.whyNow.includes('RB Combat scouting window'))
 assert.equal(staleSourceCandidate.urgency, 'evergreen')
 assert.ok(staleSourceCandidate.whyNow.includes('not in a live viral window'))
 assert.ok(!staleSourceCandidate.suggestedHashtags.includes('#PatchNotes'))
@@ -1154,6 +1356,45 @@ assert.equal(rbSportsChiefsQuote.rbSports?.playerEntity, 'Patrick Mahomes')
 assert.equal(rbSportsChiefsQuote.rbSports?.coachEntity, 'Andy Reid')
 assert.equal(rbSportsCowboysReaction.rbSports?.teamEntity, 'Cowboys')
 assert.equal(rbSportsCowboysReaction.rbSports?.playerEntity, 'Dak Prescott')
+assert.equal(rbCombatKnockoutPostNow.rbCombat?.scoutLabel, 'post_now')
+assert.equal(rbCombatKnockoutPostNow.rbCombat?.rbAngle, 'knockout proof')
+assert.equal(rbCombatKnockoutPostNow.rbCombat?.fighterEntity, 'Islam Makhachev')
+assert.equal(rbCombatKnockoutPostNow.rbCombat?.promotionEntity, 'UFC')
+assert.equal(rbCombatKnockoutPostNow.rbCombat?.resultContext, 'KO')
+assert.ok(rbCombatKnockoutPostNow.suggestedCaption.includes('finish on tape'))
+assert.ok(rbCombatKnockoutPostNow.suggestedHashtags.includes('#UFC'))
+assert.ok(rbCombatKnockoutPostNow.suggestedHashtags.includes('#KO'))
+assert.ok(rbCombatKnockoutPostNow.whyNow.includes('48-hour RB Combat scouting window'))
+assert.ok(rbCombatKnockoutPostNow.operatorSummary.includes('RB Combat post now'))
+assert.ok(['post_now', 'develop'].includes(rbCombatSubmissionTitle.rbCombat?.scoutLabel ?? ''))
+assert.equal(rbCombatSubmissionTitle.rbCombat?.rbAngle, 'submission proof')
+assert.equal(rbCombatSubmissionTitle.rbCombat?.promotionEntity, 'ONE Championship')
+assert.equal(rbCombatSubmissionTitle.rbCombat?.divisionOrTitleContext, 'Title fight')
+assert.ok(rbCombatSubmissionTitle.suggestedHashtags.includes('#Submission'))
+assert.ok(['post_now', 'develop'].includes(rbCombatCalloutStaredown.rbCombat?.scoutLabel ?? ''))
+assert.equal(rbCombatCalloutStaredown.rbCombat?.rbAngle, 'weigh-in drama')
+assert.equal(rbCombatCalloutStaredown.rbCombat?.fighterEntity, 'Canelo Alvarez')
+assert.equal(rbCombatCalloutStaredown.rbCombat?.opponentEntity, 'Terence Crawford')
+assert.equal(rbCombatCalloutStaredown.rbCombat?.promotionEntity, 'DAZN Boxing')
+assert.ok(rbCombatCalloutStaredown.suggestedHashtags.includes('#WeighIn'))
+assert.ok(['post_now', 'develop'].includes(rbCombatJudgingControversy.rbCombat?.scoutLabel ?? ''))
+assert.equal(rbCombatJudgingControversy.rbCombat?.rbAngle, 'judging controversy')
+assert.equal(rbCombatJudgingControversy.rbCombat?.promotionEntity, 'PFL')
+assert.ok(rbCombatJudgingControversy.reasons.some((reason) => reason.includes('current fight conversation')))
+assert.ok(['post_now', 'develop'].includes(rbCombatInjuryWithdrawal.rbCombat?.scoutLabel ?? ''))
+assert.equal(rbCombatInjuryWithdrawal.rbCombat?.rbAngle, 'injury / withdrawal')
+assert.equal(rbCombatInjuryWithdrawal.rbCombat?.fighterEntity, 'Alex Pereira')
+assert.equal(rbCombatInjuryWithdrawal.rbCombat?.promotionEntity, 'ESPN MMA')
+assert.ok(rbCombatInjuryWithdrawal.whyNow.includes('0-6 hour urgency'))
+assert.equal(rbCombatBettingHold.rbCombat?.scoutLabel, 'hold')
+assert.equal(rbCombatBettingHold.urgency, 'hold')
+assert.ok(rbCombatBettingHold.reasons.some((reason) => reason.includes('betting picks')))
+assert.equal(rbCombatLongPodcastHold.rbCombat?.scoutLabel, 'hold')
+assert.equal(rbCombatLongPodcastHold.urgency, 'hold')
+assert.ok(rbCombatLongPodcastHold.reasons.some((reason) => reason.includes('longform') || reason.includes('segment')))
+assert.equal(rbCombatStaleRepostHold.rbCombat?.scoutLabel, 'hold')
+assert.equal(rbCombatStaleRepostHold.urgency, 'hold')
+assert.ok(rbCombatStaleRepostHold.reasons.some((reason) => reason.includes('stale reposts') || reason.includes('7-day')))
 assert.ok(plan.suggestedPostingOrder.length >= 1)
 assert.ok(plan.topClipsToPostNow.length + plan.strongAlternates.length >= 1)
 assert.ok(!plan.topClipsToPostNow.some((clip) => clip.id === highScoreEvergreenCandidate.id))
@@ -1238,6 +1479,33 @@ const rbSportsHold = rbSportsDailyPlan.holdOrLowPriority[0]
 assert.ok(rbSportsHold)
 assert.equal(rbSportsHold.scoutLabel, 'hold')
 assert.ok(rbSportsHold.reviewReason?.includes('filler') || rbSportsHold.reviewReason?.includes('weak current'))
+const rbCombatPostNow = rbCombatDailyPlan.topClipsToPostNow[0]
+assert.ok(rbCombatPostNow)
+assert.equal(rbCombatDailyPlan.topClipsToPostNow.length, 1)
+assert.equal(rbCombatDailyPlan.strongAlternates.length, 1)
+assert.equal(rbCombatDailyPlan.holdOrLowPriority.length, 1)
+assert.equal(rbCombatPostNow.scoutLabel, 'post_now')
+assert.equal(rbCombatPostNow.lane, 'RB Combat')
+assert.equal(rbCombatPostNow.fighterEntity, 'Islam Makhachev')
+assert.equal(rbCombatPostNow.promotionEntity, 'UFC')
+assert.equal(rbCombatPostNow.rbAngle, 'knockout proof')
+assert.ok(rbCombatPostNow.clipTopic.includes('Islam Makhachev'))
+assert.ok(rbCombatPostNow.whyThisShouldPostNow.includes('48-hour RB Combat scouting window'))
+assert.ok(rbCombatPostNow.captionDraft.includes('finish on tape'))
+assert.ok(rbCombatPostNow.hashtagPack.includes('#RBCombat'))
+assert.ok(rbCombatPostNow.operatorSummary.includes('RB Combat post now'))
+assert.equal(rbCombatPostNow.packageRenderStatus.localRenderAttached, false)
+const rbCombatDevelop = rbCombatDailyPlan.strongAlternates[0]
+assert.ok(rbCombatDevelop)
+assert.equal(rbCombatDevelop.scoutLabel, 'develop')
+assert.equal(rbCombatDevelop.fighterEntity, 'Canelo Alvarez')
+assert.equal(rbCombatDevelop.opponentEntity, 'Terence Crawford')
+assert.ok(['weigh-in drama', 'stare-down heat'].includes(rbCombatDevelop.rbAngle ?? ''))
+assert.ok(rbCombatDevelop.reviewReason)
+const rbCombatHold = rbCombatDailyPlan.holdOrLowPriority[0]
+assert.ok(rbCombatHold)
+assert.equal(rbCombatHold.scoutLabel, 'hold')
+assert.ok(rbCombatHold.reviewReason?.includes('betting picks') || rbCombatHold.reviewReason?.includes('filler'))
 
 console.log(JSON.stringify({
   sports,
@@ -1265,7 +1533,16 @@ console.log(JSON.stringify({
   rbSportsScheduleHold,
   rbSportsBettingHold,
   rbSportsLongPodcastHold,
+  rbCombatKnockoutPostNow,
+  rbCombatSubmissionTitle,
+  rbCombatCalloutStaredown,
+  rbCombatJudgingControversy,
+  rbCombatInjuryWithdrawal,
+  rbCombatBettingHold,
+  rbCombatLongPodcastHold,
+  rbCombatStaleRepostHold,
   rbSportsDailyPlan,
+  rbCombatDailyPlan,
   dailyPlan: plan,
   rbWomenDailyPlan,
 }, null, 2))

@@ -47,6 +47,22 @@ export type RBSportsEditorialAngle =
   | 'coach/player quote'
   | 'fan debate'
   | 'highlight evidence'
+export type RBCombatScoutLabel = 'post_now' | 'develop' | 'hold'
+export type RBCombatDecisionBand = 'high_confidence' | 'operator_review' | 'hold_unless_timely' | 'reject'
+export type RBCombatEditorialAngle =
+  | 'knockout proof'
+  | 'submission proof'
+  | 'callout'
+  | 'press conference tension'
+  | 'stare-down heat'
+  | 'weigh-in drama'
+  | 'judging controversy'
+  | 'injury / withdrawal'
+  | 'title fight stakes'
+  | 'rivalry heat'
+  | 'viral fighter quote'
+  | 'post-fight reaction'
+  | 'fight evidence'
 
 export type RBSportsIntelligenceMetadata = {
   model: 'rb_sports_content_intelligence_v1'
@@ -64,6 +80,32 @@ export type RBSportsIntelligenceMetadata = {
   leagueEntity: string | null
   entityType: 'player' | 'team' | 'coach' | 'league' | 'transaction' | 'injury' | 'unknown'
   decisionBand: RBSportsDecisionBand
+  scoring: {
+    positive: Record<string, number>
+    penalties: Record<string, number>
+    rawScore: number
+  }
+}
+
+export type RBCombatIntelligenceMetadata = {
+  model: 'rb_combat_content_intelligence_v1'
+  channelKey: 'rb_combat'
+  tiktokHandle: '@runnitbackcombat'
+  rbAngle: RBCombatEditorialAngle
+  scoutLabel: RBCombatScoutLabel
+  scoutingWindowHours: 48
+  breakingWindowHours: 6
+  fightWeekWindowHours: 168
+  primarySearchTopic: string
+  clipTopic: string
+  fighterEntity: string | null
+  opponentEntity: string | null
+  promotionEntity: string | null
+  eventEntity: string | null
+  divisionOrTitleContext: string | null
+  resultContext: string | null
+  entityType: 'fighter' | 'matchup' | 'promotion' | 'event' | 'division' | 'result' | 'injury' | 'unknown'
+  decisionBand: RBCombatDecisionBand
   scoring: {
     positive: Record<string, number>
     penalties: Record<string, number>
@@ -109,6 +151,7 @@ export type RBHQIntelligenceV1 = {
   whyNow: string
   rbWomen?: RBWomenIntelligenceMetadata
   rbSports?: RBSportsIntelligenceMetadata
+  rbCombat?: RBCombatIntelligenceMetadata
 }
 
 export type RBHQIntelligenceInput = {
@@ -145,6 +188,11 @@ export type DailyContentPlanClip = {
   clipTopic: string
   playerEntity: string | null
   teamEntity?: string | null
+  fighterEntity?: string | null
+  opponentEntity?: string | null
+  promotionEntity?: string | null
+  eventEntity?: string | null
+  divisionOrTitleContext?: string | null
   scoutLabel: RBWomenScoutLabel
   rbAngle: string | null
   channelId: string | null
@@ -196,8 +244,13 @@ export type SourceCandidateSummary = {
   hook: string
   playerEntity?: string | null
   teamEntity?: string | null
+  fighterEntity?: string | null
+  opponentEntity?: string | null
+  promotionEntity?: string | null
+  eventEntity?: string | null
+  divisionOrTitleContext?: string | null
   scoutLabel?: RBWomenScoutLabel | null
-  rbAngle?: RBWomenEditorialAngle | RBSportsEditorialAngle | null
+  rbAngle?: RBWomenEditorialAngle | RBSportsEditorialAngle | RBCombatEditorialAngle | null
   packageRenderStatus?: DailyContentPlanClip['packageRenderStatus']
   transcriptSourceStatus?: DailyContentPlanClip['transcriptSourceStatus']
   reviewReason?: string | null
@@ -1754,6 +1807,511 @@ function buildRBSportsIntelligenceV1(input: RBHQIntelligenceInput, analyzer: Tik
   }
 }
 
+const RB_COMBAT_FIGHTER_NAMES = [
+  'islam makhachev',
+  'ilia topuria',
+  'alex pereira',
+  'jon jones',
+  'tom aspinall',
+  'dricus du plessis',
+  'khamzat chimaev',
+  'max holloway',
+  'justin gaethje',
+  'conor mcgregor',
+  "sean o'malley",
+  'merab dvalishvili',
+  'kayla harrison',
+  'claressa shields',
+  'terence crawford',
+  'canelo alvarez',
+  'naoya inoue',
+  'gervonta davis',
+  'dmitry bivol',
+  'oleksandr usyk',
+  'anthony joshua',
+  'tyson fury',
+  'arjun singh',
+  'miguel torres',
+]
+
+const RB_COMBAT_PROMOTION_NAMES = [
+  'ufc',
+  'espn mma',
+  'one championship',
+  'one friday fights',
+  'pfl',
+  'pfl mma',
+  'dazn boxing',
+  'top rank boxing',
+  'matchroom boxing',
+  'mma fighting',
+]
+
+const RB_COMBAT_EVENT_NAMES = [
+  'ufc 300',
+  'ufc 329',
+  'fight night',
+  'pfl playoffs',
+  'one friday fights',
+  'championship fight',
+  'title fight',
+  'main event',
+  'co-main event',
+  'weigh-in',
+  'press conference',
+]
+
+const RB_COMBAT_DIVISION_TERMS = [
+  'lightweight',
+  'welterweight',
+  'middleweight',
+  'heavyweight',
+  'featherweight',
+  'bantamweight',
+  'flyweight',
+  'strawweight',
+  'pound-for-pound',
+  'pound for pound',
+]
+
+const RB_COMBAT_RESULT_TERMS = ['ko', 'tko', 'knockout', 'submission', 'decision', 'split decision', 'stoppage']
+const RB_COMBAT_KNOCKOUT_TERMS = ['ko', 'tko', 'knockout', 'stoppage', 'slept', 'finish']
+const RB_COMBAT_SUBMISSION_TERMS = ['submission', ' tap ', ' taps ', ' tapped ', 'tapout', 'choke', 'armbar', 'triangle', 'rear naked']
+const RB_COMBAT_CALLOUT_TERMS = ['callout', 'calls out', 'called out', 'wants next', 'challenges', 'challenge issued']
+const RB_COMBAT_PRESSER_TERMS = ['press conference', 'presser', 'heated exchange', 'verbal exchange']
+const RB_COMBAT_STAREDOWN_TERMS = ['stare-down', 'staredown', 'faceoff', 'face-off', 'face off']
+const RB_COMBAT_WEIGH_IN_TERMS = ['weigh-in', 'weigh in', 'misses weight', 'missed weight', 'scale']
+const RB_COMBAT_JUDGING_TERMS = ['bad judging', 'controversial decision', 'split decision', 'robbery', 'scorecard', 'scorecards', 'judges']
+const RB_COMBAT_INJURY_TERMS = ['injury', 'injured', 'withdrawal', 'withdraws', 'pulls out', 'replacement', 'short notice']
+const RB_COMBAT_TITLE_TERMS = ['title fight', 'belt', 'championship', 'champion', 'undisputed', 'interim title']
+const RB_COMBAT_RIVALRY_TERMS = ['rivalry', 'rival', 'beef', 'bad blood', 'heated', 'trash talk']
+const RB_COMBAT_QUOTE_TERMS = ['quote', 'said', 'responds', 'response', 'viral quote', 'did not hold back']
+const RB_COMBAT_POST_FIGHT_TERMS = ['post-fight', 'post fight', 'after ufc', 'after the fight', 'reaction', 'reacts']
+const RB_COMBAT_NOISE_TERMS = [
+  'betting',
+  'odds',
+  'parlay',
+  'best bet',
+  'picks',
+  'prediction',
+  'full episode',
+  'podcast',
+  'live stream',
+  'livestream',
+  'ranking',
+  'rankings',
+  'top 10',
+  'classic fight',
+  'free fight',
+  'old fight',
+  'on this day',
+  'training footage',
+  'open workout',
+  'sparring',
+  'compilation',
+  'highlight compilation',
+]
+
+const RB_COMBAT_PROPER_NAME_STOP_WORDS = new Set([
+  'fight night',
+  'ufc fight',
+  'ufc main',
+  'espn mma',
+  'dazn boxing',
+  'top rank',
+  'matchroom boxing',
+  'one championship',
+  'one friday',
+  'pfl playoffs',
+  'press conference',
+  'main event',
+  'co main',
+  'title fight',
+  'las vegas',
+  'abu dhabi',
+  'madison square',
+  't mobile',
+  'knockout highlights',
+  'submission highlights',
+  'full fight',
+  'free fight',
+])
+
+const RB_COMBAT_DISPLAY_NAMES: Record<string, string> = {
+  'islam makhachev': 'Islam Makhachev',
+  'ilia topuria': 'Ilia Topuria',
+  'alex pereira': 'Alex Pereira',
+  'jon jones': 'Jon Jones',
+  'tom aspinall': 'Tom Aspinall',
+  'dricus du plessis': 'Dricus Du Plessis',
+  'khamzat chimaev': 'Khamzat Chimaev',
+  'max holloway': 'Max Holloway',
+  'justin gaethje': 'Justin Gaethje',
+  'conor mcgregor': 'Conor McGregor',
+  "sean o'malley": "Sean O'Malley",
+  'merab dvalishvili': 'Merab Dvalishvili',
+  'kayla harrison': 'Kayla Harrison',
+  'claressa shields': 'Claressa Shields',
+  'terence crawford': 'Terence Crawford',
+  'canelo alvarez': 'Canelo Alvarez',
+  'naoya inoue': 'Naoya Inoue',
+  'gervonta davis': 'Gervonta Davis',
+  'dmitry bivol': 'Dmitry Bivol',
+  'oleksandr usyk': 'Oleksandr Usyk',
+  'anthony joshua': 'Anthony Joshua',
+  'tyson fury': 'Tyson Fury',
+  'arjun singh': 'Arjun Singh',
+  'miguel torres': 'Miguel Torres',
+  ufc: 'UFC',
+  'espn mma': 'ESPN MMA',
+  'one championship': 'ONE Championship',
+  'one friday fights': 'ONE Friday Fights',
+  pfl: 'PFL',
+  'pfl mma': 'PFL',
+  'dazn boxing': 'DAZN Boxing',
+  'top rank boxing': 'Top Rank Boxing',
+  'matchroom boxing': 'Matchroom Boxing',
+  'mma fighting': 'MMA Fighting',
+  'ufc 300': 'UFC 300',
+  'ufc 329': 'UFC 329',
+  'fight night': 'Fight Night',
+  'pfl playoffs': 'PFL Playoffs',
+  ko: 'KO',
+  tko: 'TKO',
+}
+
+function rbCombatDisplayName(value: string): string {
+  return RB_COMBAT_DISPLAY_NAMES[value] ?? value.split(' ').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
+}
+
+function rbCombatMatches(text: string, values: string[]): string[] {
+  const matches: Array<{ value: string; index: number }> = []
+  for (const value of values) {
+    const index = text.indexOf(value)
+    if (index < 0) continue
+    const displayName = rbCombatDisplayName(value)
+    if (!matches.some((match) => match.value === displayName)) matches.push({ value: displayName, index })
+  }
+  return matches.sort((left, right) => left.index - right.index).map((match) => match.value)
+}
+
+function rbCombatTitleSignalText(input: RBHQIntelligenceInput): string {
+  return [
+    input.title,
+    input.source_title,
+    input.hook,
+    input.recommended_hook,
+  ].map(compact).join(' ').toLowerCase()
+}
+
+function rbCombatTitleProperNameCandidates(input: RBHQIntelligenceInput): string[] {
+  const raw = [
+    input.title,
+    input.source_title,
+    input.hook,
+  ].map(compact).join(' ')
+  if (!raw) return []
+
+  const candidates: string[] = []
+  const patterns = [
+    /\b[A-Z][a-zA-Z'’.-]{2,}\s+[A-Z][a-zA-Z'’.-]{2,}\b/g,
+    /\b[A-Z][A-Z'’.-]{2,}\s+[A-Z][A-Z'’.-]{2,}\b/g,
+  ]
+  for (const pattern of patterns) {
+    for (const match of raw.matchAll(pattern)) {
+      const value = compact(match[0].replace(/[|,:;!?()[\]{}]/g, ' '))
+      const lower = value.toLowerCase()
+      if (!value || RB_COMBAT_PROPER_NAME_STOP_WORDS.has(lower)) continue
+      if (RB_COMBAT_PROMOTION_NAMES.includes(lower) || RB_COMBAT_EVENT_NAMES.includes(lower)) continue
+      const words = lower.split(/\s+/).filter(Boolean)
+      if (words.some((word) => ['fight', 'night', 'ufc', 'mma', 'boxing', 'rank', 'title', 'event', 'weigh', 'conference'].includes(word))) continue
+      const displayName = rbCombatDisplayName(lower)
+      if (!candidates.includes(displayName)) candidates.push(displayName)
+    }
+  }
+  return candidates
+}
+
+function rbCombatPromotionFromInput(input: RBHQIntelligenceInput, titleText: string, allText: string): string | null {
+  const source = compact(input.source_name).toLowerCase()
+  return rbCombatMatches(source, RB_COMBAT_PROMOTION_NAMES)[0] ??
+    rbCombatMatches(titleText, RB_COMBAT_PROMOTION_NAMES)[0] ??
+    rbCombatMatches(allText, RB_COMBAT_PROMOTION_NAMES)[0] ??
+    null
+}
+
+function rbCombatEntitiesFromInput(input: RBHQIntelligenceInput): {
+  fighterEntity: string | null
+  opponentEntity: string | null
+  promotionEntity: string | null
+  eventEntity: string | null
+  divisionOrTitleContext: string | null
+  resultContext: string | null
+  entityType: RBCombatIntelligenceMetadata['entityType']
+} {
+  const titleText = rbCombatTitleSignalText(input)
+  const allText = textForSignals(input)
+  const matchedFighters = [
+    ...rbCombatMatches(titleText, RB_COMBAT_FIGHTER_NAMES),
+    ...rbCombatMatches(allText, RB_COMBAT_FIGHTER_NAMES),
+    ...rbCombatTitleProperNameCandidates(input),
+  ]
+  const uniqueFighters = [...new Set(matchedFighters)]
+  const fighterEntity = uniqueFighters[0] ?? null
+  const opponentEntity = uniqueFighters.find((fighter) => fighter !== fighterEntity) ?? null
+  const promotionEntity = rbCombatPromotionFromInput(input, titleText, allText)
+  const eventEntity = rbCombatMatches(titleText, RB_COMBAT_EVENT_NAMES)[0] ??
+    rbCombatMatches(allText, RB_COMBAT_EVENT_NAMES)[0] ??
+    null
+  const divisionOrTitleContext = rbCombatMatches(titleText, RB_COMBAT_DIVISION_TERMS)[0] ??
+    rbCombatMatches(allText, RB_COMBAT_DIVISION_TERMS)[0] ??
+    (containsAny(allText, RB_COMBAT_TITLE_TERMS) ? 'Title fight' : null)
+  const resultContext = rbCombatMatches(titleText, RB_COMBAT_RESULT_TERMS)[0] ??
+    rbCombatMatches(allText, RB_COMBAT_RESULT_TERMS)[0] ??
+    null
+  const entityType: RBCombatIntelligenceMetadata['entityType'] =
+    fighterEntity && opponentEntity ? 'matchup' :
+      fighterEntity ? 'fighter' :
+        containsAny(allText, RB_COMBAT_INJURY_TERMS) ? 'injury' :
+          resultContext ? 'result' :
+            divisionOrTitleContext ? 'division' :
+              eventEntity ? 'event' :
+                promotionEntity ? 'promotion' : 'unknown'
+  return { fighterEntity, opponentEntity, promotionEntity, eventEntity, divisionOrTitleContext, resultContext, entityType }
+}
+
+function rbCombatAngle(text: string): RBCombatEditorialAngle {
+  if (containsAny(text, RB_COMBAT_JUDGING_TERMS)) return 'judging controversy'
+  if (containsAny(text, RB_COMBAT_INJURY_TERMS)) return 'injury / withdrawal'
+  if (containsAny(text, RB_COMBAT_SUBMISSION_TERMS)) return 'submission proof'
+  if (containsAny(text, RB_COMBAT_KNOCKOUT_TERMS)) return 'knockout proof'
+  if (containsAny(text, RB_COMBAT_WEIGH_IN_TERMS)) return 'weigh-in drama'
+  if (containsAny(text, RB_COMBAT_STAREDOWN_TERMS)) return 'stare-down heat'
+  if (containsAny(text, RB_COMBAT_PRESSER_TERMS)) return 'press conference tension'
+  if (containsAny(text, RB_COMBAT_CALLOUT_TERMS)) return 'callout'
+  if (containsAny(text, RB_COMBAT_TITLE_TERMS)) return 'title fight stakes'
+  if (containsAny(text, RB_COMBAT_RIVALRY_TERMS)) return 'rivalry heat'
+  if (containsAny(text, RB_COMBAT_QUOTE_TERMS)) return 'viral fighter quote'
+  if (containsAny(text, RB_COMBAT_POST_FIGHT_TERMS)) return 'post-fight reaction'
+  return 'fight evidence'
+}
+
+function rbCombatTopicForAngle(angle: RBCombatEditorialAngle, entities: ReturnType<typeof rbCombatEntitiesFromInput>, input: RBHQIntelligenceInput): string {
+  const subject = entities.fighterEntity ??
+    entities.opponentEntity ??
+    entities.promotionEntity ??
+    entities.eventEntity ??
+    compact(input.league || input.sport || 'RB Combat')
+  if (angle === 'knockout proof') return `${subject} knockout proof`
+  if (angle === 'submission proof') return `${subject} submission proof`
+  if (angle === 'callout') return `${subject} callout`
+  if (angle === 'press conference tension') return `${subject} press conference tension`
+  if (angle === 'stare-down heat') return `${subject} stare-down heat`
+  if (angle === 'weigh-in drama') return `${subject} weigh-in drama`
+  if (angle === 'judging controversy') return `${subject} judging controversy`
+  if (angle === 'injury / withdrawal') return `${subject} injury withdrawal`
+  if (angle === 'title fight stakes') return `${subject} title fight stakes`
+  if (angle === 'rivalry heat') return `${subject} rivalry heat`
+  if (angle === 'viral fighter quote') return `${subject} fighter quote`
+  if (angle === 'post-fight reaction') return `${subject} post-fight reaction`
+  return `${subject} fight evidence`
+}
+
+function rbCombatDecisionBand(score: number): RBCombatDecisionBand {
+  if (score >= 82) return 'high_confidence'
+  if (score >= 66) return 'operator_review'
+  if (score >= 50) return 'hold_unless_timely'
+  return 'reject'
+}
+
+function rbCombatScoutLabel(decisionBand: RBCombatDecisionBand): RBCombatScoutLabel {
+  if (decisionBand === 'high_confidence') return 'post_now'
+  if (decisionBand === 'operator_review') return 'develop'
+  return 'hold'
+}
+
+function rbCombatRankForBand(band: RBCombatDecisionBand, score: number): RBHQIntelligenceRankLabel {
+  if (band === 'high_confidence') return 'must_post'
+  if (band === 'operator_review') return score >= 76 ? 'strong' : 'solid'
+  return 'low_priority'
+}
+
+function rbCombatUrgencyForBand(band: RBCombatDecisionBand): RBHQIntelligenceUrgency {
+  if (band === 'high_confidence') return 'post_now'
+  if (band === 'operator_review') return 'today'
+  return 'hold'
+}
+
+function rbCombatCaption(input: {
+  subject: string
+  angle: RBCombatEditorialAngle
+}): string {
+  if (input.angle === 'knockout proof') return truncate(`${input.subject} put the finish on tape. That is the whole argument.`, 180)
+  if (input.angle === 'submission proof') return truncate(`${input.subject} gave fight fans the grappling proof, not just a result line.`, 180)
+  if (input.angle === 'callout') return truncate(`${input.subject} gave the callout enough teeth to make the next fight conversation real.`, 180)
+  if (input.angle === 'press conference tension') return truncate(`${input.subject} made the press conference feel like part of the fight.`, 180)
+  if (input.angle === 'stare-down heat') return truncate(`${input.subject} turned the faceoff into the clip people will replay.`, 180)
+  if (input.angle === 'weigh-in drama') return truncate(`${input.subject} made weigh-in day matter before the bell even rings.`, 180)
+  if (input.angle === 'judging controversy') return truncate(`${input.subject} has the decision fight fans are going to argue about.`, 180)
+  if (input.angle === 'injury / withdrawal') return truncate(`${input.subject} changes the card, so the timing matters right now.`, 180)
+  if (input.angle === 'title fight stakes') return truncate(`${input.subject} puts the belt conversation in front of the timeline.`, 180)
+  if (input.angle === 'rivalry heat') return truncate(`${input.subject} made the rivalry feel current again.`, 180)
+  if (input.angle === 'viral fighter quote') return truncate(`${input.subject} gave the quote that turns a fight clip into a debate.`, 180)
+  if (input.angle === 'post-fight reaction') return truncate(`${input.subject} is the post-fight reaction while fans are still sorting the result.`, 180)
+  return truncate(`${input.subject} has enough fight evidence to review today.`, 180)
+}
+
+function rbCombatHashtags(input: RBHQIntelligenceInput, entities: ReturnType<typeof rbCombatEntitiesFromInput>, angle: RBCombatEditorialAngle): string[] {
+  const angleTags: Record<RBCombatEditorialAngle, string> = {
+    'knockout proof': '#KO',
+    'submission proof': '#Submission',
+    callout: '#Callout',
+    'press conference tension': '#PressConference',
+    'stare-down heat': '#Faceoff',
+    'weigh-in drama': '#WeighIn',
+    'judging controversy': '#Robbery',
+    'injury / withdrawal': '#FightNews',
+    'title fight stakes': '#TitleFight',
+    'rivalry heat': '#Rivalry',
+    'viral fighter quote': '#FightQuote',
+    'post-fight reaction': '#PostFight',
+    'fight evidence': '#CombatSports',
+  }
+  return uniqueHashtags([
+    entities.promotionEntity ? `#${entities.promotionEntity}` : '',
+    entities.fighterEntity ? `#${entities.fighterEntity}` : '',
+    entities.opponentEntity ? `#${entities.opponentEntity}` : '',
+    entities.divisionOrTitleContext ? `#${entities.divisionOrTitleContext}` : '',
+    input.league ? `#${input.league}` : '',
+    angleTags[angle],
+    '#RBCombat',
+    '#RunnitBack',
+  ]).slice(0, 5)
+}
+
+function buildRBCombatIntelligenceV1(input: RBHQIntelligenceInput, analyzer: TikTokAnalyzerOutput | null): RBHQIntelligenceV1 {
+  const text = textForSignals(input)
+  const hook = buildHook(input, analyzer)
+  const entities = rbCombatEntitiesFromInput(input)
+  const angle = rbCombatAngle(text)
+  const primarySearchTopic = rbCombatTopicForAngle(angle, entities, input)
+  const subject = entities.fighterEntity ??
+    entities.opponentEntity ??
+    entities.promotionEntity ??
+    entities.eventEntity ??
+    sentenceCase(primarySearchTopic)
+  const hours = recencyHours(input)
+  const fightWeekAngle = ['weigh-in drama', 'stare-down heat', 'press conference tension', 'callout', 'title fight stakes', 'rivalry heat'].includes(angle)
+  const outsideScoutWindow = isYouTubeRssSource(input) && hours !== null && hours > 48
+  const outsideFightWeekWindow = isYouTubeRssSource(input) && hours !== null && hours > 168
+  const insideBreakingWindow = hours === null || hours <= 6
+  const usableWithinFightWeek = fightWeekAngle && !outsideFightWeekWindow
+  const noiseOnly = containsAny(text, RB_COMBAT_NOISE_TERMS) && !containsAny(text, [
+    ...RB_COMBAT_KNOCKOUT_TERMS,
+    ...RB_COMBAT_SUBMISSION_TERMS,
+    ...RB_COMBAT_CALLOUT_TERMS,
+    ...RB_COMBAT_JUDGING_TERMS,
+    ...RB_COMBAT_INJURY_TERMS,
+    ...RB_COMBAT_TITLE_TERMS,
+  ])
+  const hasEntity = Boolean(
+    entities.fighterEntity ||
+    entities.opponentEntity ||
+    entities.promotionEntity ||
+    entities.eventEntity ||
+    entities.divisionOrTitleContext ||
+    entities.resultContext,
+  )
+  const hasFightSignal = angle !== 'fight evidence' || containsAny(text, ['fight', 'fighter', 'mma', 'boxing', 'ufc', 'round', 'card'])
+  const usefulSegment = typeof input.duration_seconds !== 'number' || (input.duration_seconds >= 10 && input.duration_seconds <= 45)
+  const positive = {
+    recognizableFighterOrPromotion: hasEntity ? 18 : 0,
+    finishOrSubmission: angle === 'knockout proof' || angle === 'submission proof' ? 22 : 0,
+    calloutOrTension: ['callout', 'press conference tension', 'stare-down heat', 'weigh-in drama'].includes(angle) ? 18 : 0,
+    controversyOrInjury: angle === 'judging controversy' || angle === 'injury / withdrawal' ? 18 : 0,
+    titleOrRivalry: angle === 'title fight stakes' || angle === 'rivalry heat' ? 16 : 0,
+    quoteOrPostFight: angle === 'viral fighter quote' || angle === 'post-fight reaction' ? 12 : 0,
+    sourceAuthority: sourceAuthoritySignal(input) ? 6 : 0,
+    usefulSegment: usefulSegment ? 8 : 0,
+    fightWeekTiming: usableWithinFightWeek ? 8 : 0,
+    freshness: hours === null ? 4 : hours <= 6 ? 12 : hours <= 24 ? 8 : hours <= 48 ? 4 : usableWithinFightWeek ? 2 : 0,
+    fanReadable: hook.length >= 18 ? 6 : 0,
+  }
+  const penalties = {
+    noiseOnly: noiseOnly ? -40 : 0,
+    outsideScoutWindow: outsideScoutWindow && !usableWithinFightWeek ? -18 : 0,
+    outsideFightWeekWindow: outsideFightWeekWindow ? -20 : 0,
+    noRecognizableEntity: hasEntity ? 0 : -12,
+    weakFightSignal: hasFightSignal ? 0 : -12,
+    outsideUsefulSegment: usefulSegment ? 0 : -15,
+  }
+  const rawScore = 20 +
+    Object.values(positive).reduce((total, value) => total + value, 0) +
+    Object.values(penalties).reduce((total, value) => total + value, 0)
+  const cappedScore = noiseOnly
+    ? Math.min(rawScore, 48)
+    : outsideFightWeekWindow
+      ? Math.min(rawScore, 50)
+      : outsideScoutWindow && !usableWithinFightWeek
+        ? Math.min(rawScore, 62)
+        : rawScore
+  const score = clampScore(cappedScore)
+  const decisionBand = rbCombatDecisionBand(score)
+  const scoutLabel = rbCombatScoutLabel(decisionBand)
+  const rankLabel = rbCombatRankForBand(decisionBand, score)
+  const urgency = rbCombatUrgencyForBand(decisionBand)
+  const reasons = [
+    positive.recognizableFighterOrPromotion ? `RB Combat positive: recognizable fighter, promotion, or event (${subject}).` : null,
+    positive.finishOrSubmission ? `RB Combat positive: ${angle} has strong replay value.` : null,
+    positive.calloutOrTension ? `RB Combat positive: ${angle} gives fight-week tension.` : null,
+    positive.controversyOrInjury ? `RB Combat positive: ${angle} changes the current fight conversation.` : null,
+    positive.titleOrRivalry ? `RB Combat positive: ${angle} gives the clip stakes.` : null,
+    positive.quoteOrPostFight ? 'RB Combat positive: quote or post-fight reaction is clear.' : null,
+    noiseOnly ? 'RB Combat penalty: betting picks, longform, rankings, stale reposts, training, or low-context compilations.' : null,
+    penalties.outsideScoutWindow ? 'RB Combat penalty: outside the 48-hour scouting window.' : null,
+    penalties.outsideFightWeekWindow ? 'RB Combat penalty: outside the 7-day fight-week window.' : null,
+    penalties.noRecognizableEntity ? 'RB Combat penalty: no clear fighter, opponent, promotion, event, division, or result context.' : null,
+    penalties.weakFightSignal ? 'RB Combat penalty: weak current fight-news or fight-highlight signal.' : null,
+    penalties.outsideUsefulSegment ? 'RB Combat penalty: segment is outside the useful 10-45 second range.' : null,
+  ].filter((reason): reason is string => Boolean(reason)).slice(0, MAX_REASON_COUNT)
+  const whyNow = scoutLabel === 'post_now'
+    ? truncate(`Post now: ${primarySearchTopic} has ${angle} inside the 48-hour RB Combat scouting window${insideBreakingWindow ? ' with 0-6 hour urgency' : usableWithinFightWeek ? ' with fight-week urgency' : ''}.`, 180)
+    : truncate(`${scoutLabel === 'develop' ? 'Develop' : 'Hold'}: ${primarySearchTopic} needs operator review because ${reasons[0]?.replace(/^RB Combat (positive|penalty): /, '') ?? 'the signal is not post-now yet'}.`, 180)
+
+  return {
+    score,
+    rankLabel,
+    urgency,
+    reasons,
+    suggestedCaption: rbCombatCaption({ subject, angle }),
+    suggestedHashtags: rbCombatHashtags(input, entities, angle),
+    hook: truncate(`${subject}: ${angle} is the RB Combat angle.`, 110),
+    operatorSummary: truncate(`RB Combat ${scoutLabel.replace(/_/g, ' ')}: ${score}/100 on ${primarySearchTopic}. Keep it fight-aware, fan-first, and evidence-led.`, 180),
+    whyNow,
+    rbCombat: {
+      model: 'rb_combat_content_intelligence_v1',
+      channelKey: 'rb_combat',
+      tiktokHandle: '@runnitbackcombat',
+      rbAngle: angle,
+      scoutLabel,
+      scoutingWindowHours: 48,
+      breakingWindowHours: 6,
+      fightWeekWindowHours: 168,
+      primarySearchTopic,
+      clipTopic: primarySearchTopic,
+      fighterEntity: entities.fighterEntity,
+      opponentEntity: entities.opponentEntity,
+      promotionEntity: entities.promotionEntity,
+      eventEntity: entities.eventEntity,
+      divisionOrTitleContext: entities.divisionOrTitleContext,
+      resultContext: entities.resultContext,
+      entityType: entities.entityType,
+      decisionBand,
+      scoring: { positive, penalties, rawScore },
+    },
+  }
+}
+
 function detectedPatternSignals(text: string, lane: string): ViralSignalCategory[] {
   return VIRAL_SIGNAL_CATEGORIES.filter((category) => {
     if (category.lanes && !category.lanes.includes(lane)) return false
@@ -2165,6 +2723,9 @@ export function buildRBHQIntelligenceV1(input: RBHQIntelligenceInput): RBHQIntel
   if (input.channel_id === 'a1000000-0000-0000-0000-000000000001') {
     return buildRBSportsIntelligenceV1(input, analyzer)
   }
+  if (input.channel_id === 'a1000000-0000-0000-0000-000000000003') {
+    return buildRBCombatIntelligenceV1(input, analyzer)
+  }
   const scoreBoost = viralSignalBoost(input, analyzer)
   const urgencyProbeScore = clampScore(baseScore(input, analyzer) + scoreBoost)
   const urgency = urgencyForInput(input, analyzer, urgencyProbeScore)
@@ -2204,6 +2765,7 @@ function parseIntelligenceCandidate(value: unknown): RBHQIntelligenceV1 | null {
   const candidate = value as Partial<RBHQIntelligenceV1>
   const rbWomen = readRecord(candidate.rbWomen)
   const rbSports = readRecord(candidate.rbSports)
+  const rbCombat = readRecord(candidate.rbCombat)
 
   return {
     score: clampScore(Number(candidate.score ?? 0)),
@@ -2221,6 +2783,7 @@ function parseIntelligenceCandidate(value: unknown): RBHQIntelligenceV1 | null {
     whyNow: truncate(compact(candidate.whyNow), 180),
     ...(rbWomen ? { rbWomen: rbWomen as RBWomenIntelligenceMetadata } : {}),
     ...(rbSports ? { rbSports: rbSports as RBSportsIntelligenceMetadata } : {}),
+    ...(rbCombat ? { rbCombat: rbCombat as RBCombatIntelligenceMetadata } : {}),
   }
 }
 
@@ -2257,7 +2820,7 @@ function toPlanClip(input: RBHQIntelligenceInput & {
   )
   const clipPrep = readPlanObject(readiness?.clipPrep)
   const captionPrep = readPlanObject(clipPrep?.captionPrep ?? clipPrep?.caption_prep)
-  const rbWomenScoutLabel = intelligence.rbWomen?.scoutLabel ?? intelligence.rbSports?.scoutLabel ?? (
+  const scoutLabel = intelligence.rbWomen?.scoutLabel ?? intelligence.rbSports?.scoutLabel ?? intelligence.rbCombat?.scoutLabel ?? (
     intelligence.urgency === 'post_now'
       ? 'post_now'
       : intelligence.urgency === 'hold' || intelligence.rankLabel === 'low_priority'
@@ -2280,7 +2843,8 @@ function toPlanClip(input: RBHQIntelligenceInput & {
       ? readPlanObject(clipPrep?.basis)?.timed_transcript_available as boolean
       : null
   const rbWomenPlan = rbWomenPlanFields(input, intelligence)
-  const lanePlan = rbSportsPlanFields(input, intelligence, rbWomenPlan)
+  const rbSportsPlan = rbSportsPlanFields(input, intelligence, rbWomenPlan)
+  const lanePlan = rbCombatPlanFields(input, intelligence, rbSportsPlan)
   const score = intelligence.score > 0
     ? intelligence.score
     : typeof input.ai_score === 'number' && Number.isFinite(input.ai_score)
@@ -2292,8 +2856,13 @@ function toPlanClip(input: RBHQIntelligenceInput & {
     clipTopic: lanePlan.clipTopic,
     playerEntity: lanePlan.playerEntity,
     teamEntity: lanePlan.teamEntity,
-    scoutLabel: rbWomenScoutLabel,
+    scoutLabel,
     rbAngle: lanePlan.rbAngle,
+    fighterEntity: lanePlan.fighterEntity,
+    opponentEntity: lanePlan.opponentEntity,
+    promotionEntity: lanePlan.promotionEntity,
+    eventEntity: lanePlan.eventEntity,
+    divisionOrTitleContext: lanePlan.divisionOrTitleContext,
     channelId: input.channel_id ?? null,
     lane: laneLabel(input),
     sourceName: input.source_name ?? null,
@@ -2335,6 +2904,10 @@ function reviewReasonForIntelligence(intelligence: RBHQIntelligenceV1): string {
 
 function isRBSportsPlanClip(clip: DailyContentPlanClip): boolean {
   return clip.channelId === 'a1000000-0000-0000-0000-000000000001' || clip.lane === 'RB Sports'
+}
+
+function isRBCombatPlanClip(clip: DailyContentPlanClip): boolean {
+  return clip.channelId === 'a1000000-0000-0000-0000-000000000003' || clip.lane === 'RB Combat'
 }
 
 function selectRBWomenScoutCycle(planClips: DailyContentPlanClip[], limit: number): DailyContentPlanClip[] {
@@ -2520,6 +3093,62 @@ function rbSportsPlanFields(
   }
 }
 
+function rbCombatPlanFields(
+  input: RBHQIntelligenceInput,
+  intelligence: RBHQIntelligenceV1,
+  fallback: ReturnType<typeof rbSportsPlanFields>,
+): ReturnType<typeof rbSportsPlanFields> & {
+  fighterEntity: string | null
+  opponentEntity: string | null
+  promotionEntity: string | null
+  eventEntity: string | null
+  divisionOrTitleContext: string | null
+} {
+  if (input.channel_id !== 'a1000000-0000-0000-0000-000000000003' && laneLabel(input) !== 'RB Combat') {
+    return {
+      ...fallback,
+      fighterEntity: null,
+      opponentEntity: null,
+      promotionEntity: null,
+      eventEntity: null,
+      divisionOrTitleContext: null,
+    }
+  }
+
+  const text = textForSignals(input)
+  const stored = intelligence.rbCombat
+  const entities = rbCombatEntitiesFromInput(input)
+  const rbAngle = stored?.rbAngle ?? rbCombatAngle(text)
+  const clipTopic = stored?.clipTopic ?? rbCombatTopicForAngle(rbAngle, entities, input)
+  const fighterEntity = stored?.fighterEntity ?? entities.fighterEntity
+  const opponentEntity = stored?.opponentEntity ?? entities.opponentEntity
+  const promotionEntity = stored?.promotionEntity ?? entities.promotionEntity
+  const eventEntity = stored?.eventEntity ?? entities.eventEntity
+  const divisionOrTitleContext = stored?.divisionOrTitleContext ?? entities.divisionOrTitleContext
+  const subject = fighterEntity ?? opponentEntity ?? promotionEntity ?? eventEntity ?? sentenceCase(clipTopic)
+  const suggestedCaption = intelligence.suggestedCaption || rbCombatCaption({ subject, angle: rbAngle })
+  const suggestedHashtags = intelligence.suggestedHashtags.length > 0
+    ? intelligence.suggestedHashtags
+    : rbCombatHashtags(input, entities, rbAngle)
+
+  return {
+    ...fallback,
+    clipTopic,
+    playerEntity: fallback.playerEntity,
+    teamEntity: fallback.teamEntity,
+    fighterEntity,
+    opponentEntity,
+    promotionEntity,
+    eventEntity,
+    divisionOrTitleContext,
+    rbAngle,
+    whyNow: intelligence.whyNow,
+    operatorSummary: intelligence.operatorSummary,
+    suggestedCaption,
+    suggestedHashtags,
+  }
+}
+
 function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContentPlanClip {
   const scoutLabel = source.scoutLabel ?? (
     source.urgency === 'post_now'
@@ -2545,7 +3174,9 @@ function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContent
     ? 'a1000000-0000-0000-0000-000000000004'
     : source.targetLane === 'RB Sports'
       ? 'a1000000-0000-0000-0000-000000000001'
-      : null
+      : source.targetLane === 'RB Combat'
+        ? 'a1000000-0000-0000-0000-000000000003'
+        : null
 
   return {
     id: source.id,
@@ -2553,6 +3184,11 @@ function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContent
     clipTopic: source.hook || source.title,
     playerEntity: source.playerEntity ?? null,
     teamEntity: source.teamEntity ?? null,
+    fighterEntity: source.fighterEntity ?? null,
+    opponentEntity: source.opponentEntity ?? null,
+    promotionEntity: source.promotionEntity ?? null,
+    eventEntity: source.eventEntity ?? null,
+    divisionOrTitleContext: source.divisionOrTitleContext ?? null,
     scoutLabel,
     rbAngle: source.rbAngle ?? null,
     channelId,
@@ -2585,33 +3221,35 @@ export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {
   const sourceCandidateOnlyLane = sourceCandidates.length > 0 ? sourceCandidates[0]?.targetLane ?? null : null
   const sourceCandidatePlanClips = clips.length === 0 &&
     sourceCandidates.length > 0 &&
-    (sourceCandidateOnlyLane === 'RB Women' || sourceCandidateOnlyLane === 'RB Sports') &&
+    (sourceCandidateOnlyLane === 'RB Women' || sourceCandidateOnlyLane === 'RB Sports' || sourceCandidateOnlyLane === 'RB Combat') &&
     sourceCandidates.every((source) => source.targetLane === sourceCandidateOnlyLane)
     ? sourceCandidates.map(sourceCandidateToPlanClip)
     : []
   const allPlanClips = [...clips.map(toPlanClip), ...sourceCandidatePlanClips].sort(byPriority)
   const rbWomenOnly = allPlanClips.length > 0 && allPlanClips.every(isRBWomenPlanClip)
   const rbSportsOnly = allPlanClips.length > 0 && allPlanClips.every(isRBSportsPlanClip)
+  const rbCombatOnly = allPlanClips.length > 0 && allPlanClips.every(isRBCombatPlanClip)
+  const scoutCycleOnly = rbWomenOnly || rbSportsOnly || rbCombatOnly
   const planClips = rbWomenOnly
     ? selectRBWomenScoutCycle(allPlanClips, Math.max(1, Math.trunc(input.maxCandidates ?? 3)))
-    : rbSportsOnly
+    : rbSportsOnly || rbCombatOnly
       ? selectScoutCycle(allPlanClips, Math.max(1, Math.trunc(input.maxCandidates ?? 3)))
       : allPlanClips
   const topClipsToPostNow = planClips
-    .filter((clip) => rbWomenOnly || rbSportsOnly ? clip.scoutLabel === 'post_now' : clip.urgency === 'post_now')
-    .slice(0, rbWomenOnly || rbSportsOnly ? 1 : 6)
+    .filter((clip) => scoutCycleOnly ? clip.scoutLabel === 'post_now' : clip.urgency === 'post_now')
+    .slice(0, scoutCycleOnly ? 1 : 6)
   const strongAlternates = planClips
     .filter((clip) =>
       !topClipsToPostNow.some((topClip) => topClip.id === clip.id) &&
-      (rbWomenOnly || rbSportsOnly
+      (scoutCycleOnly
         ? clip.scoutLabel === 'develop'
         : (clip.rankLabel === 'must_post' || clip.rankLabel === 'strong' || (clip.rankLabel === 'solid' && clip.urgency !== 'hold'))),
     )
-    .slice(0, rbWomenOnly || rbSportsOnly ? 1 : 10)
+    .slice(0, scoutCycleOnly ? 1 : 10)
   const holdOrLowPriority = planClips
-    .filter((clip) => rbWomenOnly || rbSportsOnly ? clip.scoutLabel === 'hold' : clip.urgency === 'hold' || clip.rankLabel === 'low_priority')
-    .slice(0, rbWomenOnly || rbSportsOnly ? 1 : 10)
-  const suggestedPostingOrder = [...topClipsToPostNow, ...strongAlternates].sort(byPriority).slice(0, rbWomenOnly || rbSportsOnly ? 3 : 12)
+    .filter((clip) => scoutCycleOnly ? clip.scoutLabel === 'hold' : clip.urgency === 'hold' || clip.rankLabel === 'low_priority')
+    .slice(0, scoutCycleOnly ? 1 : 10)
+  const suggestedPostingOrder = [...topClipsToPostNow, ...strongAlternates].sort(byPriority).slice(0, scoutCycleOnly ? 3 : 12)
   const lanes = new Map<string, number>()
   for (const clip of [...topClipsToPostNow, ...strongAlternates]) {
     lanes.set(clip.lane, (lanes.get(clip.lane) ?? 0) + 1)

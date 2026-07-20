@@ -298,8 +298,6 @@ const TRAINING_FOOTAGE_PATTERNS = [
 
 const BOOST_PATTERNS = [
   'knockout',
-  'ko',
-  'tko',
   'submission',
   'stoppage',
   'tap out',
@@ -418,7 +416,7 @@ export function classifyRBCombatSourceCandidate(input: {
 
   if ((longContext || staleRepost || trainingFootage || score < 62) && !boosted) {
     return {
-      treatment: score >= 45 ? 'held' : 'rejected',
+      treatment: longContext || staleRepost || trainingFootage || score >= 45 ? 'held' : 'rejected',
       reasons: reasons.length ? reasons : ['Held for operator review by RB Combat source filters.'],
       sourcePriority: source.priority,
       sourcePriorityScore: source.sourcePriorityScore,
