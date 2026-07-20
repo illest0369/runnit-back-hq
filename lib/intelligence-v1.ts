@@ -1234,6 +1234,7 @@ function buildRBWomenIntelligenceV1(input: RBHQIntelligenceInput, analyzer: TikT
 }
 
 const RB_SPORTS_PLAYER_NAMES = [
+  'lebron',
   'lebron james',
   'luka doncic',
   'stephen curry',
@@ -1251,6 +1252,9 @@ const RB_SPORTS_PLAYER_NAMES = [
   'aaron judge',
   'connor mcdavid',
   'sidney crosby',
+  'caitlin clark',
+  'roman henry',
+  'marquice pless',
 ]
 
 const RB_SPORTS_TEAM_NAMES = [
@@ -1270,6 +1274,8 @@ const RB_SPORTS_TEAM_NAMES = [
   'dodgers',
   'maple leafs',
   'oilers',
+  'mokan elite',
+  'az unity',
 ]
 
 const RB_SPORTS_COACH_NAMES = [
@@ -1284,6 +1290,7 @@ const RB_SPORTS_COACH_NAMES = [
 const RB_SPORTS_LEAGUE_NAMES = ['nba', 'nfl', 'mlb', 'nhl']
 
 const RB_SPORTS_DISPLAY_NAMES: Record<string, string> = {
+  lebron: 'LeBron James',
   'lebron james': 'LeBron James',
   'luka doncic': 'Luka Doncic',
   'stephen curry': 'Stephen Curry',
@@ -1301,6 +1308,9 @@ const RB_SPORTS_DISPLAY_NAMES: Record<string, string> = {
   'aaron judge': 'Aaron Judge',
   'connor mcdavid': 'Connor McDavid',
   'sidney crosby': 'Sidney Crosby',
+  'caitlin clark': 'Caitlin Clark',
+  'roman henry': 'Roman Henry',
+  'marquice pless': 'Marquice Pless',
   'lakers': 'Lakers',
   'los angeles lakers': 'Los Angeles Lakers',
   'warriors': 'Warriors',
@@ -1317,6 +1327,8 @@ const RB_SPORTS_DISPLAY_NAMES: Record<string, string> = {
   'dodgers': 'Dodgers',
   'maple leafs': 'Maple Leafs',
   'oilers': 'Oilers',
+  'mokan elite': 'MOKAN Elite',
+  'az unity': 'AZ Unity',
   'andy reid': 'Andy Reid',
   'steve kerr': 'Steve Kerr',
   'jj redick': 'JJ Redick',
@@ -1371,6 +1383,33 @@ const RB_SPORTS_NOISE_TERMS = [
   'compilation',
 ]
 
+const RB_SPORTS_RB_WOMEN_SPILLOVER_TERMS = [
+  'wnba',
+  'women’s basketball',
+  'womens basketball',
+  'women basketball',
+  'caitlin clark',
+  'paige bueckers',
+  'angel reese',
+  'aja wilson',
+  'a’ja wilson',
+]
+
+const RB_SPORTS_PROPER_NAME_STOP_WORDS = new Set([
+  'career high',
+  'historic night',
+  'fastest player',
+  'full game',
+  'full highlights',
+  'game highlights',
+  'final possession',
+  'second night',
+  'back to',
+  'new career',
+  'player to',
+  'sports center',
+])
+
 function rbSportsDisplayName(value: string): string {
   return RB_SPORTS_DISPLAY_NAMES[value] ?? value.split(' ').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
 }
@@ -1383,6 +1422,35 @@ function rbSportsMatches(text: string, values: string[]): string[] {
     if (!matches.includes(displayName)) matches.push(displayName)
   }
   return matches
+}
+
+function rbSportsTitleProperNameCandidates(input: RBHQIntelligenceInput): string[] {
+  const raw = [
+    input.title,
+    input.source_title,
+    input.hook,
+  ].map(compact).join(' ')
+  if (!raw) return []
+
+  const candidates: string[] = []
+  const patterns = [
+    /\b[A-Z][a-zA-Z'’.-]{2,}\s+[A-Z][a-zA-Z'’.-]{2,}\b/g,
+    /\b[A-Z][A-Z'’.-]{2,}\s+[A-Z][A-Z'’.-]{2,}\b/g,
+  ]
+  for (const pattern of patterns) {
+    for (const match of raw.matchAll(pattern)) {
+      const value = compact(match[0].replace(/[|,:;!?()[\]{}]/g, ' '))
+      const lower = value.toLowerCase()
+      if (!value || RB_SPORTS_PROPER_NAME_STOP_WORDS.has(lower)) continue
+      if (RB_SPORTS_LEAGUE_NAMES.includes(lower)) continue
+      if (RB_SPORTS_TEAM_NAMES.includes(lower)) continue
+      if (RB_SPORTS_COACH_NAMES.includes(lower)) continue
+      if (containsAny(lower, ['career', 'historic', 'fastest', 'player', 'full', 'night'])) continue
+      const displayName = rbSportsDisplayName(lower)
+      if (!candidates.includes(displayName)) candidates.push(displayName)
+    }
+  }
+  return candidates
 }
 
 function rbSportsTitleSignalText(input: RBHQIntelligenceInput): string {
@@ -1403,7 +1471,11 @@ function rbSportsEntitiesFromInput(input: RBHQIntelligenceInput): {
 } {
   const titleText = rbSportsTitleSignalText(input)
   const allText = textForSignals(input)
-  const players = [...rbSportsMatches(titleText, RB_SPORTS_PLAYER_NAMES), ...rbSportsMatches(allText, RB_SPORTS_PLAYER_NAMES)]
+  const players = [
+    ...rbSportsMatches(titleText, RB_SPORTS_PLAYER_NAMES),
+    ...rbSportsMatches(allText, RB_SPORTS_PLAYER_NAMES),
+    ...rbSportsTitleProperNameCandidates(input),
+  ]
   const teams = [...rbSportsMatches(titleText, RB_SPORTS_TEAM_NAMES), ...rbSportsMatches(allText, RB_SPORTS_TEAM_NAMES)]
   const coaches = [...rbSportsMatches(titleText, RB_SPORTS_COACH_NAMES), ...rbSportsMatches(allText, RB_SPORTS_COACH_NAMES)]
   const leagues = [
@@ -1440,6 +1512,11 @@ function rbSportsAngle(text: string): RBSportsEditorialAngle {
   if (containsAny(text, RB_SPORTS_FAN_DEBATE_TERMS)) return 'fan debate'
   if (containsAny(text, RB_SPORTS_BREAKING_TERMS)) return 'breaking reaction'
   return 'highlight evidence'
+}
+
+function rbSportsIsRBWomenSpillover(input: RBHQIntelligenceInput, text: string): boolean {
+  const league = compact(input.league).toLowerCase()
+  return league === 'wnba' || containsAny(text, RB_SPORTS_RB_WOMEN_SPILLOVER_TERMS)
 }
 
 function rbSportsTopicForAngle(angle: RBSportsEditorialAngle, entities: ReturnType<typeof rbSportsEntitiesFromInput>, input: RBHQIntelligenceInput): string {
@@ -1537,6 +1614,7 @@ function buildRBSportsIntelligenceV1(input: RBHQIntelligenceInput, analyzer: Tik
   const hours = recencyHours(input)
   const outsideScoutWindow = isYouTubeRssSource(input) && hours !== null && hours > 48
   const insideBreakingWindow = hours === null || hours <= 6
+  const rbWomenSpillover = rbSportsIsRBWomenSpillover(input, text)
   const noiseOnly = containsAny(text, RB_SPORTS_NOISE_TERMS) && !containsAny(text, [
     ...RB_SPORTS_BREAKING_TERMS,
     ...RB_SPORTS_CLUTCH_TERMS,
@@ -1562,6 +1640,7 @@ function buildRBSportsIntelligenceV1(input: RBHQIntelligenceInput, analyzer: Tik
     freshness: hours === null ? 4 : hours <= 6 ? 12 : hours <= 24 ? 8 : hours <= 48 ? 4 : 0,
   }
   const penalties = {
+    rbWomenSpillover: rbWomenSpillover ? -45 : 0,
     noiseOnly: noiseOnly ? -35 : 0,
     outsideScoutWindow: outsideScoutWindow ? -18 : 0,
     noRecognizableEntity: hasEntity ? 0 : -12,
@@ -1571,7 +1650,13 @@ function buildRBSportsIntelligenceV1(input: RBHQIntelligenceInput, analyzer: Tik
   const rawScore = 20 +
     Object.values(positive).reduce((total, value) => total + value, 0) +
     Object.values(penalties).reduce((total, value) => total + value, 0)
-  const cappedScore = noiseOnly ? Math.min(rawScore, 48) : outsideScoutWindow ? Math.min(rawScore, 62) : rawScore
+  const cappedScore = rbWomenSpillover
+    ? Math.min(rawScore, 48)
+    : noiseOnly
+      ? Math.min(rawScore, 48)
+      : outsideScoutWindow
+        ? Math.min(rawScore, 62)
+        : rawScore
   const score = clampScore(cappedScore)
   const decisionBand = rbSportsDecisionBand(score)
   const scoutLabel = rbSportsScoutLabel(decisionBand)
@@ -1585,6 +1670,7 @@ function buildRBSportsIntelligenceV1(input: RBHQIntelligenceInput, analyzer: Tik
     positive.rivalryPlayoffUpset ? `RB Sports positive: ${angle} gives the clip stakes.` : null,
     positive.starPerformance ? 'RB Sports positive: star performance evidence is clear.' : null,
     positive.quoteOrFanDebate ? 'RB Sports positive: quote or fan-debate framing is clear.' : null,
+    rbWomenSpillover ? 'RB Sports penalty: WNBA or women’s basketball spillover belongs in RB Women Phase 1.' : null,
     noiseOnly ? 'RB Sports penalty: betting, fantasy, rankings, schedule, longform, or low-context filler.' : null,
     outsideScoutWindow ? 'RB Sports penalty: outside the 48-hour scouting window.' : null,
     penalties.noRecognizableEntity ? 'RB Sports penalty: no clear player, team, coach, league, transaction, or injury entity.' : null,

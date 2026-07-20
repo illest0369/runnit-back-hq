@@ -462,6 +462,42 @@ const rbSportsLongPodcastHold = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbSportsWnbaSpilloverHold = buildRBHQIntelligenceV1({
+  id: 'rb-sports-wnba-spillover-hold',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'CAITLIN CLARK HISTORIC NIGHT NEW CAREER HIGH & FASTEST PLAYER TO 200 CAREER 3PM | WNBA on ESPN',
+  hook: 'Caitlin had the performance everyone is talking about',
+  source_name: 'ESPN',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'WNBA',
+  duration_seconds: 30,
+  ai_score: 82,
+  virality_score: 82,
+  hook_strength: 80,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'WNBA on ESPN, Caitlin Clark, career high, 200 career threes, star performance, and women’s basketball.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbSportsPeachJamEntities = buildRBHQIntelligenceV1({
+  id: 'rb-sports-peach-jam-entities',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: '15U 2026 Peach Jam Championship | Roman Henry, MOKAN Elite vs. Marquice Pless, AZ Unity',
+  hook: 'The championship matchup has real prospect names',
+  source_name: 'NBA',
+  source_type: 'youtube_rss',
+  sport: 'basketball',
+  league: 'NBA',
+  duration_seconds: 32,
+  ai_score: 76,
+  virality_score: 76,
+  hook_strength: 72,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Peach Jam championship, Roman Henry, MOKAN Elite, Marquice Pless, AZ Unity, playoff stakes, and highlight evidence.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const rbSportsChiefsQuote = buildRBHQIntelligenceV1({
   id: 'rb-sports-chiefs-quote',
   channel_id: 'a1000000-0000-0000-0000-000000000001',
@@ -935,6 +971,13 @@ assert.ok(rbSportsBettingHold.reasons.some((reason) => reason.includes('betting'
 assert.equal(rbSportsLongPodcastHold.rbSports?.scoutLabel, 'hold')
 assert.equal(rbSportsLongPodcastHold.urgency, 'hold')
 assert.ok(rbSportsLongPodcastHold.reasons.some((reason) => reason.includes('longform') || reason.includes('segment')))
+assert.equal(rbSportsWnbaSpilloverHold.rbSports?.scoutLabel, 'hold')
+assert.equal(rbSportsWnbaSpilloverHold.urgency, 'hold')
+assert.equal(rbSportsWnbaSpilloverHold.rbSports?.playerEntity, 'Caitlin Clark')
+assert.ok(rbSportsWnbaSpilloverHold.reasons.some((reason) => reason.includes('RB Women Phase 1')))
+assert.equal(rbSportsPeachJamEntities.rbSports?.playerEntity, 'Roman Henry')
+assert.equal(rbSportsPeachJamEntities.rbSports?.teamEntity, 'MOKAN Elite')
+assert.equal(rbSportsPeachJamEntities.rbSports?.rbAngle, 'playoff stakes')
 assert.equal(rbSportsChiefsQuote.rbSports?.teamEntity, 'Chiefs')
 assert.equal(rbSportsChiefsQuote.rbSports?.playerEntity, 'Patrick Mahomes')
 assert.equal(rbSportsChiefsQuote.rbSports?.coachEntity, 'Andy Reid')
