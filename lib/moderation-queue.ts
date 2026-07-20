@@ -132,6 +132,7 @@ const N8N_SCHEMA_BACKED_PUBLISH_STATUSES = [
 ] as const satisfies readonly ClipPublishStatus[]
 const EDITORIAL_CAPTION_PREFIX = 'editorial_caption:'
 const EDITORIAL_HASHTAGS_PREFIX = 'editorial_hashtags:'
+const RB_SPORTS_STALE_EVENT_SUBJECT_PATTERN = /\b(?:Fifa World|Spain World|Spain Take)\b/g
 
 function channelKeyForSlug(slug: string | null | undefined): string | null {
   if (!slug) return null
@@ -148,6 +149,16 @@ function readJsonNote<T>(notes: string[], prefix: string): T | null {
   } catch {
     return null
   }
+}
+
+function sanitizeRBSportsStoredCopy(
+  value: string | null,
+  metadata: { playerEntity?: string | null; teamEntity?: string | null; coachEntity?: string | null; leagueEntity?: string | null } | null,
+): string | null {
+  if (!value) return value
+  const subject = metadata?.playerEntity ?? metadata?.teamEntity ?? metadata?.coachEntity ?? metadata?.leagueEntity ?? null
+  if (!subject) return value
+  return value.replace(RB_SPORTS_STALE_EVENT_SUBJECT_PATTERN, subject)
 }
 
 function buildRbhqPostJobData(clip: ModerationClip): RbhqPostJobData {
@@ -2053,10 +2064,10 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow, pkg: SourceCandida
     ? breakdown.suggestedHashtags
     : null
   const rbSportsStoredWhyNow = isRBSports && typeof breakdown.whyNow === 'string'
-    ? breakdown.whyNow
+    ? sanitizeRBSportsStoredCopy(breakdown.whyNow, rbSports)
     : null
   const rbSportsStoredOperatorSummary = isRBSports && typeof breakdown.operatorSummary === 'string'
-    ? breakdown.operatorSummary
+    ? sanitizeRBSportsStoredCopy(breakdown.operatorSummary, rbSports)
     : null
   const suggestedCaption = isRBWomen && intelligence
     ? intelligence.suggestedCaption
@@ -2080,6 +2091,8 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow, pkg: SourceCandida
     ? intelligence.whyNow
     : rbSportsStoredWhyNow
       ? rbSportsStoredWhyNow
+    : isRBSports && intelligence
+      ? intelligence.whyNow
     : typeof breakdown.whyNow === 'string'
       ? breakdown.whyNow
       : intelligence?.whyNow ?? ''
@@ -2087,6 +2100,8 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow, pkg: SourceCandida
     ? intelligence.operatorSummary
     : rbSportsStoredOperatorSummary
       ? rbSportsStoredOperatorSummary
+    : isRBSports && intelligence
+      ? intelligence.operatorSummary
     : typeof breakdown.operatorSummary === 'string'
       ? breakdown.operatorSummary
       : intelligence?.operatorSummary ?? ''

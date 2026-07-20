@@ -1433,6 +1433,7 @@ const RB_SPORTS_PROPER_NAME_STOP_WORDS = new Set([
   'new career',
   'player to',
   'sports center',
+  'the sports',
   'las vegas',
   'summer league',
   'mlb season',
@@ -1480,7 +1481,12 @@ function rbSportsTitleProperNameCandidates(input: RBHQIntelligenceInput): string
       if (RB_SPORTS_LEAGUE_NAMES.includes(lower)) continue
       if (RB_SPORTS_TEAM_NAMES.includes(lower)) continue
       if (RB_SPORTS_COACH_NAMES.includes(lower)) continue
-      if (containsAny(lower, ['career', 'historic', 'fastest', 'player', 'full', 'night'])) continue
+      const words = lower.split(/\s+/).filter(Boolean)
+      const startsWithKnownContext = words.length > 1 &&
+        (RB_SPORTS_TEAM_NAMES.includes(words[0]) || RB_SPORTS_LEAGUE_NAMES.includes(words[0]))
+      const hasEventContextWord = words.some((word) => ['world', 'cup', 'league', 'season', 'final'].includes(word))
+      if (!RB_SPORTS_PLAYER_NAMES.includes(lower) && (startsWithKnownContext || hasEventContextWord)) continue
+      if (containsAny(lower, ['career', 'historic', 'fastest', 'player', 'full', 'night', 'preview', 'reporters'])) continue
       const displayName = rbSportsDisplayName(lower)
       if (!candidates.includes(displayName)) candidates.push(displayName)
     }
@@ -1513,10 +1519,11 @@ function rbSportsEntitiesFromInput(input: RBHQIntelligenceInput): {
   ]
   const teams = [...rbSportsMatches(titleText, RB_SPORTS_TEAM_NAMES), ...rbSportsMatches(allText, RB_SPORTS_TEAM_NAMES)]
   const coaches = [...rbSportsMatches(titleText, RB_SPORTS_COACH_NAMES), ...rbSportsMatches(allText, RB_SPORTS_COACH_NAMES)]
+  const inputLeague = compact(input.league).toLowerCase()
   const leagues = [
+    inputLeague ? rbSportsDisplayName(inputLeague) : '',
     ...rbSportsMatches(titleText, RB_SPORTS_LEAGUE_NAMES),
     ...rbSportsMatches(allText, RB_SPORTS_LEAGUE_NAMES),
-    compact(input.league).toUpperCase(),
   ].filter(Boolean)
   const unique = (values: string[]) => [...new Set(values)]
   const playerEntity = unique(players)[0] ?? null

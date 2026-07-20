@@ -534,6 +534,42 @@ const rbSportsWorldCupEntities = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbSportsWorldCupTeamLead = buildRBHQIntelligenceV1({
+  id: 'rb-sports-world-cup-team-lead',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'SPAIN TAKE 1-0 LEAD IN WC FINAL',
+  hook: 'Spain take the early World Cup final lead',
+  source_name: 'House of Highlights',
+  source_type: 'youtube_rss',
+  sport: 'soccer',
+  league: 'FIFA World Cup',
+  duration_seconds: 22,
+  ai_score: 72,
+  virality_score: 74,
+  hook_strength: 70,
+  published_at: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+  text: 'Spain goal, Argentina reaction, World Cup final stakes, and match highlight evidence.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbSportsWorldCupPreviewEntities = buildRBHQIntelligenceV1({
+  id: 'rb-sports-world-cup-preview-entities',
+  channel_id: 'a1000000-0000-0000-0000-000000000001',
+  title: 'Argentina vs. Spain World Cup Final PREVIEW + FIFA controversies | The Sports Reporters',
+  hook: 'Argentina and Spain set up the World Cup final debate',
+  source_name: 'ESPN',
+  source_type: 'youtube_rss',
+  sport: 'soccer',
+  league: 'FIFA World Cup',
+  duration_seconds: 40,
+  ai_score: 70,
+  virality_score: 72,
+  hook_strength: 70,
+  published_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+  text: 'Argentina vs Spain, FIFA World Cup final preview, controversy, rivalry heat, and fan debate.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const rbSportsChiefsQuote = buildRBHQIntelligenceV1({
   id: 'rb-sports-chiefs-quote',
   channel_id: 'a1000000-0000-0000-0000-000000000001',
@@ -1105,6 +1141,14 @@ assert.notEqual(rbSportsWorldCupEntities.rbSports?.playerEntity, 'Fifa World')
 assert.notEqual(rbSportsWorldCupEntities.rbSports?.playerEntity, 'FIFA World Cup')
 assert.notEqual(rbSportsWorldCupEntities.rbSports?.playerEntity, 'World Cup')
 assert.ok(rbSportsWorldCupEntities.suggestedHashtags.includes('#LionelMessi'))
+assert.equal(rbSportsWorldCupTeamLead.rbSports?.playerEntity, null)
+assert.equal(rbSportsWorldCupTeamLead.rbSports?.teamEntity, 'Spain')
+assert.equal(rbSportsWorldCupTeamLead.rbSports?.leagueEntity, 'FIFA World Cup')
+assert.notEqual(rbSportsWorldCupTeamLead.rbSports?.playerEntity, 'Spain Take')
+assert.equal(rbSportsWorldCupPreviewEntities.rbSports?.playerEntity, null)
+assert.equal(rbSportsWorldCupPreviewEntities.rbSports?.teamEntity, 'Spain')
+assert.equal(rbSportsWorldCupPreviewEntities.rbSports?.leagueEntity, 'FIFA World Cup')
+assert.notEqual(rbSportsWorldCupPreviewEntities.rbSports?.playerEntity, 'Spain World')
 assert.equal(rbSportsChiefsQuote.rbSports?.teamEntity, 'Chiefs')
 assert.equal(rbSportsChiefsQuote.rbSports?.playerEntity, 'Patrick Mahomes')
 assert.equal(rbSportsChiefsQuote.rbSports?.coachEntity, 'Andy Reid')
