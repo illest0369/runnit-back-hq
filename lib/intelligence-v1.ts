@@ -2522,6 +2522,12 @@ function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContent
     sourceType: 'youtube_rss',
     sourceStatus: source.videoUrl ? 'available' : null,
   }
+  const channelId = source.targetLane === 'RB Women'
+    ? 'a1000000-0000-0000-0000-000000000004'
+    : source.targetLane === 'RB Sports'
+      ? 'a1000000-0000-0000-0000-000000000001'
+      : null
+
   return {
     id: source.id,
     title: source.title,
@@ -2530,7 +2536,7 @@ function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContent
     teamEntity: source.teamEntity ?? null,
     scoutLabel,
     rbAngle: source.rbAngle ?? null,
-    channelId: source.targetLane === 'RB Women' ? 'a1000000-0000-0000-0000-000000000004' : null,
+    channelId,
     lane: source.targetLane ?? 'RBHQ',
     sourceName: source.sourceName,
     score: source.score,
@@ -2557,7 +2563,11 @@ export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {
   status?: string | null
   publish_status?: string | null
 }>(clips: T[], sourceCandidates: SourceCandidateSummary[] = [], input: { maxCandidates?: number | null } = {}): DailyContentPlan {
-  const sourceCandidatePlanClips = clips.length === 0 && sourceCandidates.length > 0 && sourceCandidates.every((source) => source.targetLane === 'RB Women')
+  const sourceCandidateOnlyLane = sourceCandidates.length > 0 ? sourceCandidates[0]?.targetLane ?? null : null
+  const sourceCandidatePlanClips = clips.length === 0 &&
+    sourceCandidates.length > 0 &&
+    (sourceCandidateOnlyLane === 'RB Women' || sourceCandidateOnlyLane === 'RB Sports') &&
+    sourceCandidates.every((source) => source.targetLane === sourceCandidateOnlyLane)
     ? sourceCandidates.map(sourceCandidateToPlanClip)
     : []
   const allPlanClips = [...clips.map(toPlanClip), ...sourceCandidatePlanClips].sort(byPriority)

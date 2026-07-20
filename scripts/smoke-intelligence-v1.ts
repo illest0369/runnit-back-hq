@@ -708,6 +708,85 @@ const rbWomenSourceCandidatePlan = buildDailyContentPlan([], [
     operatorSummary: 'RB Women hold: 55/100 on Olivia Miles veteran rookie matchup.',
   },
 ])
+const rbSportsSourceCandidatePlan = buildDailyContentPlan([], [
+  {
+    id: 'rb-sports-source-nuggets',
+    title: 'NUGGETS vs RAPTORS | LAS VEGAS SUMMER LEAGUE | FULL GAME HIGHLIGHTS',
+    videoUrl: 'https://www.youtube.com/watch?v=NUGGETS',
+    thumbnailUrl: null,
+    publishedAt: new Date().toISOString(),
+    sourceName: 'NBA',
+    sourceChannelKey: 'nba_official',
+    targetLane: 'RB Sports',
+    score: 84,
+    rankLabel: 'must_post',
+    urgency: 'post_now',
+    hook: 'Nuggets: star performance is the RB Sports angle.',
+    teamEntity: 'Nuggets',
+    scoutLabel: 'post_now',
+    rbAngle: 'star performance',
+    packageRenderStatus: {
+      packageId: 'rb-sports-nuggets-package',
+      clipPrepStatus: 'ready',
+      localRenderStatus: 'attached',
+      localRenderAttached: true,
+      localAssetPath: '/tmp/rb-sports-nuggets.mp4',
+    },
+    transcriptSourceStatus: {
+      subtitleSource: 'metadata_only',
+      transcriptTimed: false,
+      sourceType: 'youtube_rss',
+      sourceStatus: 'source_available_no_transcript',
+    },
+    suggestedCaption: 'Nuggets put the performance on tape, so lead with the evidence.',
+    suggestedHashtags: ['#NBA', '#Nuggets', '#Highlights', '#RBSports', '#RunnitBack'],
+    whyNow: 'Post now: Nuggets star performance has star performance inside the 48-hour RB Sports scouting window with 0-6 hour urgency.',
+    operatorSummary: 'RB Sports post now: 84/100 on Nuggets star performance. Keep it direct, fan-first, and evidence-led.',
+  },
+  {
+    id: 'rb-sports-source-peach-jam',
+    title: 'NBA Peach Jam: Roman Henry leads playoff comeback',
+    videoUrl: 'https://www.youtube.com/watch?v=PEACHJAM',
+    thumbnailUrl: null,
+    publishedAt: new Date().toISOString(),
+    sourceName: 'NBA',
+    sourceChannelKey: 'nba_official',
+    targetLane: 'RB Sports',
+    score: 81,
+    rankLabel: 'strong',
+    urgency: 'today',
+    hook: 'Roman Henry playoff stakes need a tighter cut.',
+    playerEntity: 'Roman Henry',
+    scoutLabel: 'develop',
+    rbAngle: 'playoff stakes',
+    suggestedCaption: 'Roman Henry gave the game a playoff-stakes proof point.',
+    suggestedHashtags: ['#NBA', '#RomanHenry', '#RBSports', '#RunnitBack'],
+    whyNow: 'Develop: Roman Henry playoff stakes needs a verified 10-45 second segment before it becomes post-now.',
+    operatorSummary: 'RB Sports develop: 81/100 on Roman Henry playoff stakes. Strong angle, but needs segment proof.',
+    reviewReason: 'Needs a verified 10-45 second segment before packaging.',
+  },
+  {
+    id: 'rb-sports-source-hold',
+    title: 'NBA announces regular season schedule and ticket reminders',
+    videoUrl: 'https://www.youtube.com/watch?v=SCHEDULE',
+    thumbnailUrl: null,
+    publishedAt: new Date().toISOString(),
+    sourceName: 'NBA',
+    sourceChannelKey: 'nba_official',
+    targetLane: 'RB Sports',
+    score: 35,
+    rankLabel: 'low_priority',
+    urgency: 'hold',
+    hook: 'Schedule filler without a clip.',
+    scoutLabel: 'hold',
+    rbAngle: 'fan debate',
+    suggestedCaption: 'Schedule filler is not the clip.',
+    suggestedHashtags: ['#NBA', '#RBSports'],
+    whyNow: 'Hold: schedule filler has no clear player, team, quote, or highlight segment.',
+    operatorSummary: 'RB Sports hold: 35/100 on schedule filler.',
+    reviewReason: 'Schedule filler without a useful highlight segment.',
+  },
+])
 const rbWomenDailyPlan = buildDailyContentPlan([
   {
     id: 'rb-women-daily-plan-flaujae',
@@ -1017,6 +1096,16 @@ assert.equal(rbWomenSourceCandidatePlan.topClipsToPostNow[0]?.playerEntity, 'Kel
 assert.equal(rbWomenSourceCandidatePlan.topClipsToPostNow[0]?.rbAngle, 'basketball evidence')
 assert.equal(rbWomenSourceCandidatePlan.topClipsToPostNow[0]?.packageRenderStatus.localRenderAttached, true)
 assert.equal(rbWomenSourceCandidatePlan.topClipsToPostNow[0]?.transcriptSourceStatus.subtitleSource, 'metadata_only')
+assert.equal(rbSportsSourceCandidatePlan.topClipsToPostNow.length, 1)
+assert.equal(rbSportsSourceCandidatePlan.strongAlternates.length, 1)
+assert.equal(rbSportsSourceCandidatePlan.holdOrLowPriority.length, 1)
+assert.equal(rbSportsSourceCandidatePlan.topClipsToPostNow[0]?.teamEntity, 'Nuggets')
+assert.equal(rbSportsSourceCandidatePlan.topClipsToPostNow[0]?.rbAngle, 'star performance')
+assert.equal(rbSportsSourceCandidatePlan.topClipsToPostNow[0]?.channelId, 'a1000000-0000-0000-0000-000000000001')
+assert.equal(rbSportsSourceCandidatePlan.topClipsToPostNow[0]?.packageRenderStatus.localRenderAttached, true)
+assert.equal(rbSportsSourceCandidatePlan.topClipsToPostNow[0]?.transcriptSourceStatus.subtitleSource, 'metadata_only')
+assert.ok(rbSportsSourceCandidatePlan.strongAlternates[0]?.reviewReason?.includes('verified 10-45 second segment'))
+assert.ok(rbSportsSourceCandidatePlan.holdOrLowPriority[0]?.reviewReason?.includes('Schedule filler'))
 const rbWomenMustPost = rbWomenDailyPlan.topClipsToPostNow[0]
 assert.ok(rbWomenMustPost)
 assert.equal(rbWomenDailyPlan.topClipsToPostNow.length, 1)

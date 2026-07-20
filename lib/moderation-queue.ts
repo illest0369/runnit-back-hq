@@ -11,6 +11,7 @@ import {
   type SourceCandidateSummary,
 } from './intelligence-v1'
 import { RB_WOMEN_CHANNEL_ID, rbWomenPhase1SourceForKey } from './rb-women-source-config'
+import { RB_SPORTS_CHANNEL_ID, rbSportsPhase1SourceForKey } from './rb-sports-source-config'
 import {
   analyzeClipForTikTok,
   getStoredTikTokAnalysis,
@@ -1897,6 +1898,12 @@ type ClipCandidateQueryRow = {
       scoutLabel?: 'post_now' | 'develop' | 'hold'
       rbAngle?: SourceCandidateSummary['rbAngle']
     }
+    rbSports?: {
+      playerEntity?: string | null
+      teamEntity?: string | null
+      scoutLabel?: 'post_now' | 'develop' | 'hold'
+      rbAngle?: SourceCandidateSummary['rbAngle']
+    }
   } | null
   status: string
   clip_prep_status?: string | null
@@ -1979,6 +1986,36 @@ function normalizeUrgency(value: unknown): RBHQIntelligenceUrgency {
   return 'hold'
 }
 
+function scoutLabelFromCandidateRank(
+  urgency: RBHQIntelligenceUrgency,
+  rankLabel: RBHQIntelligenceRankLabel,
+): 'post_now' | 'develop' | 'hold' {
+  if (urgency === 'post_now' && rankLabel !== 'low_priority') return 'post_now'
+  if (urgency === 'hold' || rankLabel === 'low_priority') return 'hold'
+  return 'develop'
+}
+
+function rbSportsAngleFromHook(hook: string | null | undefined): SourceCandidateSummary['rbAngle'] {
+  const match = hook?.match(/:\s*([^:.]+?)\s+is the RB Sports angle\.?$/i)
+  return (match?.[1]?.trim() as SourceCandidateSummary['rbAngle']) || null
+}
+
+function rbSportsAngleFromText(text: string | null | undefined): SourceCandidateSummary['rbAngle'] {
+  const normalized = text?.toLowerCase() ?? ''
+  if (normalized.includes('star performance')) return 'star performance'
+  if (normalized.includes('clutch proof')) return 'clutch proof'
+  if (normalized.includes('bad call') || normalized.includes('officiating heat')) return 'bad call / officiating heat'
+  if (normalized.includes('rivalry heat')) return 'rivalry heat'
+  if (normalized.includes('trade / roster movement') || normalized.includes('roster movement')) return 'trade / roster movement'
+  if (normalized.includes('injury / return')) return 'injury / return'
+  if (normalized.includes('playoff stakes')) return 'playoff stakes'
+  if (normalized.includes('upset reaction')) return 'upset reaction'
+  if (normalized.includes('coach/player quote') || normalized.includes('quote reaction')) return 'coach/player quote'
+  if (normalized.includes('fan debate')) return 'fan debate'
+  if (normalized.includes('highlight evidence')) return 'highlight evidence'
+  return null
+}
+
 function toSourceCandidateSummary(row: ClipCandidateQueryRow, pkg: SourceCandidatePackageRow | null = null): SourceCandidateSummary {
   const iv = firstJoined(row.ingested_videos)
   const sc = firstJoined(iv?.source_channels)
@@ -1986,9 +2023,10 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow, pkg: SourceCandida
   const channelMeta = sc?.target_rbhq_channel_id
     ? getChannelMeta(sc.target_rbhq_channel_id)
     : null
-  const sourceConfig = rbWomenPhase1SourceForKey(sc?.channel_key)
+  const sourceConfig = rbWomenPhase1SourceForKey(sc?.channel_key) ?? rbSportsPhase1SourceForKey(sc?.channel_key)
   const isRBWomen = sc?.target_rbhq_channel_id === RB_WOMEN_CHANNEL_ID
-  const intelligence = isRBWomen
+  const isRBSports = sc?.target_rbhq_channel_id === RB_SPORTS_CHANNEL_ID
+  const intelligence = isRBWomen || isRBSports
     ? buildRBHQIntelligenceV1({
       id: row.id,
       channel_id: sc?.target_rbhq_channel_id,
@@ -2005,28 +2043,53 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow, pkg: SourceCandida
     })
     : null
   const rbWomen = isRBWomen && intelligence ? intelligence.rbWomen ?? null : breakdown.rbWomen ?? null
+  const rbSports = isRBSports && intelligence ? intelligence.rbSports ?? null : breakdown.rbSports ?? null
   const rankLabel = breakdown.rankLabel ? normalizeRankLabel(breakdown.rankLabel) : intelligence?.rankLabel ?? normalizeRankLabel(null)
   const urgency = breakdown.urgency ? normalizeUrgency(breakdown.urgency) : intelligence?.urgency ?? normalizeUrgency(null)
+  const rbSportsStoredCaption = isRBSports && typeof breakdown.suggestedCaption === 'string'
+    ? breakdown.suggestedCaption
+    : null
+  const rbSportsStoredHashtags = isRBSports && Array.isArray(breakdown.suggestedHashtags)
+    ? breakdown.suggestedHashtags
+    : null
+  const rbSportsStoredWhyNow = isRBSports && typeof breakdown.whyNow === 'string'
+    ? breakdown.whyNow
+    : null
+  const rbSportsStoredOperatorSummary = isRBSports && typeof breakdown.operatorSummary === 'string'
+    ? breakdown.operatorSummary
+    : null
   const suggestedCaption = isRBWomen && intelligence
     ? intelligence.suggestedCaption
+    : rbSportsStoredCaption
+      ? rbSportsStoredCaption
+    : isRBSports && intelligence
+      ? intelligence.suggestedCaption
     : typeof breakdown.suggestedCaption === 'string'
       ? breakdown.suggestedCaption
-      : row.caption ?? ''
+      : row.caption ?? intelligence?.suggestedCaption ?? ''
   const suggestedHashtags = isRBWomen && intelligence
     ? intelligence.suggestedHashtags
+    : rbSportsStoredHashtags
+      ? rbSportsStoredHashtags
+    : isRBSports && intelligence
+      ? intelligence.suggestedHashtags
     : Array.isArray(breakdown.suggestedHashtags)
       ? breakdown.suggestedHashtags
-      : row.hashtags ?? []
+      : row.hashtags ?? intelligence?.suggestedHashtags ?? []
   const whyNow = isRBWomen && intelligence
     ? intelligence.whyNow
+    : rbSportsStoredWhyNow
+      ? rbSportsStoredWhyNow
     : typeof breakdown.whyNow === 'string'
       ? breakdown.whyNow
-      : ''
+      : intelligence?.whyNow ?? ''
   const operatorSummary = isRBWomen && intelligence
     ? intelligence.operatorSummary
+    : rbSportsStoredOperatorSummary
+      ? rbSportsStoredOperatorSummary
     : typeof breakdown.operatorSummary === 'string'
       ? breakdown.operatorSummary
-      : ''
+      : intelligence?.operatorSummary ?? ''
   const packageClipPrep = readSourceCandidateObject(pkg?.package_payload?.clipPrep)
   const packageCaptionPrep = readSourceCandidateObject(packageClipPrep?.caption_prep)
   const candidateClipPrep = readSourceCandidateObject(row.clip_prep)
@@ -2067,10 +2130,11 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow, pkg: SourceCandida
     score: row.score ?? 0,
     rankLabel,
     urgency,
-    hook: isRBWomen && intelligence ? intelligence.hook : row.hook_text ?? intelligence?.hook ?? '',
-    playerEntity: rbWomen?.featuredPlayer ?? null,
-    scoutLabel: rbWomen?.scoutLabel ?? null,
-    rbAngle: rbWomen?.rbAngle ?? null,
+    hook: (isRBWomen || isRBSports) && intelligence ? intelligence.hook : row.hook_text ?? intelligence?.hook ?? '',
+    playerEntity: rbWomen?.featuredPlayer ?? rbSports?.playerEntity ?? null,
+    teamEntity: rbSports?.teamEntity ?? null,
+    scoutLabel: rbWomen?.scoutLabel ?? (isRBSports ? scoutLabelFromCandidateRank(urgency, rankLabel) : rbSports?.scoutLabel ?? null),
+    rbAngle: rbWomen?.rbAngle ?? rbSportsAngleFromHook(row.hook_text) ?? rbSportsAngleFromText(rbSportsStoredWhyNow) ?? rbSports?.rbAngle ?? null,
     packageRenderStatus,
     transcriptSourceStatus,
     reviewReason: urgency === 'hold'
@@ -2086,7 +2150,11 @@ function toSourceCandidateSummary(row: ClipCandidateQueryRow, pkg: SourceCandida
 
 function shouldIncludeSourceCandidate(summary: SourceCandidateSummary, channelIds?: string[]): boolean {
   const rbWomenRequested = channelIds?.includes(RB_WOMEN_CHANNEL_ID) ?? false
-  if (!rbWomenRequested || summary.targetLane !== 'RB Women') return true
+  const rbSportsRequested = channelIds?.includes(RB_SPORTS_CHANNEL_ID) ?? false
+  if (
+    (!rbWomenRequested || summary.targetLane !== 'RB Women') &&
+    (!rbSportsRequested || summary.targetLane !== 'RB Sports')
+  ) return true
   return summary.sourceActive !== false
 }
 
@@ -2108,7 +2176,8 @@ export async function getSourceCandidates(
     .order('score', { ascending: false })
     .limit(input.limit ?? 20)
   const rbWomenRequested = input.channelIds?.includes(RB_WOMEN_CHANNEL_ID) ?? false
-  if (rbWomenRequested) {
+  const rbSportsRequested = input.channelIds?.includes(RB_SPORTS_CHANNEL_ID) ?? false
+  if (rbWomenRequested || rbSportsRequested) {
     query = query.in('status', ['candidate', 'approved', 'approved_for_review', 'approved_for_handoff', 'promoted'])
   } else {
     query = query.eq('status', 'candidate')
