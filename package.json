@@ -26,6 +26,7 @@
     "smoke:clip-prep": "tsx scripts/smoke-clip-prep-v1.ts",
     "smoke:moment-selection": "tsx scripts/smoke-moment-selection.ts",
     "smoke:local-render-prep": "tsx scripts/smoke-local-render-prep.ts",
+    "smoke:batch-local-generation": "npm run smoke:batch-local-clip-generation",
     "smoke:batch-local-clip-generation": "tsx scripts/smoke-batch-local-clip-generation.ts",
     "smoke:operator-queue-readiness": "tsx scripts/smoke-operator-queue-readiness.ts",
     "smoke:operator-staging-ux": "tsx scripts/smoke-operator-staging-ux.ts",
