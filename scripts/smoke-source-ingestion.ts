@@ -7,6 +7,11 @@ import { config } from 'dotenv'
 
 import { buildRBHQIntelligenceV1 } from '../lib/intelligence-v1'
 import {
+  RB_COMBAT_CHANNEL_ID,
+  rbCombatPhase1ActiveSources,
+  rbCombatPhase1NoisySources,
+} from '../lib/rb-combat-source-config'
+import {
   RB_SPORTS_CHANNEL_ID,
   rbSportsPhase1ActiveSources,
   rbSportsPhase1NoisySources,
@@ -78,6 +83,22 @@ type SmokeResult = {
     breakingHighlightAdvanced: boolean
     bettingFantasyRejected: boolean
     scheduleFillerRejected: boolean
+  }
+  rbCombatSources: {
+    activePhase1Sources: string[]
+    noisyPhase1Sources: string[]
+    phase1ConfigComplete: boolean
+    missingActiveSources: string[]
+    hasOfficialPromotionChannel: boolean
+    hasOfficialLeagueEventChannel: boolean
+    hasTrustedBroadcastHighlightChannel: boolean
+    hasTrustedCombatMediaInterviewChannel: boolean
+    discoverySourcesDisabled: boolean
+    noisyWatchlistsDisabled: boolean
+    candidateCarriesSourceFilter: boolean
+    knockoutCalloutTitleFightAdvanced: boolean
+    bettingPickRejected: boolean
+    longPodcastHeld: boolean
   }
   safety: {
     n8nRequired: false
@@ -536,6 +557,95 @@ function verifyRbSportsSources(): SmokeResult['rbSportsSources'] {
   }
 }
 
+function verifyRbCombatSources(): SmokeResult['rbCombatSources'] {
+  const active = rbCombatPhase1ActiveSources()
+  const noisy = rbCombatPhase1NoisySources()
+  const requiredActiveSources = [
+    'ufc_official',
+    'espn_mma',
+    'one_championship',
+    'pfl_mma',
+    'dazn_boxing',
+    'top_rank_boxing',
+    'matchroom_boxing',
+    'mma_fighting',
+  ]
+  const activeKeys = new Set(active.map((source) => source.channelKey))
+  const missingActiveSources = requiredActiveSources.filter((key) => !activeKeys.has(key))
+  const activeCategories = new Set(active.map((source) => source.category))
+  const advancedCandidate = buildClipCandidateInsertRow({
+    channel: {
+      id: randomUUID(),
+      channel_key: 'ufc_official',
+      display_name: 'UFC',
+      rss_url: 'mock://youtube-rss',
+      target_rbhq_channel_id: RB_COMBAT_CHANNEL_ID,
+    },
+    video: {
+      id: randomUUID(),
+      title: 'UFC title fight faceoff turns heated after knockout callout',
+      description: 'A current fight-week clip with title stakes, a stare-down, and a fighter callout.',
+      published_at: new Date().toISOString(),
+    },
+    now: new Date().toISOString(),
+    id: randomUUID(),
+  })
+  const bettingCandidate = buildClipCandidateInsertRow({
+    channel: {
+      id: randomUUID(),
+      channel_key: 'espn_mma',
+      display_name: 'ESPN MMA',
+      rss_url: 'mock://youtube-rss',
+      target_rbhq_channel_id: RB_COMBAT_CHANNEL_ID,
+    },
+    video: {
+      id: randomUUID(),
+      title: 'Best UFC parlay odds and betting picks for the main card',
+      description: 'Odds-first betting picks with no fight moment or fighter quote.',
+      published_at: new Date().toISOString(),
+    },
+    now: new Date().toISOString(),
+    id: randomUUID(),
+  })
+  const longPodcastCandidate = buildClipCandidateInsertRow({
+    channel: {
+      id: randomUUID(),
+      channel_key: 'mma_fighting',
+      display_name: 'MMA Fighting',
+      rss_url: 'mock://youtube-rss',
+      target_rbhq_channel_id: RB_COMBAT_CHANNEL_ID,
+    },
+    video: {
+      id: randomUUID(),
+      title: 'Full episode podcast previews the weekend card without timestamps',
+      description: 'Long combat podcast with no short-form quote, no direct fighter angle, and no timestamped segment.',
+      published_at: new Date().toISOString(),
+    },
+    now: new Date().toISOString(),
+    id: randomUUID(),
+  })
+  const advancedFilter = advancedCandidate.score_breakdown.rbCombatSource as { treatment?: string } | undefined
+  const bettingFilter = bettingCandidate.score_breakdown.rbCombatSource as { treatment?: string } | undefined
+  const longPodcastFilter = longPodcastCandidate.score_breakdown.rbCombatSource as { treatment?: string } | undefined
+
+  return {
+    activePhase1Sources: active.map((source) => source.channelKey),
+    noisyPhase1Sources: noisy.map((source) => source.channelKey),
+    phase1ConfigComplete: missingActiveSources.length === 0,
+    missingActiveSources,
+    hasOfficialPromotionChannel: activeCategories.has('official_promotion_channel'),
+    hasOfficialLeagueEventChannel: activeCategories.has('official_league_event_channel'),
+    hasTrustedBroadcastHighlightChannel: activeCategories.has('trusted_broadcast_highlight'),
+    hasTrustedCombatMediaInterviewChannel: activeCategories.has('trusted_combat_media_interview'),
+    discoverySourcesDisabled: noisy.some((source) => source.category === 'discovery_fighter_reaction' && !source.active),
+    noisyWatchlistsDisabled: noisy.some((source) => source.category === 'disabled_noise' && !source.active),
+    candidateCarriesSourceFilter: advancedFilter?.treatment === 'advanced',
+    knockoutCalloutTitleFightAdvanced: advancedFilter?.treatment === 'advanced',
+    bettingPickRejected: bettingFilter?.treatment === 'rejected',
+    longPodcastHeld: longPodcastFilter?.treatment === 'held',
+  }
+}
+
 async function main() {
   const entries = loadFixture()
   assert(entries.length === 2, `Expected fixture to parse 2 unique entries, received ${entries.length}.`)
@@ -573,6 +683,18 @@ async function main() {
   assert(rbSportsSources.breakingHighlightAdvanced, 'RB Sports breaking/highlight candidates must advance by source filters.')
   assert(rbSportsSources.bettingFantasyRejected, 'RB Sports betting/fantasy content must be rejected by source filters.')
   assert(rbSportsSources.scheduleFillerRejected, 'RB Sports schedule filler must be rejected by source filters.')
+  const rbCombatSources = verifyRbCombatSources()
+  assert(rbCombatSources.phase1ConfigComplete, `RB Combat Phase 1 source config is missing: ${rbCombatSources.missingActiveSources.join(', ')}`)
+  assert(rbCombatSources.hasOfficialPromotionChannel, 'RB Combat Phase 1 must include official promotion channels.')
+  assert(rbCombatSources.hasOfficialLeagueEventChannel, 'RB Combat Phase 1 must include official league/event channels.')
+  assert(rbCombatSources.hasTrustedBroadcastHighlightChannel, 'RB Combat Phase 1 must include trusted broadcast/highlight channels.')
+  assert(rbCombatSources.hasTrustedCombatMediaInterviewChannel, 'RB Combat Phase 1 must include trusted combat media/interview channels.')
+  assert(rbCombatSources.discoverySourcesDisabled, 'RB Combat discovery/reaction sources must be disabled by default.')
+  assert(rbCombatSources.noisyWatchlistsDisabled, 'RB Combat noisy watchlists must be disabled by default.')
+  assert(rbCombatSources.candidateCarriesSourceFilter, 'RB Combat candidates must carry source filter metadata.')
+  assert(rbCombatSources.knockoutCalloutTitleFightAdvanced, 'RB Combat knockout/callout/title-fight source candidates must advance by source filters.')
+  assert(rbCombatSources.bettingPickRejected, 'RB Combat betting-pick content must be rejected by source filters.')
+  assert(rbCombatSources.longPodcastHeld, 'RB Combat long podcast content must be held by source filters.')
   const productionCronPath = readProductionCronPath()
   assert(productionCronPath === '/api/cron/rss-poll', 'Production cron does not target safe RSS polling route.')
 
@@ -586,6 +708,7 @@ async function main() {
     intelligence,
     rbWomenSources,
     rbSportsSources,
+    rbCombatSources,
     safety: {
       n8nRequired: false,
       livePublishStateSet: false,

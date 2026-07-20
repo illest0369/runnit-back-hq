@@ -91,6 +91,13 @@
     "notes": "Official UFC — faceoffs, weigh-ins, knockouts, press"
   },
   {
+    "channel_key": "espn_mma",
+    "display_name": "ESPN MMA",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCO4AcsPKEkIqDmbeiZLfd1A",
+    "lane_key": "combat",
+    "notes": "ESPN MMA — fighter interviews, injury/withdrawal news, press reactions, callouts"
+  },
+  {
     "channel_key": "one_championship",
     "display_name": "ONE Championship",
     "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCiormkBf3jm6mfb7k0yPbKA",
@@ -109,7 +116,8 @@
     "display_name": "BellatorMMA",
     "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCnkMTsKYqhHm6l6GQzg4szg",
     "lane_key": "combat",
-    "notes": "Bellator MMA — fight highlights, faceoffs, post-fight emotion"
+    "enabled": false,
+    "notes": "Disabled for RB Combat Phase 1: useful historical/event context, but current feed can skew stale/archive-heavy"
   },
   {
     "channel_key": "dazn_boxing",
@@ -117,6 +125,35 @@
     "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCurvRE5fGcdUgCYWgh-BDsg",
     "lane_key": "combat",
     "notes": "DAZN Boxing — boxing highlights, press events, fighter reaction"
+  },
+  {
+    "channel_key": "top_rank_boxing",
+    "display_name": "Top Rank Boxing",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCbzRzJNHx7ZLlJML9BjZQVQ",
+    "lane_key": "combat",
+    "notes": "Top Rank Boxing — title stakes, press conference tension, boxing knockouts"
+  },
+  {
+    "channel_key": "matchroom_boxing",
+    "display_name": "Matchroom Boxing",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC7LReVje9aPB4B6XAsXX8WQ",
+    "lane_key": "combat",
+    "notes": "Matchroom Boxing — weigh-ins, faceoffs, fighter quotes, rivalry heat"
+  },
+  {
+    "channel_key": "mma_fighting",
+    "display_name": "MMA Fighting",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UC4f1JueVgo5t9HSmobCRPug",
+    "lane_key": "combat",
+    "notes": "MMA Fighting — interviews, callouts, press conference clips, decision controversy"
+  },
+  {
+    "channel_key": "ufc_fight_pass",
+    "display_name": "UFC FIGHT PASS",
+    "rss_url": "https://www.youtube.com/feeds/videos.xml?channel_id=UCPQDDlGe7lbgmEJ0ge7a_JA",
+    "lane_key": "combat",
+    "enabled": false,
+    "notes": "Disabled for RB Combat Phase 1: official event/archive source, but likely stale repost-heavy without new context"
   },
   {
     "channel_key": "vct_official",
