@@ -2034,6 +2034,10 @@ function rbCombatDisplayName(value: string): string {
   return RB_COMBAT_DISPLAY_NAMES[value] ?? value.split(' ').map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`).join(' ')
 }
 
+function rbCombatNormalizeProperName(value: string): string {
+  return compact(value.replace(/(?:['’]s)\b/gi, '').replace(/[|,:;!?()[\]{}]/g, ' '))
+}
+
 function rbCombatTermPattern(value: string): RegExp {
   const escaped = compact(value).toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return new RegExp(`(^|[^a-z0-9])${escaped.replace(/\\ /g, '\\s+')}([^a-z0-9]|$)`, 'i')
@@ -2079,7 +2083,7 @@ function rbCombatTitleProperNameCandidates(input: RBHQIntelligenceInput): string
   ]
   for (const pattern of patterns) {
     for (const match of raw.matchAll(pattern)) {
-      const value = compact(match[0].replace(/[|,:;!?()[\]{}]/g, ' '))
+      const value = rbCombatNormalizeProperName(match[0])
       const lower = value.toLowerCase()
       if (!value || RB_COMBAT_PROPER_NAME_STOP_WORDS.has(lower)) continue
       if (RB_COMBAT_PROMOTION_NAMES.includes(lower) || RB_COMBAT_EVENT_NAMES.includes(lower)) continue
@@ -3230,6 +3234,8 @@ function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContent
         ? 'hold'
         : 'develop'
   )
+  const planWhyNow = sourceCandidatePlanWhyNow(source, scoutLabel)
+  const reviewReason = source.reviewReason ?? (scoutLabel === 'post_now' ? null : planWhyNow || source.operatorSummary)
   const packageRenderStatus = source.packageRenderStatus ?? {
     packageId: null,
     clipPrepStatus: null,
@@ -3271,8 +3277,8 @@ function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContent
     rankLabel: source.rankLabel,
     urgency: source.urgency,
     reasons: source.reviewReason ? [source.reviewReason] : [],
-    whyNow: source.whyNow,
-    whyThisShouldPostNow: source.whyNow,
+    whyNow: planWhyNow,
+    whyThisShouldPostNow: planWhyNow,
     operatorSummary: source.operatorSummary,
     suggestedCaption: source.suggestedCaption,
     captionDraft: source.suggestedCaption,
@@ -3280,11 +3286,19 @@ function sourceCandidateToPlanClip(source: SourceCandidateSummary): DailyContent
     hashtagPack: source.suggestedHashtags,
     packageRenderStatus,
     transcriptSourceStatus,
-    reviewReason: source.reviewReason ?? (scoutLabel === 'post_now' ? null : source.operatorSummary),
+    reviewReason,
     status: 'candidate',
     publishStatus: packageRenderStatus.localRenderAttached ? 'needs_clip_render' : 'not_ready',
     createdAt: source.publishedAt,
   }
+}
+
+function sourceCandidatePlanWhyNow(source: SourceCandidateSummary, scoutLabel: string): string {
+  if (scoutLabel === 'post_now') return source.whyNow
+  if (!/^post now:/i.test(source.whyNow)) return source.whyNow
+  const label = scoutLabel === 'develop' ? 'Develop' : 'Hold'
+  const fallback = source.reviewReason || source.operatorSummary || 'not current post-now.'
+  return truncate(`${label}: ${fallback.replace(/^RB (Women|Sports|Combat) (develop|hold):\s*/i, '')}`, 180)
 }
 
 export function buildDailyContentPlan<T extends RBHQIntelligenceInput & {

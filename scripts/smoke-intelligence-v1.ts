@@ -822,6 +822,42 @@ const rbCombatCanLitoExtraction = buildRBHQIntelligenceV1({
   moderation_notes: [],
   risk_flags: [],
 })
+const rbCombatCurlyPossessiveExtraction = buildRBHQIntelligenceV1({
+  id: 'rb-combat-curly-possessive-extraction',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: 'Nico Carrillo’s knockout callout has ONE Championship fans split',
+  hook: 'Nico Carrillo made the finish impossible to ignore',
+  source_name: 'ONE Championship',
+  source_type: 'youtube_rss',
+  sport: 'muay thai',
+  league: 'ONE Championship',
+  duration_seconds: 22,
+  ai_score: 70,
+  virality_score: 74,
+  hook_strength: 74,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Nico Carrillo knockout, callout, ONE Championship, and post-fight fan reaction.',
+  moderation_notes: [],
+  risk_flags: [],
+})
+const rbCombatStraightPossessiveExtraction = buildRBHQIntelligenceV1({
+  id: 'rb-combat-straight-possessive-extraction',
+  channel_id: 'a1000000-0000-0000-0000-000000000003',
+  title: "Nico Carrillo's knockout callout has ONE Championship fans split",
+  hook: 'Nico Carrillo made the finish impossible to ignore',
+  source_name: 'ONE Championship',
+  source_type: 'youtube_rss',
+  sport: 'muay thai',
+  league: 'ONE Championship',
+  duration_seconds: 22,
+  ai_score: 70,
+  virality_score: 74,
+  hook_strength: 74,
+  published_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+  text: 'Nico Carrillo knockout, callout, ONE Championship, and post-fight fan reaction.',
+  moderation_notes: [],
+  risk_flags: [],
+})
 const rbSportsDailyPlan = buildDailyContentPlan([
   {
     id: 'rb-sports-plan-post',
@@ -1111,6 +1147,44 @@ const rbSportsSourceCandidatePlan = buildDailyContentPlan([], [
     whyNow: 'Hold: schedule filler has no clear player, team, quote, or highlight segment.',
     operatorSummary: 'RB Sports hold: 35/100 on schedule filler.',
     reviewReason: 'Schedule filler without a useful highlight segment.',
+  },
+])
+const rbCombatStaleReadyPackagePlan = buildDailyContentPlan([], [
+  {
+    id: 'rb-combat-source-suablack-stale-ready',
+    title: 'Suablack knockout short is packaged but stale for the current Daily Plan',
+    videoUrl: 'https://www.youtube.com/watch?v=SUABLACK',
+    thumbnailUrl: null,
+    publishedAt: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+    sourceName: 'ONE Championship',
+    sourceChannelKey: 'one_championship',
+    targetLane: 'RB Combat',
+    score: 50,
+    rankLabel: 'low_priority',
+    urgency: 'hold',
+    hook: 'Suablack knockout proof is ready as a package but stale today.',
+    fighterEntity: 'Suablack',
+    promotionEntity: 'ONE Championship',
+    scoutLabel: 'hold',
+    rbAngle: 'knockout proof',
+    packageRenderStatus: {
+      packageId: 'rb-combat-suablack-package',
+      clipPrepStatus: 'metadata_only',
+      localRenderStatus: 'attached',
+      localRenderAttached: true,
+      localAssetPath: '/tmp/rb-combat-suablack.mp4',
+    },
+    transcriptSourceStatus: {
+      subtitleSource: 'metadata_only',
+      transcriptTimed: false,
+      sourceType: 'youtube_rss',
+      sourceStatus: 'metadata_only',
+    },
+    suggestedCaption: 'Suablack put the finish on tape. Recheck timing before using it today.',
+    suggestedHashtags: ['#Suablack', '#ONEChampionship', '#RBCombat'],
+    whyNow: 'Post now: Suablack knockout proof has knockout proof inside the 48-hour RB Combat scouting window.',
+    operatorSummary: 'RB Combat hold: stale-ready package is not a current posting recommendation.',
+    reviewReason: 'Hold stale: package/render is retry-ready, but the current Daily Plan timing is outside the posting window.',
   },
 ])
 const rbWomenDailyPlan = buildDailyContentPlan([
@@ -1487,6 +1561,10 @@ assert.ok(rbCombatPflPredictionsHold.reasons.some((reason) => reason.includes('b
 assert.notEqual(rbCombatCanLitoExtraction.rbCombat?.fighterEntity, 'Can Lito')
 assert.equal(rbCombatCanLitoExtraction.rbCombat?.fighterEntity, 'Lito Adiwang')
 assert.equal(rbCombatCanLitoExtraction.rbCombat?.opponentEntity, 'Antonio Cesar')
+assert.equal(rbCombatCurlyPossessiveExtraction.rbCombat?.fighterEntity, 'Nico Carrillo')
+assert.notEqual(rbCombatCurlyPossessiveExtraction.rbCombat?.fighterEntity, 'Nico Carrillo’s')
+assert.equal(rbCombatStraightPossessiveExtraction.rbCombat?.fighterEntity, 'Nico Carrillo')
+assert.notEqual(rbCombatStraightPossessiveExtraction.rbCombat?.fighterEntity, "Nico Carrillo's")
 assert.ok(plan.suggestedPostingOrder.length >= 1)
 assert.ok(plan.topClipsToPostNow.length + plan.strongAlternates.length >= 1)
 assert.ok(!plan.topClipsToPostNow.some((clip) => clip.id === highScoreEvergreenCandidate.id))
@@ -1598,6 +1676,22 @@ const rbCombatHold = rbCombatDailyPlan.holdOrLowPriority[0]
 assert.ok(rbCombatHold)
 assert.equal(rbCombatHold.scoutLabel, 'hold')
 assert.ok(rbCombatHold.reviewReason?.includes('betting picks') || rbCombatHold.reviewReason?.includes('filler'))
+const rbCombatStaleReadyHold = rbCombatStaleReadyPackagePlan.holdOrLowPriority[0]
+assert.ok(rbCombatStaleReadyHold)
+assert.equal(rbCombatStaleReadyPackagePlan.topClipsToPostNow.length, 0)
+assert.equal(rbCombatStaleReadyPackagePlan.suggestedPostingOrder.length, 0)
+assert.equal(rbCombatStaleReadyHold.scoutLabel, 'hold')
+assert.equal(rbCombatStaleReadyHold.urgency, 'hold')
+assert.equal(rbCombatStaleReadyHold.packageRenderStatus.packageId, 'rb-combat-suablack-package')
+assert.equal(rbCombatStaleReadyHold.packageRenderStatus.localRenderAttached, true)
+assert.ok(rbCombatStaleReadyHold.reviewReason?.includes('Hold stale'))
+assert.ok(rbCombatStaleReadyHold.whyThisShouldPostNow.includes('Hold stale'))
+assert.ok(!/post now/i.test([
+  rbCombatStaleReadyHold.whyNow,
+  rbCombatStaleReadyHold.whyThisShouldPostNow,
+  rbCombatStaleReadyHold.operatorSummary,
+  rbCombatStaleReadyHold.reviewReason,
+].join(' ')))
 
 console.log(JSON.stringify({
   sports,
