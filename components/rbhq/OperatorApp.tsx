@@ -45,7 +45,7 @@ type PublishStatus =
   | "metricool_published"
   | "metricool_failed"
   | "manually_published";
-type QueueAction = "approve" | "reject" | "hold" | "needs_clip_prep" | "create_mac_mini_package" | "stage_in_tiktok";
+type QueueAction = "approve" | "reject" | "hold" | "needs_clip_prep" | "create_mac_mini_package" | "create_platform_package" | "stage_in_tiktok";
 
 type RankLabel = "Hot" | "Solid" | "Hold" | "Reject";
 type IntelligenceRankLabel = "must_post" | "strong" | "solid" | "low_priority";
@@ -877,9 +877,9 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
   }
 
   async function moderateClip(id: string, action: DecisionAction) {
-    if (action === "needs_clip_prep" || action === "create_mac_mini_package" || action === "stage_in_tiktok") {
+    if (action === "needs_clip_prep" || action === "create_mac_mini_package" || action === "create_platform_package" || action === "stage_in_tiktok") {
       const clip = clips.find((item) => item.id === id);
-      setToast(action === "needs_clip_prep" ? "clip prep queued" : action === "stage_in_tiktok" ? "staging requested" : "package requested");
+      setToast(action === "needs_clip_prep" ? "clip prep queued" : action === "stage_in_tiktok" ? "staging requested" : action === "create_platform_package" ? "platform package requested" : "package requested");
       try {
         const csrfHeaders = await getCsrfHeaders();
         const response = await fetch(`/api/posts/${id}/decision`, {
@@ -888,12 +888,12 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
           body: JSON.stringify({
             action,
             time_to_decision: 1.2,
-            package_id: action === "stage_in_tiktok" ? clip?.packageReadiness.macMiniPackageId : undefined,
+            package_id: action === "stage_in_tiktok" || action === "create_platform_package" ? clip?.packageReadiness.macMiniPackageId : undefined,
           }),
         });
         const json = await readApiJson(response, "action failed");
         if (!response.ok || !json.ok) throw new Error(json.error || "action failed");
-        setToast(action === "needs_clip_prep" ? "clip prep refreshed" : action === "stage_in_tiktok" ? "staging queued for Mac mini" : "package ready");
+        setToast(action === "needs_clip_prep" ? "clip prep refreshed" : action === "stage_in_tiktok" ? "staging queued for Mac mini" : action === "create_platform_package" ? "platform package ready" : "package ready");
         if (selectedChannelId) await fetchQueue(selectedChannelId, source, queueMode, urgencyFilter, scoreThreshold);
         await fetchPublishQueue();
         void fetchDailyPlan();
@@ -1434,6 +1434,7 @@ function QueueClipCard({
   const canStageInTikTok = Boolean(clip.packageReadiness.macMiniPackageId) &&
     staging.status !== "requested" &&
     (staging.eligible || canRetryStaging);
+  const canCreatePlatformPackage = Boolean(clip.packageReadiness.macMiniPackageId) && clip.packageReadiness.localRenderAttached;
   const stagingTitle = isTikTokLoginBlocked(staging)
     ? "Retry dry-run after account access is restored"
     : canStageInTikTok
@@ -1558,7 +1559,7 @@ function QueueClipCard({
       {canModerate && (
         <p className="mt-3 text-center text-[10px] font-medium uppercase tracking-[0.08em] text-[var(--rb-faint)]">swipe or tap to decide</p>
       )}
-      <div className="mt-3 grid grid-cols-3 gap-2">
+      <div className="mt-3 grid grid-cols-4 gap-2">
         <button
           type="button"
           onClick={() => onModerate(clip.id, "needs_clip_prep")}
@@ -1586,6 +1587,16 @@ function QueueClipCard({
         >
           <Send className="h-4 w-4" strokeWidth={1.8} />
           Stage
+        </button>
+        <button
+          type="button"
+          onClick={() => onModerate(clip.id, "create_platform_package")}
+          disabled={!canCreatePlatformPackage}
+          title={canCreatePlatformPackage ? "Create platform-ready export package" : "Attach a local MP4 render first"}
+          className="flex h-11 items-center justify-center gap-2 rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-2 text-[10.5px] font-black text-[var(--rb-text)] active:scale-[0.98] disabled:opacity-45"
+        >
+          <Download className="h-4 w-4" strokeWidth={1.8} />
+          Platform
         </button>
       </div>
       <ClipIntelligencePanel clip={clip} onRefreshAnalysis={onRefreshAnalysis} />
@@ -2005,14 +2016,14 @@ function PublishScreen({
   onSendToTikTok: (id: string) => void;
 }) {
   return (
-    <PageShell eyebrow="TikTok" title="Publish" trailing={<Sparkles className="h-5 w-5 text-[#ff4d00]" />}>
+    <PageShell eyebrow="Export" title="Publish" trailing={<Sparkles className="h-5 w-5 text-[#ff4d00]" />}>
       <div className="grid grid-cols-2 gap-3">
         <MetricCard value={String(items.length)} label="Ready clips" />
-        <MetricCard value="Local" label="Mac mini route" />
+        <MetricCard value="Manual" label="Platform route" />
       </div>
 
       <div className="mt-3 rounded-[18px] border border-[var(--rb-line)] bg-[var(--rb-surface)] px-4 py-3 text-sm font-semibold leading-5 text-[var(--rb-muted)]">
-        Approved, captioned, vertical-ready clips can be queued for the Mac mini TikTok posting worker.
+        Approved, captioned, vertical-ready clips can be exported for manual platform upload.
       </div>
 
       <div className="mt-5 flex flex-col gap-4">
@@ -2080,6 +2091,7 @@ function PublishCard({
     caption,
     hashtags: hashtags.split(/\s+/).map((tag) => tag.trim()).filter(Boolean),
   };
+  const mp4Url = exportPackage.rendered_mp4_url ?? exportPackage.video_url ?? item.videoUrl ?? "";
 
   return (
     <motion.article
@@ -2127,12 +2139,15 @@ function PublishCard({
           onChange={(event) => setHashtags(event.target.value)}
           className="mt-2 h-11 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-graphite)] px-3 text-sm font-semibold text-[var(--rb-text)] outline-none focus:border-[var(--rb-accent)]"
         />
-        <div className="mt-3 grid grid-cols-[1fr_1fr_1fr_1.4fr] gap-2">
+        <div className="mt-3 grid grid-cols-[1fr_1fr_1fr_1fr_1.4fr] gap-2">
           <SmallButton label="Copy caption" onClick={() => void copyText(caption).then(() => onCopy("Caption copied"))}>
             <Copy className="h-4 w-4" />
           </SmallButton>
           <SmallButton label="Copy hashtags" onClick={() => void copyText(hashtags).then(() => onCopy("Tags copied"))}>
             <Hash className="h-4 w-4" />
+          </SmallButton>
+          <SmallButton label="Open MP4" onClick={() => { if (mp4Url) window.open(mp4Url, "_blank", "noopener,noreferrer"); }}>
+            <Download className="h-4 w-4" />
           </SmallButton>
           <SmallButton label="Export JSON" onClick={() => saveJson(`rbhq-export-${item.id}.json`, exportPackage)}>
             <Download className="h-4 w-4" />

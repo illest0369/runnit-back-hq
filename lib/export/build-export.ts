@@ -1,5 +1,6 @@
 import type { ExportableClip, PublishExportPackage } from './types'
 import { isDownloadableMp4Url } from '../media-url'
+import { readPlatformPackageFromNotes } from '../platform-package-bridge'
 import { getStoredTikTokAnalysis } from '../tiktok-analyzer'
 
 export const PUBLISH_EXPORT_VERSION = 'rbhq-publish-export-v1'
@@ -93,26 +94,64 @@ export function buildPublishExportPackage(clip: ExportableClip): PublishExportPa
   const captionNote = clip.moderation_notes.find((n) => n.startsWith(EDITORIAL_CAPTION_PREFIX))
   const hashtagsNote = clip.moderation_notes.find((n) => n.startsWith(EDITORIAL_HASHTAGS_PREFIX))
   const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
+  const platformPackage = readPlatformPackageFromNotes(clip.moderation_notes)
 
   const hashtags = hashtagsNote
     ? (JSON.parse(hashtagsNote.slice(EDITORIAL_HASHTAGS_PREFIX.length)) as string[])
-    : analysis?.hashtagPack ?? buildHashtags(clip)
+    : platformPackage?.clip.hashtags ?? analysis?.hashtagPack ?? buildHashtags(clip)
   const caption = captionNote
     ? (JSON.parse(captionNote.slice(EDITORIAL_CAPTION_PREFIX.length)) as string)
-    : analysis?.captionDraft ?? buildCaption(clip, hashtags)
+    : platformPackage?.clip.caption ?? analysis?.captionDraft ?? buildCaption(clip, hashtags)
 
   return {
     clip_id: clip.id,
+    channel_id: clip.channel_id ?? platformPackage?.channel.id ?? null,
     title: clip.title,
     hook: clip.hook,
     recommended_hook: analysis?.hookLine ?? clip.recommended_hook,
     caption,
+    description: platformPackage?.clip.description ?? null,
     hashtags,
     source_name: clip.source_name,
+    source_url: clip.source_url ?? platformPackage?.source.url ?? null,
+    source_title: platformPackage?.source.title ?? null,
     sport: clip.sport,
     league: clip.league,
     video_url: videoUrl,
+    rendered_mp4_url: platformPackage?.asset.publicUrl ?? videoUrl,
+    asset_reference: platformPackage?.asset.stableReference ?? null,
     thumbnail_url: clip.thumbnail_url,
+    selected_clip: {
+      start_seconds: platformPackage?.clip.selectedStartSeconds ?? null,
+      end_seconds: platformPackage?.clip.selectedEndSeconds ?? null,
+    },
+    target_platforms: platformPackage?.targetPlatforms ?? ['tiktok', 'instagram_reels', 'youtube_shorts'],
+    platform_copy: platformPackage
+      ? {
+          tiktok: {
+            title: platformPackage.copy.tiktok.title,
+            caption: platformPackage.copy.tiktok.caption,
+            description: platformPackage.copy.tiktok.description,
+            hashtags: platformPackage.copy.tiktok.hashtags,
+            video_url: platformPackage.copy.tiktok.videoUrl,
+          },
+          instagram_reels: {
+            title: platformPackage.copy.instagram_reels.title,
+            caption: platformPackage.copy.instagram_reels.caption,
+            description: platformPackage.copy.instagram_reels.description,
+            hashtags: platformPackage.copy.instagram_reels.hashtags,
+            video_url: platformPackage.copy.instagram_reels.videoUrl,
+          },
+          youtube_shorts: {
+            title: platformPackage.copy.youtube_shorts.title,
+            caption: platformPackage.copy.youtube_shorts.caption,
+            description: platformPackage.copy.youtube_shorts.description,
+            hashtags: platformPackage.copy.youtube_shorts.hashtags,
+            video_url: platformPackage.copy.youtube_shorts.videoUrl,
+          },
+        }
+      : undefined,
+    operator_notes: platformPackage?.operatorNotes,
     moderation_notes: clip.moderation_notes,
     approved_at: clip.approved_at || clip.updated_at,
     export_version: PUBLISH_EXPORT_VERSION,

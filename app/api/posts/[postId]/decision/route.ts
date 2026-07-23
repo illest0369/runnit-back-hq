@@ -6,6 +6,7 @@ import { validateCsrfRequest } from '@/lib/csrf'
 import { createMacMiniClipPackageFromCandidate, getMacMiniClipPackageById, requestTikTokStagingForPackage } from '@/lib/mac-mini-handoff'
 import { approveClip, getClipById, holdClip, rejectClip } from '@/lib/moderation-queue'
 import { extractCandidateIdFromNotes } from '@/lib/operator-queue-readiness'
+import { createPlatformReadyPackageFromMacMini } from '@/lib/platform-package-bridge'
 import { supabaseAdmin } from '@/lib/supabase'
 
 type RouteContext = {
@@ -13,7 +14,7 @@ type RouteContext = {
 }
 
 type DecisionBody = {
-  action?: 'approve' | 'reject' | 'hold' | 'needs_clip_prep' | 'create_mac_mini_package' | 'stage_in_tiktok'
+  action?: 'approve' | 'reject' | 'hold' | 'needs_clip_prep' | 'create_mac_mini_package' | 'stage_in_tiktok' | 'create_platform_package'
   time_to_decision?: number
   package_id?: string
 }
@@ -47,12 +48,13 @@ export async function POST(request: Request, context: RouteContext) {
     body.action !== 'hold' &&
     body.action !== 'needs_clip_prep' &&
     body.action !== 'create_mac_mini_package' &&
-    body.action !== 'stage_in_tiktok'
+    body.action !== 'stage_in_tiktok' &&
+    body.action !== 'create_platform_package'
   ) {
-    return NextResponse.json({ ok: false, error: 'action must be approve, reject, hold, needs_clip_prep, create_mac_mini_package, or stage_in_tiktok' }, { status: 400 })
+    return NextResponse.json({ ok: false, error: 'action must be approve, reject, hold, needs_clip_prep, create_mac_mini_package, stage_in_tiktok, or create_platform_package' }, { status: 400 })
   }
 
-  if (body.action === 'needs_clip_prep' || body.action === 'create_mac_mini_package' || body.action === 'stage_in_tiktok') {
+  if (body.action === 'needs_clip_prep' || body.action === 'create_mac_mini_package' || body.action === 'stage_in_tiktok' || body.action === 'create_platform_package') {
     const clip = await getClipById(postId, { channelIds: session.channelIds, includeMetricoolHandoffStatus: false })
     if (!clip) {
       return NextResponse.json({ ok: false, error: 'Clip not found or unavailable for this action.' }, { status: 404 })
@@ -63,10 +65,10 @@ export async function POST(request: Request, context: RouteContext) {
       return NextResponse.json({ ok: false, error: 'Clip is not linked to a persisted Intelligence V1 candidate.' }, { status: 400 })
     }
 
-    if (body.action === 'stage_in_tiktok') {
+    if (body.action === 'stage_in_tiktok' || body.action === 'create_platform_package') {
       const packageId = body.package_id?.trim()
       if (!packageId) {
-        return NextResponse.json({ ok: false, error: 'package_id is required for TikTok staging.' }, { status: 400 })
+        return NextResponse.json({ ok: false, error: `package_id is required for ${body.action === 'stage_in_tiktok' ? 'TikTok staging' : 'platform package export'}.` }, { status: 400 })
       }
 
       const existing = await getMacMiniClipPackageById(supabaseAdmin, packageId)
@@ -75,6 +77,29 @@ export async function POST(request: Request, context: RouteContext) {
       }
       if (session.channelIds.length > 0 && !session.channelIds.includes(existing.targetChannelId)) {
         return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 })
+      }
+
+      if (body.action === 'create_platform_package') {
+        const result = await createPlatformReadyPackageFromMacMini(supabaseAdmin, packageId)
+        return NextResponse.json(
+          {
+            ok: true,
+            data: {
+              post_id: postId,
+              action: body.action,
+              candidate_id: candidateId,
+              clip_id: result.clipId,
+              package_id: result.packageId,
+              publish_status: result.publishStatus,
+              public_url: result.publicUrl,
+              storage_mode: result.storageMode,
+              storage_reference: result.storageReference,
+              platform_package: result.platformPackage,
+              safety: result.safety,
+            },
+          },
+          { headers: { 'Cache-Control': 'no-store' } },
+        )
       }
 
       const { data: candidate, error: candidateError } = await supabaseAdmin

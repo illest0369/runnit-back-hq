@@ -160,7 +160,12 @@ async function performSignedR2Request(input: {
   })
 }
 
-async function uploadToR2(localPath: string, storagePath: string, config: R2Config): Promise<UploadResult> {
+async function uploadToR2(
+  localPath: string,
+  storagePath: string,
+  config: R2Config,
+  input: { deleteSource: boolean },
+): Promise<UploadResult> {
   const objectKey = buildObjectKey(storagePath)
   const payload = await readFile(localPath)
   const response = await performSignedR2Request({
@@ -177,7 +182,9 @@ async function uploadToR2(localPath: string, storagePath: string, config: R2Conf
     )
   }
 
-  await unlink(localPath).catch(() => {})
+  if (input.deleteSource) {
+    await unlink(localPath).catch(() => {})
+  }
 
   const publicUrl = buildPublicUrl(config, objectKey)
 
@@ -189,13 +196,19 @@ async function uploadToR2(localPath: string, storagePath: string, config: R2Conf
   }
 }
 
-async function uploadToLocalPublicDir(localPath: string, storagePath: string): Promise<UploadResult> {
+async function uploadToLocalPublicDir(
+  localPath: string,
+  storagePath: string,
+  input: { deleteSource: boolean },
+): Promise<UploadResult> {
   const objectKey = buildObjectKey(storagePath)
   const targetPath = path.join(getPublicRoot(), objectKey)
 
   await mkdir(path.dirname(targetPath), { recursive: true })
   await copyFile(localPath, targetPath)
-  await unlink(localPath).catch(() => {})
+  if (input.deleteSource) {
+    await unlink(localPath).catch(() => {})
+  }
 
   const publicUrl = `/generated-clips/${objectKey}`
 
@@ -208,10 +221,22 @@ async function uploadToLocalPublicDir(localPath: string, storagePath: string): P
 }
 
 export async function uploadGeneratedClip(localPath: string, storagePath: string): Promise<UploadResult> {
+  return storeGeneratedClip(localPath, storagePath, { deleteSource: true })
+}
+
+export async function copyGeneratedClipToStorage(localPath: string, storagePath: string): Promise<UploadResult> {
+  return storeGeneratedClip(localPath, storagePath, { deleteSource: false })
+}
+
+async function storeGeneratedClip(
+  localPath: string,
+  storagePath: string,
+  input: { deleteSource: boolean },
+): Promise<UploadResult> {
   const r2Config = getR2Config()
 
   if (r2Config) {
-    return uploadToR2(localPath, storagePath, r2Config)
+    return uploadToR2(localPath, storagePath, r2Config, input)
   }
 
   if (isProductionRuntime()) {
@@ -220,7 +245,7 @@ export async function uploadGeneratedClip(localPath: string, storagePath: string
     )
   }
 
-  return uploadToLocalPublicDir(localPath, storagePath)
+  return uploadToLocalPublicDir(localPath, storagePath, input)
 }
 
 export async function deleteR2Object(objectKey: string) {

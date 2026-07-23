@@ -55,7 +55,7 @@ export async function GET(request: Request, context: RouteContext) {
   } catch (error) {
     if (error instanceof Error && error.message === 'CLIP_NOT_READY_FOR_EXPORT') {
       return NextResponse.json(
-        { ok: false, error: 'Clip must be approved and ready for Metricool before export.' },
+        { ok: false, error: 'Clip must be approved with a downloadable MP4 before platform export.' },
         { status: 409 },
       )
     }
