@@ -1,6 +1,7 @@
 import path from 'node:path'
+import { rm } from 'node:fs/promises'
 
-import { copyGeneratedClipToStorage } from './clip-storage'
+import { copyGeneratedClipToStorage, deleteR2Object } from './clip-storage'
 import { validateRetryReadyLocalAsset } from './retry-ready-asset-validation'
 
 export type PlatformMediaStorageMode = 'r2' | 'local_dev'
@@ -67,4 +68,18 @@ export async function storePlatformMp4Asset(input: {
     sourceLocalPath: validation.assetPath,
     durationSeconds: validation.durationSeconds,
   }
+}
+
+export async function deleteStoredPlatformMp4Asset(asset: Pick<StoredPlatformMediaAsset, 'objectKey' | 'storageMode'>): Promise<void> {
+  if (!asset.objectKey.startsWith('platform-packages/')) {
+    throw new Error('Refusing to delete a media asset outside platform-packages/.')
+  }
+
+  if (asset.storageMode === 'r2') {
+    await deleteR2Object(asset.objectKey)
+    return
+  }
+
+  const localPath = path.join(process.cwd(), 'public', 'generated-clips', asset.objectKey)
+  await rm(localPath, { force: true })
 }

@@ -21,6 +21,15 @@ type R2Config = {
   publicBaseUrl: string | null
 }
 
+export const R2_REQUIRED_ENV_NAMES = [
+  'R2_ACCOUNT_ID',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'R2_BUCKET',
+] as const
+
+export const R2_OPTIONAL_ENV_NAMES = ['R2_PUBLIC_BASE_URL'] as const
+
 function isProductionRuntime() {
   return process.env.NODE_ENV === 'production'
 }
@@ -47,6 +56,19 @@ function getR2Config(): R2Config | null {
 
 export function hasR2StorageConfig() {
   return Boolean(getR2Config())
+}
+
+export function getR2StorageConfigStatus() {
+  const presentEnvNames = R2_REQUIRED_ENV_NAMES.filter((name) => Boolean(process.env[name]?.trim()))
+  const missingEnvNames = R2_REQUIRED_ENV_NAMES.filter((name) => !process.env[name]?.trim())
+
+  return {
+    backend: 'r2' as const,
+    durableStorageConfigured: missingEnvNames.length === 0,
+    presentEnvNames,
+    missingEnvNames,
+    optionalEnvNames: [...R2_OPTIONAL_ENV_NAMES],
+  }
 }
 
 export function getRequiredR2Config(): R2Config {
