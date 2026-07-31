@@ -12,31 +12,79 @@ export type RetryReadyAssetValidation = {
   locallyVerified: boolean
   assetPath: string | null
   durationSeconds: number | null
+  width: number | null
+  height: number | null
+  videoCodec: string | null
+  audioCodec: string | null
+  formatName: string | null
   reason: string | null
 }
 
-function readDurationSeconds(value: unknown): number | null {
-  const duration = value && typeof value === 'object'
-    ? (value as { format?: { duration?: unknown } }).format?.duration
-    : null
-  const parsed = typeof duration === 'number'
-    ? duration
-    : typeof duration === 'string' && duration.trim()
-      ? Number(duration)
+function readPositiveNumber(value: unknown): number | null {
+  const parsed = typeof value === 'number'
+    ? value
+    : typeof value === 'string' && value.trim()
+      ? Number(value)
       : NaN
-  return Number.isFinite(parsed) && parsed > 0 ? Number(parsed.toFixed(3)) : null
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+function readPositiveInteger(value: unknown): number | null {
+  const parsed = readPositiveNumber(value)
+  return parsed === null ? null : Math.round(parsed)
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
+}
+
+function readProbe(value: unknown): Omit<RetryReadyAssetValidation, 'asset_validation' | 'locallyVerified' | 'assetPath' | 'reason'> {
+  const record = value && typeof value === 'object'
+    ? value as { streams?: unknown; format?: { duration?: unknown; format_name?: unknown } }
+    : {}
+  const streams = Array.isArray(record.streams) ? record.streams : []
+  const video = streams.find((stream): stream is Record<string, unknown> =>
+    Boolean(stream && typeof stream === 'object' && (stream as { codec_type?: unknown }).codec_type === 'video'),
+  )
+  const audio = streams.find((stream): stream is Record<string, unknown> =>
+    Boolean(stream && typeof stream === 'object' && (stream as { codec_type?: unknown }).codec_type === 'audio'),
+  )
+
+  const duration = readPositiveNumber(video?.duration) ?? readPositiveNumber(record.format?.duration)
+
+  return {
+    durationSeconds: duration === null ? null : Number(duration.toFixed(3)),
+    width: readPositiveInteger(video?.width),
+    height: readPositiveInteger(video?.height),
+    videoCodec: readString(video?.codec_name),
+    audioCodec: readString(audio?.codec_name),
+    formatName: readString(record.format?.format_name),
+  }
+}
+
+function missingValidation(
+  assetPath: string | null,
+  reason: string,
+  status: RetryReadyAssetValidationStatus = 'missing',
+): RetryReadyAssetValidation {
+  return {
+    asset_validation: status,
+    locallyVerified: false,
+    assetPath,
+    durationSeconds: null,
+    width: null,
+    height: null,
+    videoCodec: null,
+    audioCodec: null,
+    formatName: null,
+    reason,
+  }
 }
 
 export async function validateRetryReadyLocalAsset(assetPath: string | null | undefined): Promise<RetryReadyAssetValidation> {
   const clean = assetPath?.trim() || ''
   if (!clean) {
-    return {
-      asset_validation: 'missing',
-      locallyVerified: false,
-      assetPath: null,
-      durationSeconds: null,
-      reason: 'Local asset path is missing.',
-    }
+    return missingValidation(null, 'Local asset path is missing.')
   }
 
   const absolutePath = path.resolve(clean)
@@ -46,54 +94,37 @@ export async function validateRetryReadyLocalAsset(assetPath: string | null | un
     throw error
   })
   if (!fileStat) {
-    return {
-      asset_validation: 'missing',
-      locallyVerified: false,
-      assetPath: absolutePath,
-      durationSeconds: null,
-      reason: 'Local asset file does not exist.',
-    }
+    return missingValidation(absolutePath, 'Local asset file does not exist.')
   }
   if (!fileStat.isFile()) {
-    return {
-      asset_validation: 'unreadable',
-      locallyVerified: false,
-      assetPath: absolutePath,
-      durationSeconds: null,
-      reason: 'Local asset path is not a regular file.',
-    }
+    return missingValidation(absolutePath, 'Local asset path is not a regular file.', 'unreadable')
   }
 
   try {
     const { stdout } = await execFileAsync(
       'ffprobe',
-      ['-v', 'error', '-show_entries', 'format=duration', '-of', 'json', absolutePath],
+      ['-v', 'error', '-show_streams', '-show_format', '-of', 'json', absolutePath],
       { maxBuffer: 1024 * 1024 },
     )
-    const durationSeconds = readDurationSeconds(JSON.parse(stdout))
-    if (durationSeconds === null) {
-      return {
-        asset_validation: 'unreadable',
-        locallyVerified: false,
-        assetPath: absolutePath,
-        durationSeconds: null,
-        reason: 'ffprobe did not report a positive video duration.',
-      }
+    const probe = readProbe(JSON.parse(stdout))
+    if (probe.durationSeconds === null) {
+      return missingValidation(absolutePath, 'ffprobe did not report a positive video duration.', 'unreadable')
+    }
+    if (probe.width === null || probe.height === null || !probe.videoCodec) {
+      return missingValidation(absolutePath, 'ffprobe did not report readable video stream metadata.', 'unreadable')
     }
     return {
       asset_validation: 'verified',
       locallyVerified: true,
       assetPath: absolutePath,
-      durationSeconds,
+      ...probe,
       reason: null,
     }
   } catch (error) {
-    return {
-      asset_validation: 'unreadable',
-      locallyVerified: false,
-      assetPath: absolutePath,
-      durationSeconds: null,
-      reason: error instanceof Error ? `ffprobe could not read local asset: ${error.message}` : 'ffprobe could not read local asset.',
-    }
+    return missingValidation(
+      absolutePath,
+      error instanceof Error ? `ffprobe could not read local asset: ${error.message}` : 'ffprobe could not read local asset.',
+      'unreadable',
+    )
   }
 }

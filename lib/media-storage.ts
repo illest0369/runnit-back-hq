@@ -14,6 +14,11 @@ export type StoredPlatformMediaAsset = {
   objectKey: string
   sourceLocalPath: string
   durationSeconds: number
+  width: number
+  height: number
+  videoCodec: string
+  audioCodec: string | null
+  formatName: string | null
 }
 
 function safeSegment(value: string | null | undefined): string {
@@ -44,7 +49,15 @@ export async function storePlatformMp4Asset(input: {
   channelId?: string | null
 }): Promise<StoredPlatformMediaAsset> {
   const validation = await validateRetryReadyLocalAsset(input.localPath)
-  if (validation.asset_validation !== 'verified' || !validation.locallyVerified || !validation.assetPath || validation.durationSeconds === null) {
+  if (
+    validation.asset_validation !== 'verified' ||
+    !validation.locallyVerified ||
+    !validation.assetPath ||
+    validation.durationSeconds === null ||
+    validation.width === null ||
+    validation.height === null ||
+    !validation.videoCodec
+  ) {
     throw new Error(validation.reason || 'Local asset is not a readable MP4.')
   }
   if (!validation.assetPath.toLowerCase().endsWith('.mp4')) {
@@ -67,6 +80,11 @@ export async function storePlatformMp4Asset(input: {
     objectKey,
     sourceLocalPath: validation.assetPath,
     durationSeconds: validation.durationSeconds,
+    width: validation.width,
+    height: validation.height,
+    videoCodec: validation.videoCodec,
+    audioCodec: validation.audioCodec,
+    formatName: validation.formatName,
   }
 }
 

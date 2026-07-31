@@ -91,6 +91,12 @@ export type PlatformReadyPackage = {
     publicUrl: string
     stableReference: string
     storageMode: 'r2' | 'local_dev'
+    width: number
+    height: number
+    durationSeconds: number
+    videoCodec: string
+    audioCodec: string | null
+    formatName: string | null
   }
   targetPlatforms: PlatformTarget[]
   copy: Record<PlatformTarget, PlatformExportCopy>
@@ -120,6 +126,25 @@ export type PackageToPlatformResult = {
 const PLATFORM_PACKAGE_NOTE_PREFIX = 'platform_package:'
 const EDITORIAL_CAPTION_PREFIX = 'editorial_caption:'
 const EDITORIAL_HASHTAGS_PREFIX = 'editorial_hashtags:'
+const RENDER_WIDTH_PREFIX = 'render_width:'
+const RENDER_HEIGHT_PREFIX = 'render_height:'
+
+const PLATFORM_ASSET_NOTE_PREFIXES = [
+  PLATFORM_PACKAGE_NOTE_PREFIX,
+  EDITORIAL_CAPTION_PREFIX,
+  EDITORIAL_HASHTAGS_PREFIX,
+  'platform_asset:',
+  'platform_asset_url:',
+  'platform_asset_storage:',
+  'platform_asset_format:',
+  'platform_asset_video_codec:',
+  'platform_asset_audio_codec:',
+  'platform_asset_duration_seconds:',
+  'rendered_mp4_url:',
+  'rendered_mp4_reference:',
+  RENDER_WIDTH_PREFIX,
+  RENDER_HEIGHT_PREFIX,
+]
 
 function compact(value: string | null | undefined, maxLength = 500): string {
   const clean = value?.replace(/\s+/g, ' ').trim() ?? ''
@@ -235,6 +260,12 @@ function buildPlatformReadyPackage(input: {
       publicUrl: input.asset.publicUrl,
       stableReference: input.asset.objectKey,
       storageMode: input.asset.storageMode,
+      width: input.asset.width,
+      height: input.asset.height,
+      durationSeconds: input.asset.durationSeconds,
+      videoCodec: input.asset.videoCodec,
+      audioCodec: input.asset.audioCodec,
+      formatName: input.asset.formatName,
     },
     targetPlatforms,
     copy,
@@ -325,12 +356,20 @@ function clipPayload(input: {
   const existingNotes = input.existing?.moderation_notes ?? []
   const existingRiskFlags = input.existing?.risk_flags ?? []
   const notes = uniqueNotes([
-    ...existingNotes.filter((note) => !note.startsWith(PLATFORM_PACKAGE_NOTE_PREFIX)),
+    ...existingNotes.filter((note) => !PLATFORM_ASSET_NOTE_PREFIXES.some((prefix) => note.startsWith(prefix))),
     `clip_candidate:${input.pkg.clipCandidateId}`,
     `mac_mini_package:${input.pkg.id}`,
     `platform_asset:${input.asset.objectKey}`,
     `platform_asset_url:${input.asset.publicUrl}`,
     `platform_asset_storage:${input.asset.storageMode}`,
+    `platform_asset_format:${input.asset.formatName ?? 'unknown'}`,
+    `platform_asset_video_codec:${input.asset.videoCodec}`,
+    `platform_asset_audio_codec:${input.asset.audioCodec ?? 'none'}`,
+    `platform_asset_duration_seconds:${input.asset.durationSeconds}`,
+    `rendered_mp4_url:${input.asset.publicUrl}`,
+    `rendered_mp4_reference:${input.asset.objectKey}`,
+    `${RENDER_WIDTH_PREFIX}${input.asset.width}`,
+    `${RENDER_HEIGHT_PREFIX}${input.asset.height}`,
     safeJsonNote(EDITORIAL_CAPTION_PREFIX, input.platformPackage.clip.caption),
     safeJsonNote(EDITORIAL_HASHTAGS_PREFIX, input.platformPackage.clip.hashtags),
     safeJsonNote(PLATFORM_PACKAGE_NOTE_PREFIX, input.platformPackage),

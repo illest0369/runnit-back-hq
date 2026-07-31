@@ -6,6 +6,7 @@ import { promisify } from 'node:util'
 
 import { createPlatformReadyPackageFromMacMini } from '../lib/platform-package-bridge'
 import { buildPublishExportPackage } from '../lib/export/build-export'
+import { getTikTokVerticalReadiness, hasTikTokPostingReadiness } from '../lib/tiktok-analyzer'
 
 const execFileAsync = promisify(execFile)
 
@@ -218,6 +219,10 @@ async function main() {
     assert(result.storageMode === 'local_dev', 'Smoke should use local-dev storage without R2 credentials.')
     assert(result.publicUrl.endsWith('.mp4'), 'Platform asset URL should be an MP4 URL.')
     assert(result.platformPackage.asset.localAssetPath === localAssetPath, 'Original local asset path was not preserved.')
+    assert(result.platformPackage.asset.width === 1080, 'Platform asset width was not captured from ffprobe.')
+    assert(result.platformPackage.asset.height === 1920, 'Platform asset height was not captured from ffprobe.')
+    assert(result.platformPackage.asset.videoCodec === 'h264', 'Platform asset video codec was not captured from ffprobe.')
+    assert(result.platformPackage.asset.audioCodec === 'aac', 'Platform asset audio codec was not captured from ffprobe.')
     assert(result.platformPackage.targetPlatforms.includes('tiktok'), 'TikTok export copy missing.')
     assert(result.platformPackage.targetPlatforms.includes('instagram_reels'), 'Instagram Reels export copy missing.')
     assert(result.platformPackage.targetPlatforms.includes('youtube_shorts'), 'YouTube Shorts export copy missing.')
@@ -231,6 +236,34 @@ async function main() {
     assert(clip.publish_status === 'ready_for_manual_publish', 'Clip was not marked ready for manual publish.')
     assert(clip.video_url === result.publicUrl, 'Clip video_url does not use platform asset URL.')
     assert(Array.isArray(clip.risk_flags) && clip.risk_flags.includes('platform_ready'), 'Clip does not expose platform_ready flag.')
+    assert(
+      Array.isArray(clip.moderation_notes) && clip.moderation_notes.includes('render_width:1080'),
+      'Clip is missing render_width readiness metadata.',
+    )
+    assert(
+      Array.isArray(clip.moderation_notes) && clip.moderation_notes.includes('render_height:1920'),
+      'Clip is missing render_height readiness metadata.',
+    )
+    assert(
+      Array.isArray(clip.moderation_notes) && clip.moderation_notes.includes(`rendered_mp4_url:${result.publicUrl}`),
+      'Clip is missing rendered MP4 URL metadata.',
+    )
+    assert(
+      Array.isArray(clip.moderation_notes) && clip.moderation_notes.includes('platform_asset_video_codec:h264'),
+      'Clip is missing video codec metadata.',
+    )
+    assert(
+      hasTikTokPostingReadiness({
+        moderation_notes: clip.moderation_notes as string[],
+        aspect_ratio: String(clip.aspect_ratio),
+      }),
+      'Clip does not satisfy TikTok/operator export readiness.',
+    )
+    const verticalReadiness = getTikTokVerticalReadiness({
+      moderation_notes: clip.moderation_notes as string[],
+      aspect_ratio: String(clip.aspect_ratio),
+    })
+    assert(verticalReadiness.verticalStatus === 'vertical_ready', 'Clip is not vertical_ready for export.')
 
     const exportPackage = buildPublishExportPackage({
       id: String(clip.id),
