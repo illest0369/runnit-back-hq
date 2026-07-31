@@ -21,6 +21,21 @@ export type StoredPlatformMediaAsset = {
   formatName: string | null
 }
 
+function isProductionRuntime() {
+  return process.env.NODE_ENV === 'production'
+}
+
+export function isDurablePublicPlatformAsset(asset: Pick<StoredPlatformMediaAsset, 'publicUrl' | 'storageMode'>): boolean {
+  return asset.storageMode === 'r2' && /^https?:\/\//i.test(asset.publicUrl)
+}
+
+export function assertProductionReadyPlatformAsset(asset: Pick<StoredPlatformMediaAsset, 'publicUrl' | 'storageMode'>): void {
+  if (!isProductionRuntime()) return
+  if (isDurablePublicPlatformAsset(asset)) return
+
+  throw new Error('Production platform export requires durable public R2 storage.')
+}
+
 function safeSegment(value: string | null | undefined): string {
   const clean = value?.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '') ?? ''
   return clean || 'unrouted'
@@ -71,12 +86,12 @@ export async function storePlatformMp4Asset(input: {
     channelId: input.channelId,
   })
   const stored = await copyGeneratedClipToStorage(validation.assetPath, objectKey)
-
-  return {
+  const storageMode = stored.storageMode === 'r2' ? 'r2' : 'local_dev'
+  const asset = {
     publicUrl: stored.publicUrl,
     cdnUrl: stored.cdnUrl,
     localUrl: stored.localUrl,
-    storageMode: stored.storageMode === 'r2' ? 'r2' : 'local_dev',
+    storageMode,
     objectKey,
     sourceLocalPath: validation.assetPath,
     durationSeconds: validation.durationSeconds,
@@ -85,7 +100,10 @@ export async function storePlatformMp4Asset(input: {
     videoCodec: validation.videoCodec,
     audioCodec: validation.audioCodec,
     formatName: validation.formatName,
-  }
+  } satisfies StoredPlatformMediaAsset
+
+  assertProductionReadyPlatformAsset(asset)
+  return asset
 }
 
 export async function deleteStoredPlatformMp4Asset(asset: Pick<StoredPlatformMediaAsset, 'objectKey' | 'storageMode'>): Promise<void> {

@@ -26,9 +26,10 @@ export const R2_REQUIRED_ENV_NAMES = [
   'R2_ACCESS_KEY_ID',
   'R2_SECRET_ACCESS_KEY',
   'R2_BUCKET',
+  'R2_PUBLIC_BASE_URL',
 ] as const
 
-export const R2_OPTIONAL_ENV_NAMES = ['R2_PUBLIC_BASE_URL'] as const
+export const R2_OPTIONAL_ENV_NAMES = [] as const
 
 function isProductionRuntime() {
   return process.env.NODE_ENV === 'production'
@@ -41,7 +42,7 @@ function getR2Config(): R2Config | null {
   const bucket = process.env.R2_BUCKET?.trim()
   const publicBaseUrl = process.env.R2_PUBLIC_BASE_URL?.trim() || null
 
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) {
+  if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl) {
     return null
   }
 
@@ -76,7 +77,7 @@ export function getRequiredR2Config(): R2Config {
 
   if (!config) {
     throw new Error(
-      'Missing R2 configuration. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET.',
+      'Missing R2 configuration. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, and R2_PUBLIC_BASE_URL.',
     )
   }
 
@@ -263,7 +264,7 @@ async function storeGeneratedClip(
 
   if (isProductionRuntime()) {
     throw new Error(
-      'R2 storage is required in production. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET.',
+      'R2 storage is required in production. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET, and R2_PUBLIC_BASE_URL.',
     )
   }
 

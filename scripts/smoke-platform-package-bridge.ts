@@ -223,6 +223,9 @@ async function main() {
     assert(result.platformPackage.asset.height === 1920, 'Platform asset height was not captured from ffprobe.')
     assert(result.platformPackage.asset.videoCodec === 'h264', 'Platform asset video codec was not captured from ffprobe.')
     assert(result.platformPackage.asset.audioCodec === 'aac', 'Platform asset audio codec was not captured from ffprobe.')
+    assert(result.platformPackage.asset.createdAt === now, 'Platform asset createdAt was not captured.')
+    assert(result.platformPackage.asset.expiresAt === '2026-07-26T12:00:00.000Z', 'Platform asset expiry was not set to now + 3 days.')
+    assert(result.assetExpiresAt === '2026-07-26T12:00:00.000Z', 'Platform export result expiry was not set.')
     assert(result.platformPackage.targetPlatforms.includes('tiktok'), 'TikTok export copy missing.')
     assert(result.platformPackage.targetPlatforms.includes('instagram_reels'), 'Instagram Reels export copy missing.')
     assert(result.platformPackage.targetPlatforms.includes('youtube_shorts'), 'YouTube Shorts export copy missing.')
@@ -235,6 +238,14 @@ async function main() {
     assert(clip.status === 'approved', 'Clip was not approved for export.')
     assert(clip.publish_status === 'ready_for_manual_publish', 'Clip was not marked ready for manual publish.')
     assert(clip.video_url === result.publicUrl, 'Clip video_url does not use platform asset URL.')
+    assert(clip.asset_storage_provider === 'local_dev', 'Clip asset storage provider was not persisted.')
+    assert(clip.asset_storage_key === result.storageReference, 'Clip asset storage key was not persisted.')
+    assert(clip.asset_public_url === result.publicUrl, 'Clip asset public URL was not persisted.')
+    assert(clip.asset_created_at === now, 'Clip asset created timestamp was not persisted.')
+    assert(clip.asset_expires_at === '2026-07-26T12:00:00.000Z', 'Clip asset expiry timestamp was not persisted.')
+    assert(clip.asset_deleted_at === null, 'Clip asset should not be marked deleted.')
+    assert(clip.asset_delete_status === 'pending', 'Clip asset delete status should be pending.')
+    assert(clip.asset_delete_error === null, 'Clip asset delete error should be empty.')
     assert(Array.isArray(clip.risk_flags) && clip.risk_flags.includes('platform_ready'), 'Clip does not expose platform_ready flag.')
     assert(
       Array.isArray(clip.moderation_notes) && clip.moderation_notes.includes('render_width:1080'),
@@ -264,6 +275,16 @@ async function main() {
       aspect_ratio: String(clip.aspect_ratio),
     })
     assert(verticalReadiness.verticalStatus === 'vertical_ready', 'Clip is not vertical_ready for export.')
+
+    const packageRow = tables.mac_mini_clip_packages[0]
+    assert(packageRow.asset_storage_provider === 'local_dev', 'Package asset storage provider was not persisted.')
+    assert(packageRow.asset_storage_key === result.storageReference, 'Package asset storage key was not persisted.')
+    assert(packageRow.asset_public_url === result.publicUrl, 'Package asset public URL was not persisted.')
+    assert(packageRow.asset_created_at === now, 'Package asset created timestamp was not persisted.')
+    assert(packageRow.asset_expires_at === '2026-07-26T12:00:00.000Z', 'Package asset expiry timestamp was not persisted.')
+    assert(packageRow.asset_deleted_at === null, 'Package asset should not be marked deleted.')
+    assert(packageRow.asset_delete_status === 'pending', 'Package asset delete status should be pending.')
+    assert(packageRow.asset_delete_error === null, 'Package asset delete error should be empty.')
 
     const exportPackage = buildPublishExportPackage({
       id: String(clip.id),

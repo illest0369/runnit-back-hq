@@ -4,6 +4,7 @@ export const revalidate = 0
 import { NextResponse } from 'next/server'
 
 import { getSessionFromRequest } from '@/lib/auth'
+import { extendClipAssetRetentionForSchedule } from '@/lib/asset-retention'
 import { validateCsrfRequest } from '@/lib/csrf'
 import { sendClipToMetricool, validateMetricoolConfigForChannel } from '@/lib/metricool'
 import {
@@ -12,6 +13,7 @@ import {
   updateClipMetricoolStatus,
   type ModerationClip,
 } from '@/lib/moderation-queue'
+import { supabaseAdmin } from '@/lib/supabase'
 
 type RouteContext = {
   params: Promise<{ clipId: string }>
@@ -115,6 +117,18 @@ export async function POST(request: Request, context: RouteContext) {
   }
 
   const ok = metricool.status === 'accepted'
+  if (ok) {
+    await extendClipAssetRetentionForSchedule(supabaseAdmin, {
+      clipId,
+      scheduledPublishTime: scheduledAt,
+    }).catch((error) => {
+      console.warn(
+        '[asset-retention] schedule expiry update skipped:',
+        error instanceof Error ? error.message : error,
+      )
+    })
+  }
+
   return NextResponse.json(
     { ok, data: responsePayload(updated, metricool, scheduledAt), error: ok ? null : metricool.error },
     { status: ok ? 200 : 502, headers: { 'Cache-Control': 'no-store' } },

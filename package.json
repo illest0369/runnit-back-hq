@@ -27,6 +27,7 @@
     "smoke:moment-selection": "tsx scripts/smoke-moment-selection.ts",
     "smoke:local-render-prep": "tsx scripts/smoke-local-render-prep.ts",
     "smoke:platform-package-bridge": "tsx scripts/smoke-platform-package-bridge.ts",
+    "smoke:expired-asset-cleanup": "tsx scripts/smoke-expired-asset-cleanup.ts",
     "smoke:batch-local-generation": "npm run smoke:batch-local-clip-generation",
     "smoke:batch-local-clip-generation": "tsx scripts/smoke-batch-local-clip-generation.ts",
     "smoke:operator-queue-readiness": "tsx scripts/smoke-operator-queue-readiness.ts",
@@ -66,6 +67,8 @@
     "source-system:rb-women": "tsx scripts/rb-women-source-qa.ts",
     "source-system:rb-sports": "tsx scripts/rb-sports-source-qa.ts",
     "source-system:rb-combat": "tsx scripts/rb-combat-source-qa.ts",
+    "metricool:dry-run-payload": "tsx scripts/dry-run-metricool-payload.ts",
+    "assets:cleanup-expired": "tsx scripts/cleanup-expired-assets.ts",
     "worker:clips": "node dist/workers/startWorker.js",
     "worker:post:dry-run": "node dist/workers/startPostDryRunWorker.js",
     "worker:post:dry-run:local": "RBHQ_POST_QUEUE_NAME=rbhq-post-local-dry-run node dist/workers/startPostDryRunWorker.js"

@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { assetCreatedAt, assetExpiresAt } from './asset-retention'
 import { getMacMiniClipPackageById, type MacMiniClipPackage } from './mac-mini-handoff'
 import { storePlatformMp4Asset, type StoredPlatformMediaAsset } from './media-storage'
 
@@ -50,6 +51,14 @@ type ClipRow = {
   risk_flags: string[] | null
 }
 
+type AssetRetentionMetadata = {
+  assetStorageProvider: 'r2' | 'local_dev'
+  assetStorageKey: string
+  assetPublicUrl: string
+  assetCreatedAt: string
+  assetExpiresAt: string
+}
+
 export type PlatformTarget = 'tiktok' | 'instagram_reels' | 'youtube_shorts'
 
 export type PlatformExportCopy = {
@@ -97,6 +106,8 @@ export type PlatformReadyPackage = {
     videoCodec: string
     audioCodec: string | null
     formatName: string | null
+    createdAt: string
+    expiresAt: string
   }
   targetPlatforms: PlatformTarget[]
   copy: Record<PlatformTarget, PlatformExportCopy>
@@ -119,6 +130,7 @@ export type PackageToPlatformResult = {
   publicUrl: string
   storageMode: 'r2' | 'local_dev'
   storageReference: string
+  assetExpiresAt: string
   platformPackage: PlatformReadyPackage
   safety: PlatformReadyPackage['safety']
 }
@@ -136,6 +148,8 @@ const PLATFORM_ASSET_NOTE_PREFIXES = [
   'platform_asset:',
   'platform_asset_url:',
   'platform_asset_storage:',
+  'platform_asset_created_at:',
+  'platform_asset_expires_at:',
   'platform_asset_format:',
   'platform_asset_video_codec:',
   'platform_asset_audio_codec:',
@@ -210,6 +224,7 @@ function buildPlatformReadyPackage(input: {
   video: JoinedVideo
   source: JoinedSource | null
   asset: StoredPlatformMediaAsset
+  retention: AssetRetentionMetadata
   clipId: string
   now: string
 }): PlatformReadyPackage {
@@ -266,6 +281,8 @@ function buildPlatformReadyPackage(input: {
       videoCodec: input.asset.videoCodec,
       audioCodec: input.asset.audioCodec,
       formatName: input.asset.formatName,
+      createdAt: input.retention.assetCreatedAt,
+      expiresAt: input.retention.assetExpiresAt,
     },
     targetPlatforms,
     copy,
@@ -343,6 +360,7 @@ function clipPayload(input: {
   video: JoinedVideo
   source: JoinedSource | null
   asset: StoredPlatformMediaAsset
+  retention: AssetRetentionMetadata
   platformPackage: PlatformReadyPackage
   existing: ClipRow | null
   now: string
@@ -362,6 +380,8 @@ function clipPayload(input: {
     `platform_asset:${input.asset.objectKey}`,
     `platform_asset_url:${input.asset.publicUrl}`,
     `platform_asset_storage:${input.asset.storageMode}`,
+    `platform_asset_created_at:${input.retention.assetCreatedAt}`,
+    `platform_asset_expires_at:${input.retention.assetExpiresAt}`,
     `platform_asset_format:${input.asset.formatName ?? 'unknown'}`,
     `platform_asset_video_codec:${input.asset.videoCodec}`,
     `platform_asset_audio_codec:${input.asset.audioCodec ?? 'none'}`,
@@ -390,6 +410,14 @@ function clipPayload(input: {
     source_type: input.video.platform || 'youtube',
     thumbnail_url: input.video.thumbnail_url,
     video_url: input.asset.publicUrl,
+    asset_storage_provider: input.retention.assetStorageProvider,
+    asset_storage_key: input.retention.assetStorageKey,
+    asset_public_url: input.retention.assetPublicUrl,
+    asset_created_at: input.retention.assetCreatedAt,
+    asset_expires_at: input.retention.assetExpiresAt,
+    asset_deleted_at: null,
+    asset_delete_status: 'pending',
+    asset_delete_error: null,
     source_url: input.pkg.sourceUrl || input.video.video_url,
     original_platform: input.video.platform || 'youtube',
     import_batch_id: `platform-package:${input.now.slice(0, 10)}`,
@@ -408,6 +436,32 @@ function clipPayload(input: {
     ingested_at: input.now,
     ingestion_status: 'imported',
     updated_at: input.now,
+  }
+}
+
+async function updatePackageAssetRetention(
+  supabase: PlatformBridgeDb,
+  packageId: string,
+  retention: AssetRetentionMetadata,
+) {
+  const { error } = await (supabase as any)
+    .from('mac_mini_clip_packages')
+    .update({
+      asset_storage_provider: retention.assetStorageProvider,
+      asset_storage_key: retention.assetStorageKey,
+      asset_public_url: retention.assetPublicUrl,
+      asset_created_at: retention.assetCreatedAt,
+      asset_expires_at: retention.assetExpiresAt,
+      asset_deleted_at: null,
+      asset_delete_status: 'pending',
+      asset_delete_error: null,
+    })
+    .eq('id', packageId)
+    .select('id')
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
   }
 }
 
@@ -442,6 +496,13 @@ export async function createPlatformReadyPackageFromMacMini(
   })
 
   const now = (input.now ?? (() => new Date()))().toISOString()
+  const retention = {
+    assetStorageProvider: asset.storageMode,
+    assetStorageKey: asset.objectKey,
+    assetPublicUrl: asset.publicUrl,
+    assetCreatedAt: assetCreatedAt({ now: new Date(now) }),
+    assetExpiresAt: assetExpiresAt({ now: new Date(now) }),
+  } satisfies AssetRetentionMetadata
   const provisionalClipId = existing?.id ?? `platform_package:${pkg.id}`
   const platformPackage = buildPlatformReadyPackage({
     pkg,
@@ -449,6 +510,7 @@ export async function createPlatformReadyPackageFromMacMini(
     video,
     source,
     asset,
+    retention,
     clipId: provisionalClipId,
     now,
   })
@@ -458,10 +520,13 @@ export async function createPlatformReadyPackageFromMacMini(
     video,
     source,
     asset,
+    retention,
     platformPackage,
     existing,
     now,
   })
+
+  await updatePackageAssetRetention(supabase, pkg.id, retention)
 
   let clip: ClipRow
   if (existing) {
@@ -495,6 +560,7 @@ export async function createPlatformReadyPackageFromMacMini(
       video,
       source,
       asset,
+      retention,
       platformPackage,
       existing: clip,
       now,
@@ -518,6 +584,7 @@ export async function createPlatformReadyPackageFromMacMini(
     publicUrl: asset.publicUrl,
     storageMode: asset.storageMode,
     storageReference: asset.objectKey,
+    assetExpiresAt: retention.assetExpiresAt,
     platformPackage,
     safety: platformPackage.safety,
   }
