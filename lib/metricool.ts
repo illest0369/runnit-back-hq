@@ -46,6 +46,21 @@ export type MetricoolConfigStatus = {
   error: string | null
 }
 
+export type MetricoolAuthDebugShape = {
+  endpointPath: string | null
+  endpointQueryParamNames: string[]
+  userIdQueryParamPresent: boolean
+  headerNames: string[]
+  usesAuthorizationBearer: false
+  tokenPresent: boolean
+  tokenTrimLength: number
+  tokenTrimLengthGreaterThanZero: boolean
+  tokenStartsWithBearer: boolean
+  tokenContainsWhitespaceOrNewline: boolean
+  tokenFirstCharCategory: string | null
+  tokenLastCharCategory: string | null
+}
+
 const CHANNEL_TO_METRICOOL_ENV: Record<string, MetricoolBrandKey> = {
   'a1000000-0000-0000-0000-000000000001': 'METRICOOL_BRAND_RB_SPORTS',
   'a1000000-0000-0000-0000-000000000002': 'METRICOOL_BRAND_RB_ARENA',
@@ -218,6 +233,54 @@ export async function validateMetricoolConnectivity(): Promise<{
       status: null,
       error: error instanceof Error ? error.message : 'Metricool connectivity check failed.',
     }
+  }
+}
+
+function characterCategory(value: string | undefined): string | null {
+  if (!value) return null
+  if (/[A-Z]/.test(value)) return 'uppercase_letter'
+  if (/[a-z]/.test(value)) return 'lowercase_letter'
+  if (/[0-9]/.test(value)) return 'digit'
+  if (/\s/.test(value)) return 'whitespace'
+  return 'symbol'
+}
+
+export function getMetricoolAuthDebugShape(): MetricoolAuthDebugShape {
+  const rawToken = process.env.METRICOOL_API_KEY ?? ''
+  const trimmedToken = rawToken.trim()
+  const apiUrl = process.env.METRICOOL_API_URL?.trim().replace(/\/+$/, '') ?? ''
+  const userId = process.env.METRICOOL_USER_ID?.trim() ?? ''
+  let endpointPath: string | null = null
+  let endpointQueryParamNames: string[] = []
+  let userIdQueryParamPresent = false
+
+  if (apiUrl) {
+    try {
+      const url = new URL(`${apiUrl}/admin/simpleProfiles`)
+      if (userId) {
+        url.searchParams.set('userId', userId)
+      }
+      endpointPath = url.pathname
+      endpointQueryParamNames = [...url.searchParams.keys()]
+      userIdQueryParamPresent = url.searchParams.has('userId')
+    } catch {
+      endpointPath = null
+    }
+  }
+
+  return {
+    endpointPath,
+    endpointQueryParamNames,
+    userIdQueryParamPresent,
+    headerNames: ['X-Mc-Auth', 'Content-Type'],
+    usesAuthorizationBearer: false,
+    tokenPresent: Boolean(trimmedToken),
+    tokenTrimLength: trimmedToken.length,
+    tokenTrimLengthGreaterThanZero: trimmedToken.length > 0,
+    tokenStartsWithBearer: /^Bearer\s+/i.test(trimmedToken),
+    tokenContainsWhitespaceOrNewline: /\s/.test(rawToken),
+    tokenFirstCharCategory: characterCategory(trimmedToken[0]),
+    tokenLastCharCategory: characterCategory(trimmedToken[trimmedToken.length - 1]),
   }
 }
 
