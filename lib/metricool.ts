@@ -346,26 +346,53 @@ function readObject(value: unknown): Record<string, unknown> | null {
     : null
 }
 
-function findString(value: unknown, keys: string[]): string | null {
+type FoundStringPath = {
+  value: string
+  path: string
+}
+
+function findStringPath(value: unknown, keys: string[], path = '$'): FoundStringPath | null {
   const object = readObject(value)
   if (!object) return null
 
   for (const key of keys) {
     const entry = object[key]
-    if (typeof entry === 'string' && entry.trim()) return entry.trim()
-    if (typeof entry === 'number') return String(entry)
+    if (typeof entry === 'string' && entry.trim()) return { value: entry.trim(), path: `${path}.${key}` }
+    if (typeof entry === 'number') return { value: String(entry), path: `${path}.${key}` }
   }
 
-  for (const entry of Object.values(object)) {
-    const nested = findString(entry, keys)
+  for (const [key, entry] of Object.entries(object)) {
+    const nested = findStringPath(entry, keys, `${path}.${key}`)
     if (nested) return nested
   }
 
   return null
 }
 
+function findString(value: unknown, keys: string[]): string | null {
+  return findStringPath(value, keys)?.value ?? null
+}
+
+export function getMetricoolMediaIdPath(responseBody: unknown): FoundStringPath | null {
+  if (typeof responseBody === 'string' && responseBody.trim()) {
+    return { value: responseBody.trim(), path: '$' }
+  }
+
+  return findStringPath(responseBody, [
+    'mediaId',
+    'media_id',
+    'mediaID',
+    'media',
+    'fileId',
+    'file_id',
+    'resourceId',
+    'resource_id',
+    'id',
+  ])
+}
+
 function getMediaId(responseBody: unknown): string | null {
-  return findString(responseBody, ['mediaId', 'media_id', 'id'])
+  return getMetricoolMediaIdPath(responseBody)?.value ?? null
 }
 
 function getMetricoolPostId(responseBody: unknown): string | null {

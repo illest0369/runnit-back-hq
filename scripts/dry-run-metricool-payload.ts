@@ -136,9 +136,6 @@ async function main() {
   if (!clip) {
     throw new Error(`Clip ${clipId} was not returned by ready publish or Metricool workflow queries.`)
   }
-  if (!readyClip) {
-    throw new Error(`Clip ${clipId} was not returned by getReadyPublishClips.`)
-  }
   if (!workflowClip) {
     throw new Error(`Clip ${clipId} was not returned by getMetricoolWorkflowClips.`)
   }
@@ -188,8 +185,8 @@ async function main() {
     },
     metricoolEnvPresence: getMetricoolConfigReport().env,
     queryPresence: {
-      getReadyPublishClips: true,
-      getMetricoolWorkflowClips: true,
+      getReadyPublishClips: Boolean(readyClip),
+      getMetricoolWorkflowClips: Boolean(workflowClip),
     },
     identifiers: {
       userId,
