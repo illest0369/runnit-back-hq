@@ -991,6 +991,9 @@ export async function renderLocalClipPrepMp4(input: {
     'ffmpeg',
     [
       '-y',
+      '-v',
+      'error',
+      '-nostats',
       '-ss',
       String(input.startSeconds),
       '-i',

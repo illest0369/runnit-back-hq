@@ -1,0 +1,3 @@
+whisperx==3.8.6
+scenedetect==0.7.1
+clipsai==0.2.1
