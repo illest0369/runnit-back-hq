@@ -36,6 +36,7 @@
     "smoke:rb-women-editorial-gate": "tsx scripts/smoke-rb-women-editorial-gate.ts",
     "metricool:probe": "tsx scripts/probe-metricool-config.ts",
     "metricool:normalize-probe": "tsx scripts/probe-metricool-normalize.ts",
+    "metricool:reset-failed-clip": "tsx scripts/reset-metricool-failed-clip.ts",
     "media-storage:probe": "tsx scripts/probe-media-storage.ts",
     "n8n:probe": "tsx scripts/probe-n8n-config.ts",
     "n8n:help": "tsx scripts/print-n8n-dry-run-help.ts",

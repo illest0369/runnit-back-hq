@@ -666,6 +666,9 @@ async function hydrateMetricoolHandoffStatuses(clips: ModerationClip[]): Promise
 
   return clips.map((clip) => {
     const publishStatus = statuses.get(clip.id)
+    if (publishStatus === 'metricool_failed' && METRICOOL_READY_PUBLISH_STATUS_SET.has(clip.publish_status)) {
+      return clip
+    }
     return publishStatus ? { ...clip, publish_status: publishStatus } : clip
   })
 }
