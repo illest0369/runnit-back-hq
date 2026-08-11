@@ -490,8 +490,8 @@ export function buildSchedulerPayload(input: {
     draft: false,
     firstCommentText: '',
     hasNotReadNotes: false,
-    media: { mediaId: input.mediaId },
-    mediaAltText: [],
+    media: [input.mediaId],
+    mediaAltText: [null],
     providers: [{ network: 'tiktok' }],
     publicationDate: {
       dateTime: scheduleDate(input.scheduledAt, timezone),
@@ -525,8 +525,8 @@ export function assertMetricoolSchedulerContract(payload: MetricoolSchedulerPayl
   const providers = Array.isArray(payload.providers) ? payload.providers : []
   const firstProvider = readSchedulerObject(providers[0])
   const publicationDate = readSchedulerObject(payload.publicationDate)
-  const media = readSchedulerObject(payload.media)
-  const mediaId = typeof media?.mediaId === 'string' ? media.mediaId.trim() : ''
+  const media = Array.isArray(payload.media) ? payload.media : []
+  const mediaValue = typeof media[0] === 'string' ? media[0].trim() : ''
   const dateTime = typeof publicationDate?.dateTime === 'string' ? publicationDate.dateTime.trim() : ''
   const timezone = typeof publicationDate?.timezone === 'string' ? publicationDate.timezone.trim() : ''
   const network = typeof firstProvider?.network === 'string' ? firstProvider.network.trim() : ''
@@ -537,11 +537,19 @@ export function assertMetricoolSchedulerContract(payload: MetricoolSchedulerPayl
     ...(!network ? ['providers[0].network'] : []),
     ...(!dateTime ? ['publicationDate.dateTime'] : []),
     ...(!timezone ? ['publicationDate.timezone'] : []),
-    ...(!mediaId ? ['media.mediaId'] : []),
+    ...(!mediaValue ? ['media[0]'] : []),
   ]
 
   if (missing.length > 0) {
     throw new Error(`Metricool scheduler payload contract failed: missing ${missing.join(', ')}.`)
+  }
+}
+
+export function buildMetricoolSchedulerRequestInit(apiKey: string, payload: MetricoolSchedulerPayload): RequestInit {
+  return {
+    method: 'POST',
+    headers: buildMetricoolSchedulerHeaders(apiKey),
+    body: JSON.stringify(payload),
   }
 }
 
@@ -778,9 +786,7 @@ export async function sendClipToMetricool(
     assertMetricoolSchedulerContract(requestPayload)
 
     const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: buildMetricoolSchedulerHeaders(config.apiKey),
-      body: JSON.stringify(requestPayload),
+      ...buildMetricoolSchedulerRequestInit(config.apiKey, requestPayload),
     })
     const responseBody = await readResponseBody(response)
     const metricoolPostId = getMetricoolPostId(responseBody)

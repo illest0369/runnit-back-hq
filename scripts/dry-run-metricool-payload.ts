@@ -162,7 +162,7 @@ async function main() {
       normalizeEndpoint: normalizeEndpointPreview(apiUrl, exportPackage.video_url),
       schedulerEndpoint: buildMetricoolSchedulerEndpointPreview({ apiUrl, blogId, userId }),
       schedulerPayload,
-      note: 'media.mediaId is a placeholder because this dry-run does not call Metricool media normalization.',
+      note: 'media[0] is a placeholder because this dry-run does not call Metricool media normalization.',
     },
   }, null, 2))
 }

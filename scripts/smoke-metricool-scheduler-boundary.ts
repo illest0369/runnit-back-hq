@@ -5,6 +5,7 @@ import {
   buildMetricoolNormalizeHeaders,
   buildMetricoolSchedulerEndpointPreview,
   buildMetricoolSchedulerHeaders,
+  buildMetricoolSchedulerRequestInit,
   buildSchedulerPayload,
   formatMetricoolDateTimeForTimezone,
   metricoolSchedulerError,
@@ -32,12 +33,13 @@ function main() {
   assert(schedulerHeaders['X-Mc-Auth'] === 'fake-token', 'Scheduler headers must include X-Mc-Auth.')
   assert(schedulerHeaders['Content-Type'] === 'application/json', 'Scheduler POST must send JSON Content-Type.')
   assert(schedulerHeaders.Accept === 'application/json', 'Scheduler POST must request JSON response.')
+  assert(!('Cookie' in schedulerHeaders), 'Scheduler POST must not send browser cookies.')
 
   const payload = buildSchedulerPayload({
     caption: 'RB Women controlled scheduler boundary test.',
     hashtags: ['#RBWomen', '#WomensSports'],
     mediaId: normalizedMediaId,
-    scheduledAt: '2026-08-11T00:25:58.000Z',
+    scheduledAt: '2099-08-11T00:25:58.000Z',
     title: 'RB Women scheduler boundary',
   })
 
@@ -47,10 +49,30 @@ function main() {
   assert(Array.isArray(providers) && providers.length === 1, 'Expected exactly one provider.')
   assert(providers[0]?.network === 'tiktok', 'Expected TikTok provider.')
   const publicationDate = readObject(payload.publicationDate)
-  assert(publicationDate.dateTime === '2026-08-10T17:25:58', `Unexpected timezone dateTime ${String(publicationDate.dateTime)}.`)
+  assert(publicationDate.dateTime === '2099-08-10T17:25:58', `Unexpected timezone dateTime ${String(publicationDate.dateTime)}.`)
   assert(publicationDate.timezone === 'America/Los_Angeles', 'Expected America/Los_Angeles timezone.')
-  const media = readObject(payload.media)
-  assert(media.mediaId === normalizedMediaId, 'Normalized mediaId was not preserved.')
+  const media = payload.media as unknown[]
+  assert(Array.isArray(media), 'Metricool JSON contract expects media array.')
+  assert(media[0] === normalizedMediaId, 'Normalized media value was not preserved.')
+
+  const requestInit = buildMetricoolSchedulerRequestInit('fake-token', payload)
+  assert(requestInit.method === 'POST', 'Wire request must use POST.')
+  const wireBody: unknown = requestInit.body
+  assert(!(wireBody instanceof URLSearchParams), 'Wire request body must not be URLSearchParams.')
+  assert(!(wireBody instanceof FormData), 'Wire request body must not be FormData.')
+  assert(typeof wireBody === 'string', 'Wire request body must be a JSON string.')
+  const parsedBody = JSON.parse(wireBody) as Record<string, unknown>
+  assert(parsedBody.text === payload.text, 'Wire JSON body is missing text.')
+  const parsedProviders = parsedBody.providers as Array<Record<string, unknown>>
+  assert(Array.isArray(parsedProviders) && parsedProviders[0]?.network === 'tiktok', 'Wire JSON body is missing TikTok provider.')
+  const parsedPublicationDate = readObject(parsedBody.publicationDate)
+  assert(parsedPublicationDate.dateTime === '2099-08-10T17:25:58', 'Wire JSON body is missing publication dateTime.')
+  assert(parsedPublicationDate.timezone === 'America/Los_Angeles', 'Wire JSON body is missing publication timezone.')
+  const parsedMedia = parsedBody.media as unknown[]
+  assert(Array.isArray(parsedMedia) && parsedMedia[0] === normalizedMediaId, 'Wire JSON body is missing media string array.')
+  const requestHeaders = requestInit.headers as Record<string, string>
+  assert(requestHeaders['Content-Type'] === 'application/json', 'Wire request Content-Type must be application/json.')
+  assert(requestHeaders.Accept === 'application/json', 'Wire request Accept must be application/json.')
 
   assert(
     formatMetricoolDateTimeForTimezone(new Date('2026-08-11T00:25:58.000Z'), 'America/Los_Angeles') === '2026-08-10T17:25:58',
@@ -84,7 +106,7 @@ function main() {
   assert(localFailure.includes('providers'), 'Contract assertion did not require providers.')
   assert(localFailure.includes('publicationDate.dateTime'), 'Contract assertion did not require publicationDate.dateTime.')
   assert(localFailure.includes('publicationDate.timezone'), 'Contract assertion did not require publicationDate.timezone.')
-  assert(localFailure.includes('media.mediaId'), 'Contract assertion did not require media.mediaId.')
+  assert(localFailure.includes('media[0]'), 'Contract assertion did not require media[0].')
 
   const validationBody = {
     error: 'ValidationError',
@@ -118,7 +140,9 @@ function main() {
     },
     publicationDate: payload.publicationDate,
     providerNetworks: providers.map((provider) => provider.network),
-    mediaIdPreserved: media.mediaId === normalizedMediaId,
+    mediaValuePreserved: media[0] === normalizedMediaId,
+    wireBodyType: typeof requestInit.body,
+    wireBodyKeys: Object.keys(parsedBody),
     normalizeHeaderNames: Object.keys(normalizeHeaders),
     schedulerHeaderNames: Object.keys(schedulerHeaders),
     validationDetailsPreserved: schedulerError.includes('must not be null'),
