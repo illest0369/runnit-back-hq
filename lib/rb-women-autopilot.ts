@@ -196,7 +196,9 @@ function schedulerEndpoint(apiUrl: string, blogId: string, userId: string): URL 
 }
 
 async function metricoolDuplicateExists(input: {
-  caption: string
+  clipId: string
+  packageId: string | null
+  mediaUrl: string | null
   scheduledAt: string
 }): Promise<boolean> {
   const apiUrl = process.env.METRICOOL_API_URL?.trim()
@@ -227,9 +229,18 @@ async function metricoolDuplicateExists(input: {
   }
   const body = await response.json().catch(() => null) as { data?: unknown } | null
   const items = Array.isArray(body?.data) ? body.data : []
-  const serialized = JSON.stringify(items).toLowerCase()
-  const captionNeedle = input.caption.slice(0, 80).toLowerCase()
-  return Boolean(captionNeedle) && serialized.includes(captionNeedle)
+  const mediaNeedle = input.mediaUrl?.trim().toLowerCase() ?? ''
+  const idNeedles = [
+    input.clipId,
+    input.packageId ? `platform_package:${input.packageId}` : null,
+    input.packageId,
+  ].filter((value): value is string => Boolean(value?.trim())).map((value) => value.toLowerCase())
+
+  return items.some((item) => {
+    const serialized = JSON.stringify(item).toLowerCase()
+    if (mediaNeedle && serialized.includes(mediaNeedle)) return true
+    return idNeedles.some((needle) => serialized.includes(needle))
+  })
 }
 
 function readAutopilotRank(value: unknown, notes: unknown, rankSource: string | null): number | null {
@@ -350,8 +361,16 @@ async function scheduleAutopilotClip(input: {
     return { scheduled: false, scheduledAt: null, metricoolPostId: null, publishStatus: null, error: 'Clip not found.', duplicate: false }
   }
   const exportPackage = buildPublishExportPackage(clip)
+  if (clip.publish_status === 'metricool_scheduled') {
+    return { scheduled: false, scheduledAt: null, metricoolPostId: null, publishStatus: clip.publish_status, error: null, duplicate: true }
+  }
+  const packageId = clip.external_id?.startsWith('platform_package:')
+    ? clip.external_id.slice('platform_package:'.length)
+    : null
   const duplicate = await metricoolDuplicateExists({
-    caption: exportPackage.caption,
+    clipId: clip.id,
+    packageId,
+    mediaUrl: exportPackage.rendered_mp4_url ?? clip.video_url,
     scheduledAt: input.scheduledAt,
   })
   if (duplicate) {

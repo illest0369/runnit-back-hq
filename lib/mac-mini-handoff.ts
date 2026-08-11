@@ -280,6 +280,34 @@ function readBreakdownString(breakdown: Record<string, unknown> | null, key: str
   return typeof value === 'string' ? compact(value) : ''
 }
 
+function isRBWomenOpusCandidate(candidate: ClipCandidateForPackage): boolean {
+  return candidate.score_breakdown?.model === 'rb_women_opus_adapter_v1'
+}
+
+function preserveRBWomenOpusCopy(candidate: ClipCandidateForPackage): Pick<ClipCandidateForPackage, 'title' | 'hook_text' | 'caption' | 'hashtags' | 'score_breakdown' | 'clip_reason' | 'opening_text' | 'edit_notes'> {
+  return {
+    title: candidate.title,
+    hook_text: candidate.hook_text,
+    caption: candidate.caption,
+    hashtags: candidate.hashtags,
+    score_breakdown: candidate.score_breakdown,
+    clip_reason: candidate.clip_reason,
+    opening_text: candidate.opening_text,
+    edit_notes: candidate.edit_notes,
+  }
+}
+
+function restoreRBWomenOpusCopy(candidate: ClipCandidateForPackage, copy: ReturnType<typeof preserveRBWomenOpusCopy>) {
+  candidate.title = copy.title
+  candidate.hook_text = copy.hook_text
+  candidate.caption = copy.caption
+  candidate.hashtags = copy.hashtags
+  candidate.score_breakdown = copy.score_breakdown
+  candidate.clip_reason = copy.clip_reason
+  candidate.opening_text = copy.opening_text
+  candidate.edit_notes = copy.edit_notes
+}
+
 function readBreakdownReasons(breakdown: Record<string, unknown> | null): string[] {
   const reasons = breakdown?.reasons
   return Array.isArray(reasons)
@@ -575,8 +603,12 @@ export async function createMacMiniClipPackageFromCandidate(
   }
 
   const nowDate = (input.now ?? (() => new Date()))()
-  const sync = await syncLoadedCandidateIntelligenceV1(supabase, candidate, { now: () => nowDate })
-  Object.assign(candidate, sync.update)
+  if (isRBWomenOpusCandidate(candidate)) {
+    restoreRBWomenOpusCopy(candidate, preserveRBWomenOpusCopy(candidate))
+  } else {
+    const sync = await syncLoadedCandidateIntelligenceV1(supabase, candidate, { now: () => nowDate })
+    Object.assign(candidate, sync.update)
+  }
   assertPackageEligible(candidate)
 
   const now = nowDate.toISOString()

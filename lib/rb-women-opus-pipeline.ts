@@ -121,6 +121,30 @@ export type SelectedOpusCandidate = GeminiOpusCandidate & {
   } | null
 }
 
+type EntityEvidenceSource = 'source_title' | 'gemini_structured' | 'gemini_context' | 'transcript'
+
+export type EntityDetection = {
+  name: string
+  normalizedName: string
+  source: EntityEvidenceSource
+}
+
+export type ResolvedEntity = {
+  name: string
+  normalizedName: string
+  type: 'player_or_person'
+  confidence: 'high' | 'medium' | 'low'
+  evidence: EntityEvidenceSource[]
+  warnings: string[]
+}
+
+export type EntityResolution = {
+  detectedEntities: EntityDetection[]
+  resolvedEntities: ResolvedEntity[]
+  entityConfidence: Record<string, ResolvedEntity['confidence']>
+  entityWarnings: string[]
+}
+
 export type WhisperXWord = {
   start: number
   end: number
@@ -796,6 +820,238 @@ function stringArray(value: unknown): string[] {
     : []
 }
 
+function uniqueStrings(values: string[]): string[] {
+  const seen = new Set<string>()
+  const output: string[] = []
+  for (const value of values.map((item) => compact(item, 100)).filter(Boolean)) {
+    const key = value.toLowerCase()
+    if (seen.has(key)) continue
+    seen.add(key)
+    output.push(value)
+  }
+  return output
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function normalizeEntityName(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[’']/g, '')
+    .replace(/[^a-z0-9]+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function entityLastToken(name: string): string | null {
+  const parts = normalizeEntityName(name).split(' ').filter(Boolean)
+  return parts.length > 1 ? parts[parts.length - 1] ?? null : null
+}
+
+function containsEntityName(text: string, name: string): boolean {
+  const normalizedText = ` ${normalizeEntityName(text)} `
+  const normalizedName = normalizeEntityName(name)
+  if (!normalizedName) return false
+  if (normalizedText.includes(` ${normalizedName} `)) return true
+  const last = entityLastToken(name)
+  return last ? normalizedText.includes(` ${last} `) : false
+}
+
+function looksLikePersonName(value: string, teamNames: string[]): boolean {
+  const normalized = normalizeEntityName(value)
+  if (!normalized) return false
+  if (teamNames.some((team) => normalizeEntityName(team) === normalized)) return false
+  if (/\b(wnba|ncaaw|basketball|wings|valkyries|aces|lynx|liberty|fever|sky|sun|storm|mercury|dream|sparks|mystics|team|game|highlights?)\b/i.test(value)) return false
+  return normalized.split(' ').length >= 2
+}
+
+function addEntityDetection(
+  detections: EntityDetection[],
+  name: string,
+  source: EntityEvidenceSource,
+  teamNames: string[],
+) {
+  const clean = compact(name, 80)
+  if (!clean || !looksLikePersonName(clean, teamNames)) return
+  const normalizedName = normalizeEntityName(clean)
+  if (!normalizedName) return
+  detections.push({ name: clean, normalizedName, source })
+}
+
+export function reconcileCandidateEntities(input: {
+  selected: SelectedOpusCandidate
+  sourceTitle: string | null
+  transcriptText: string | null
+}): EntityResolution {
+  const selected = input.selected
+  const detections: EntityDetection[] = []
+  const structuredNames = uniqueStrings([
+    ...selected.player_names,
+    ...selected.coach_names,
+    ...selected.primary_subject_names,
+    ...selected.editorial.namedSearchEntities,
+  ])
+  const contextText = [
+    selected.subject,
+    selected.opening_line,
+    selected.visual_context,
+    selected.rb_women_angle,
+    selected.viral_reason,
+    selected.transcript_summary,
+    selected.why_fans_care,
+  ].join(' ')
+
+  for (const name of structuredNames) {
+    addEntityDetection(detections, name, 'gemini_structured', selected.team_names)
+    if (input.sourceTitle && containsEntityName(input.sourceTitle, name)) {
+      addEntityDetection(detections, name, 'source_title', selected.team_names)
+    }
+    if (containsEntityName(contextText, name)) {
+      addEntityDetection(detections, name, 'gemini_context', selected.team_names)
+    }
+    if (input.transcriptText && containsEntityName(input.transcriptText, name)) {
+      addEntityDetection(detections, name, 'transcript', selected.team_names)
+    }
+  }
+
+  const byName = new Map<string, EntityDetection[]>()
+  for (const detection of detections) {
+    byName.set(detection.normalizedName, [...(byName.get(detection.normalizedName) ?? []), detection])
+  }
+
+  const resolvedEntities = Array.from(byName.entries()).map(([normalizedName, values]) => {
+    const evidence = Array.from(new Set(values.map((item) => item.source)))
+    const displayName = values.find((item) => item.source === 'source_title')?.name
+      ?? values.find((item) => item.source === 'gemini_structured')?.name
+      ?? values[0]?.name
+      ?? normalizedName
+    const confidence: ResolvedEntity['confidence'] =
+      evidence.includes('source_title') && evidence.includes('gemini_structured')
+        ? 'high'
+        : evidence.includes('gemini_structured') && evidence.includes('gemini_context')
+          ? 'high'
+          : evidence.includes('gemini_structured') && evidence.includes('transcript')
+            ? 'medium'
+            : 'low'
+    const warnings = confidence === 'low' ? [`Low confidence entity: ${displayName}`] : []
+    return {
+      name: displayName,
+      normalizedName,
+      type: 'player_or_person' as const,
+      confidence,
+      evidence,
+      warnings,
+    }
+  })
+
+  return {
+    detectedEntities: detections,
+    resolvedEntities,
+    entityConfidence: Object.fromEntries(resolvedEntities.map((entity) => [entity.name, entity.confidence])),
+    entityWarnings: resolvedEntities.flatMap((entity) => entity.warnings),
+  }
+}
+
+function confirmedEntityNames(resolution: EntityResolution): string[] {
+  return resolution.resolvedEntities
+    .filter((entity) => entity.confidence === 'high' || entity.confidence === 'medium')
+    .map((entity) => entity.name)
+}
+
+function removeUnconfirmedNames(text: string, resolution: EntityResolution): string {
+  let output = text
+  for (const entity of resolution.resolvedEntities) {
+    if (entity.confidence === 'high' || entity.confidence === 'medium') continue
+    const aliases = [entity.name, entityLastToken(entity.name)].filter((value): value is string => Boolean(value))
+    for (const alias of aliases) {
+      output = output.replace(new RegExp(`\\b${escapeRegExp(alias)}\\b`, 'gi'), 'the play')
+    }
+  }
+  return compact(output.replace(/\bthe play\s+(hits|makes|knocks down)\b/i, 'the play delivers'), 180)
+}
+
+function containsUnconfirmedPersonLikeToken(text: string, resolution: EntityResolution, teamNames: string[]): boolean {
+  const confirmedAliases = new Set(resolution.resolvedEntities
+    .filter((entity) => entity.confidence === 'high' || entity.confidence === 'medium')
+    .flatMap((entity) => [
+      normalizeEntityName(entity.name),
+      entityLastToken(entity.name),
+      ...normalizeEntityName(entity.name).split(' '),
+    ])
+    .filter((value): value is string => Boolean(value)))
+  const teamTokens = new Set(teamNames.flatMap((team) => normalizeEntityName(team).split(' ')))
+  const ignored = new Set([
+    'that',
+    'this',
+    'the',
+    'she',
+    'her',
+    'they',
+    'wnba',
+    'ncaaw',
+    'tough',
+    'golden',
+    'state',
+    'dallas',
+    'minnesota',
+  ])
+  const matches = text.match(/\b[A-Z][A-Za-z’'-]{3,}\b/g) ?? []
+  return matches.some((token) => {
+    const normalized = normalizeEntityName(token)
+    if (!normalized || ignored.has(normalized) || teamTokens.has(normalized)) return false
+    return !confirmedAliases.has(normalized)
+  })
+}
+
+function safeGenericOpening(candidate: SelectedOpusCandidate): string {
+  const text = `${candidate.opening_line} ${candidate.visual_context} ${candidate.viral_reason}`.toLowerCase()
+  if (/\b(block|swat|reject)\b/.test(text)) return 'That defensive stop changed the whole possession.'
+  if (/\b(three|3-pointer|triple|deep)\b/.test(text)) return 'That shot-making swing was impossible to ignore.'
+  if (/\b(drive|finish|layup|traffic|left hand|right hand)\b/.test(text)) return 'That finish through traffic was ridiculous.'
+  if (/\b(tough shot|mid-range|jumper|pull-up)\b/.test(text)) return 'That tough shot deserved another look.'
+  if (/\b(quote|said|press|podcast|interview)\b/.test(text)) return 'That answer said more than the box score.'
+  return 'That RB Women moment stands on its own.'
+}
+
+export function finalCopyForCandidate(input: {
+  selected: SelectedOpusCandidate
+  hashtags: string[]
+  sourceTitle: string | null
+  transcriptText: string | null
+}): {
+  title: string
+  hook: string
+  caption: string
+  resolution: EntityResolution
+} {
+  const resolution = reconcileCandidateEntities({
+    selected: input.selected,
+    sourceTitle: input.sourceTitle,
+    transcriptText: input.transcriptText,
+  })
+  const titleCandidate = removeUnconfirmedNames(input.selected.opening_line, resolution)
+  const title = titleCandidate &&
+    !/\bthe play:\b/i.test(titleCandidate) &&
+    !containsUnconfirmedPersonLikeToken(titleCandidate, resolution, input.selected.team_names)
+    ? titleCandidate
+    : safeGenericOpening(input.selected)
+  const confirmedSubject = confirmedEntityNames(resolution).find((name) =>
+    containsEntityName(`${input.selected.subject} ${input.selected.opening_line} ${input.selected.visual_context}`, name),
+  )
+  const base = compact(`${title} ${input.selected.rb_women_angle}`, 220)
+  const captionBase = confirmedSubject ? compact(`${confirmedSubject}: ${base}`, 220) : base
+  return {
+    title: compact(title, 180),
+    hook: compact(title, 180),
+    caption: compact(`${captionBase}\n\n${input.hashtags.join(' ')}`, 300),
+    resolution,
+  }
+}
+
 function rejectionCodeArray(value: unknown): RBWomenRejectionCode[] {
   return Array.isArray(value)
     ? value.filter((item): item is RBWomenRejectionCode => RB_WOMEN_REJECTION_CODES.includes(item as RBWomenRejectionCode))
@@ -1218,6 +1474,7 @@ export class RBHQPersistenceAdapter {
 
   async createCandidate(input: {
     runId?: string | null
+    sourceTitle?: string | null
     videoId: string
     transcriptId: string
     selected: SelectedOpusCandidate
@@ -1226,7 +1483,13 @@ export class RBHQPersistenceAdapter {
     const now = new Date().toISOString()
     const durationSeconds = roundSeconds(input.selected.sceneAdjustedEndSeconds - input.selected.sceneAdjustedStartSeconds)
     const hashtags = hashtagsFor(input.selected)
-    const caption = buildPostCaption(input.selected, hashtags)
+    const finalCopy = finalCopyForCandidate({
+      selected: input.selected,
+      hashtags,
+      sourceTitle: input.sourceTitle ?? null,
+      transcriptText: input.captionPrep.transcript_segment_range?.text ?? input.selected.transcript_summary,
+    })
+    const caption = finalCopy.caption
     const score = input.selected.editorial.score
     const scoreBreakdown = {
       model: 'rb_women_opus_adapter_v1',
@@ -1257,6 +1520,10 @@ export class RBHQPersistenceAdapter {
       editorialBoosts: input.selected.editorial.boosts,
       editorialPenalties: input.selected.editorial.penalties,
       rejectionCodes: input.selected.editorial.rejectionCodes,
+      detectedEntities: finalCopy.resolution.detectedEntities,
+      resolvedEntities: finalCopy.resolution.resolvedEntities,
+      entityConfidence: finalCopy.resolution.entityConfidence,
+      entityWarnings: finalCopy.resolution.entityWarnings,
       sourceReliability: input.selected.source_reliability,
       timeliness: input.selected.timeliness,
       whyNow: input.selected.viral_reason,
@@ -1273,9 +1540,9 @@ export class RBHQPersistenceAdapter {
     }
     const clipPrep = buildClipPrepV1({
       candidate: {
-        title: input.selected.opening_line,
+        title: finalCopy.title,
         summary: input.selected.transcript_summary,
-        hook_text: input.selected.opening_line,
+        hook_text: finalCopy.hook,
         caption,
         hashtags,
         start_seconds: input.selected.sceneAdjustedStartSeconds,
@@ -1309,15 +1576,15 @@ export class RBHQPersistenceAdapter {
         suggested_clip_start_seconds: input.selected.sceneAdjustedStartSeconds,
         suggested_clip_end_seconds: input.selected.sceneAdjustedEndSeconds,
         suggested_clip_length_seconds: durationSeconds,
-        title: compact(input.selected.opening_line, 180),
+        title: finalCopy.title,
         summary: compact(input.selected.transcript_summary, 500),
-        hook_text: compact(input.selected.opening_line, 180),
+        hook_text: finalCopy.hook,
         caption,
         hashtags,
         score,
         score_breakdown: scoreBreakdown,
         clip_reason: input.selected.viral_reason,
-        opening_text: input.selected.opening_line,
+        opening_text: finalCopy.hook,
         edit_notes: [
           ...(input.runId ? [`autopilot_run:${input.runId}`, 'autopilot_stage:selected'] : []),
           `autopilot_source_video:${input.videoId}`,
@@ -1330,6 +1597,8 @@ export class RBHQPersistenceAdapter {
           `Visual context: ${input.selected.visual_context}`,
           `RB Women eligibility: ${input.selected.competition}; ${input.selected.editorial.namedSearchEntities.join(', ')}`,
           `RB Women lane: ${input.selected.editorial.rbWomenLane}; score ${score}.`,
+          `Entity resolution: ${finalCopy.resolution.resolvedEntities.map((entity) => `${entity.name}:${entity.confidence}`).join(', ') || 'no person names resolved'}.`,
+          ...finalCopy.resolution.entityWarnings.map((warning) => `Entity warning: ${warning}.`),
           'RB Women Opus adapter: stop before Metricool scheduling.',
         ],
         asset_instructions: 'Automated RB Women Opus path renders a 1080x1920 H.264/AAC MP4 and uploads it to R2.',
@@ -1494,12 +1763,6 @@ function hashtagsFor(candidate: SelectedOpusCandidate): string[] {
   if (text.includes('media')) tags.push('#SportsMedia')
   tags.push('#RunItBack')
   return [...new Set([...tags, '#WomensBasketball', '#WNBA', '#Basketball'])].slice(0, 5)
-}
-
-function buildPostCaption(candidate: SelectedOpusCandidate, hashtags: string[]): string {
-  const subject = candidate.editorial.namedSearchEntities[0] ?? candidate.subject
-  const base = compact(`${subject}: ${candidate.opening_line} ${candidate.rb_women_angle}`, 220)
-  return compact(`${base}\n\n${hashtags.join(' ')}`, 300)
 }
 
 function captionPrepFromWhisperX(selected: SelectedOpusCandidate, transcript: WhisperXTranscript): CaptionPrepV1 {
@@ -1752,6 +2015,7 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
         if (!clip?.localCutPath) continue
         const candidateId = await persistence.createCandidate({
           runId,
+          sourceTitle: source.metadata.title,
           videoId: stored.videoId,
           transcriptId: stored.transcriptId,
           selected: ref.selected,
