@@ -35,6 +35,8 @@ type MetricoolConfig = {
   userId: string
 }
 
+type MetricoolSchedulerPayload = Record<string, unknown>
+
 export type MetricoolConfigStatus = {
   ok: boolean
   mode: 'live' | 'dry_run'
@@ -330,8 +332,30 @@ function buildMetricoolEndpoint(config: MetricoolConfig, brandId: string): strin
   const url = new URL(`${config.apiUrl}/v2/scheduler/posts`)
   url.searchParams.set('blogId', brandId)
   url.searchParams.set('userId', config.userId)
-  url.searchParams.set('integrationSource', 'RBHQ')
   return url.toString()
+}
+
+export function buildMetricoolSchedulerEndpointPreview(input: {
+  apiUrl: string
+  blogId: string
+  userId: string
+}): string {
+  return buildMetricoolEndpoint(
+    {
+      apiUrl: input.apiUrl.replace(/\/+$/, ''),
+      apiKey: '',
+      userId: input.userId,
+    },
+    input.blogId,
+  )
+}
+
+function buildMetricoolJsonHeaders(apiKey: string): Record<string, string> {
+  return {
+    'X-Mc-Auth': apiKey,
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  }
 }
 
 function buildNormalizeEndpoint(config: MetricoolConfig, mediaUrl: string): string {
@@ -409,23 +433,50 @@ async function readResponseBody(response: Response): Promise<unknown> {
   }
 }
 
-function scheduleDate(value?: string | null): string {
+export function formatMetricoolDateTimeForTimezone(date: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date)
+
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  const year = values.year
+  const month = values.month
+  const day = values.day
+  const hour = values.hour
+  const minute = values.minute
+  const second = values.second
+  if (!year || !month || !day || !hour || !minute || !second) {
+    throw new Error(`Could not format Metricool publicationDate for timezone ${timezone}.`)
+  }
+
+  return `${year}-${month}-${day}T${hour}:${minute}:${second}`
+}
+
+export function scheduleDate(value?: string | null, timezone = process.env.METRICOOL_TIMEZONE?.trim() || 'America/Los_Angeles'): string {
   const parsed = value ? new Date(value) : null
   const scheduled = parsed && Number.isFinite(parsed.getTime()) && parsed.getTime() > Date.now()
     ? parsed
     : new Date(Date.now() + 5 * 60 * 1000)
 
-  return scheduled.toISOString().slice(0, 19)
+  return formatMetricoolDateTimeForTimezone(scheduled, timezone)
 }
 
-function buildSchedulerPayload(input: {
+export function buildSchedulerPayload(input: {
   caption: string
   hashtags: string[]
   mediaId: string
   scheduledAt?: string | null
   title: string
-}): Record<string, unknown> {
+}): MetricoolSchedulerPayload {
   const text = [input.caption, input.hashtags.join(' ')].filter(Boolean).join('\n').trim()
+  const timezone = process.env.METRICOOL_TIMEZONE?.trim() || 'America/Los_Angeles'
 
   return {
     autoPublish: true,
@@ -437,8 +488,8 @@ function buildSchedulerPayload(input: {
     mediaAltText: [],
     providers: [{ network: 'tiktok' }],
     publicationDate: {
-      dateTime: scheduleDate(input.scheduledAt),
-      timezone: process.env.METRICOOL_TIMEZONE?.trim() || 'America/Los_Angeles',
+      dateTime: scheduleDate(input.scheduledAt, timezone),
+      timezone,
     },
     shortener: false,
     smartLinkData: { ids: [] },
@@ -455,6 +506,76 @@ function buildSchedulerPayload(input: {
       title: input.title,
     },
   }
+}
+
+function readSchedulerObject(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+export function assertMetricoolSchedulerContract(payload: MetricoolSchedulerPayload): void {
+  const text = typeof payload.text === 'string' ? payload.text.trim() : ''
+  const providers = Array.isArray(payload.providers) ? payload.providers : []
+  const firstProvider = readSchedulerObject(providers[0])
+  const publicationDate = readSchedulerObject(payload.publicationDate)
+  const media = readSchedulerObject(payload.media)
+  const mediaId = typeof media?.mediaId === 'string' ? media.mediaId.trim() : ''
+  const dateTime = typeof publicationDate?.dateTime === 'string' ? publicationDate.dateTime.trim() : ''
+  const timezone = typeof publicationDate?.timezone === 'string' ? publicationDate.timezone.trim() : ''
+  const network = typeof firstProvider?.network === 'string' ? firstProvider.network.trim() : ''
+
+  const missing = [
+    ...(!text ? ['text'] : []),
+    ...(providers.length < 1 ? ['providers'] : []),
+    ...(!network ? ['providers[0].network'] : []),
+    ...(!dateTime ? ['publicationDate.dateTime'] : []),
+    ...(!timezone ? ['publicationDate.timezone'] : []),
+    ...(!mediaId ? ['media.mediaId'] : []),
+  ]
+
+  if (missing.length > 0) {
+    throw new Error(`Metricool scheduler payload contract failed: missing ${missing.join(', ')}.`)
+  }
+}
+
+function findSafeErrorMessages(value: unknown): string[] {
+  if (typeof value === 'string') return value.trim() ? [value.trim()] : []
+  if (!value || typeof value !== 'object') return []
+
+  if (Array.isArray(value)) {
+    return value.flatMap(findSafeErrorMessages)
+  }
+
+  const object = value as Record<string, unknown>
+  const safeEntries = Object.entries(object).filter(([key]) => !/token|secret|api[-_]?key|authorization|auth/i.test(key))
+  const direct = ['error', 'message', 'detail', 'details', 'title', 'description']
+    .flatMap((key) => findSafeErrorMessages(object[key]))
+  const nested = safeEntries
+    .filter(([key]) => !['error', 'message', 'detail', 'details', 'title', 'description'].includes(key))
+    .flatMap(([, entry]) => findSafeErrorMessages(entry))
+
+  return [...direct, ...nested].filter((message, index, messages) => messages.indexOf(message) === index)
+}
+
+export function metricoolSchedulerError(status: number, responseBody: unknown): string {
+  const messages = findSafeErrorMessages(responseBody)
+    .map((message) => message.replace(/\s+/g, ' ').trim())
+    .filter(Boolean)
+
+  return messages.length > 0
+    ? `Metricool scheduler request failed with HTTP ${status}: ${messages.slice(0, 6).join(' | ')}`
+    : `Metricool scheduler request failed with HTTP ${status}.`
+}
+
+export function sanitizeMetricoolDiagnostic(value: unknown): unknown {
+  if (!value || typeof value !== 'object') return value
+  if (Array.isArray(value)) return value.map(sanitizeMetricoolDiagnostic)
+
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, entry]) => {
+    const sensitive = /token|secret|api[-_]?key|authorization|auth/i.test(key)
+    return [key, sensitive ? '[redacted]' : sanitizeMetricoolDiagnostic(entry)]
+  }))
 }
 
 async function recordMetricoolHandoff(input: {
@@ -588,10 +709,7 @@ export async function sendClipToMetricool(
     const normalizeEndpoint = buildNormalizeEndpoint(config, mp4Url)
     const normalizeResponse = await fetch(normalizeEndpoint, {
       method: 'GET',
-      headers: {
-        'X-Mc-Auth': config.apiKey,
-        'Content-Type': 'application/json',
-      },
+      headers: buildMetricoolJsonHeaders(config.apiKey),
     })
     const normalizeBody = await readResponseBody(normalizeResponse)
     if (!normalizeResponse.ok) {
@@ -651,13 +769,11 @@ export async function sendClipToMetricool(
       scheduledAt: input.scheduledAt,
       title: exportPackage.title,
     })
+    assertMetricoolSchedulerContract(requestPayload)
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: {
-        'X-Mc-Auth': config.apiKey,
-        'Content-Type': 'application/json',
-      },
+      headers: buildMetricoolJsonHeaders(config.apiKey),
       body: JSON.stringify(requestPayload),
     })
     const responseBody = await readResponseBody(response)
@@ -675,7 +791,7 @@ export async function sendClipToMetricool(
       responseStatus: response.status,
       responseBody,
       metricoolPostId,
-      error: response.ok ? null : 'Metricool scheduler request failed.',
+      error: response.ok ? null : metricoolSchedulerError(response.status, responseBody),
     }
 
     await recordMetricoolHandoff({ clip, ...result })

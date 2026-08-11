@@ -101,7 +101,6 @@ function schedulerEndpoint(apiUrl: string, blogId: string, userId: string): URL 
   const url = new URL(`${apiUrl.replace(/\/+$/, '')}/v2/scheduler/posts`)
   url.searchParams.set('blogId', blogId)
   url.searchParams.set('userId', userId)
-  url.searchParams.set('integrationSource', 'RBHQ')
   return url
 }
 
@@ -119,6 +118,7 @@ async function assertNoMetricoolDuplicate(input: {
     headers: {
       'X-Mc-Auth': input.apiKey,
       'Content-Type': 'application/json',
+      Accept: 'application/json',
     },
   })
   const body = await response.json().catch(() => null) as { data?: unknown } | null

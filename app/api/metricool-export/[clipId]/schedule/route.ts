@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server'
 import { getSessionFromRequest } from '@/lib/auth'
 import { extendClipAssetRetentionForSchedule } from '@/lib/asset-retention'
 import { validateCsrfRequest } from '@/lib/csrf'
-import { sendClipToMetricool, validateMetricoolConfigForChannel } from '@/lib/metricool'
+import { sanitizeMetricoolDiagnostic, sendClipToMetricool, validateMetricoolConfigForChannel } from '@/lib/metricool'
 import {
   getClipById,
   isMetricoolExportReadyStatus,
@@ -25,12 +25,20 @@ type ScheduleBody = {
 }
 
 function responsePayload(clip: ModerationClip, metricool: Awaited<ReturnType<typeof sendClipToMetricool>>, scheduledAt: string) {
+  const metricoolDiagnostic = metricool.status === 'failed'
+    ? {
+      httpStatus: metricool.responseStatus,
+      responseBody: sanitizeMetricoolDiagnostic(metricool.responseBody),
+    }
+    : null
+
   return {
     clipId: clip.id,
     reviewStatus: clip.status,
     publishStatus: clip.publish_status,
     metricoolStatus: metricool.status,
     metricoolPostId: metricool.metricoolPostId,
+    metricoolDiagnostic,
     scheduledAt,
     updatedAt: clip.updated_at,
   }

@@ -4,6 +4,8 @@ import { getChannelMeta } from '../lib/channel-meta'
 import { buildPublishExportPackage } from '../lib/export/build-export'
 import { isDownloadableMp4Url } from '../lib/media-url'
 import {
+  buildMetricoolSchedulerEndpointPreview,
+  buildSchedulerPayload,
   getMetricoolBrandEnvName,
   getMetricoolConfigReport,
   isMetricoolTestMode,
@@ -26,66 +28,6 @@ function readRequiredArg(name: string): string {
   const value = readArg(name)
   if (!value) throw new Error(`${name} is required.`)
   return value
-}
-
-function scheduleDate(value?: string | null): string {
-  const parsed = value ? new Date(value) : null
-  const scheduled = parsed && Number.isFinite(parsed.getTime()) && parsed.getTime() > Date.now()
-    ? parsed
-    : new Date(Date.now() + 5 * 60 * 1000)
-
-  return scheduled.toISOString().slice(0, 19)
-}
-
-function buildSchedulerPayload(input: {
-  caption: string
-  hashtags: string[]
-  mediaId: string
-  scheduledAt?: string | null
-  title: string
-}) {
-  const text = [input.caption, input.hashtags.join(' ')].filter(Boolean).join('\n').trim()
-
-  return {
-    autoPublish: true,
-    descendants: [],
-    draft: false,
-    firstCommentText: '',
-    hasNotReadNotes: false,
-    media: { mediaId: input.mediaId },
-    mediaAltText: [],
-    providers: [{ network: 'tiktok' }],
-    publicationDate: {
-      dateTime: scheduleDate(input.scheduledAt),
-      timezone: process.env.METRICOOL_TIMEZONE?.trim() || 'America/Los_Angeles',
-    },
-    shortener: false,
-    smartLinkData: { ids: [] },
-    text,
-    tiktokData: {
-      autoAddMusic: false,
-      commercialContentOwnBrand: false,
-      commercialContentThirdParty: false,
-      disableComment: false,
-      disableDuet: false,
-      disableStitch: false,
-      photoCoverIndex: 0,
-      privacyOption: 'PUBLIC_TO_EVERYONE',
-      title: input.title,
-    },
-  }
-}
-
-function endpointPreview(input: {
-  apiUrl: string
-  blogId: string
-  userId: string
-}) {
-  const url = new URL(`${input.apiUrl.replace(/\/+$/, '')}/v2/scheduler/posts`)
-  url.searchParams.set('blogId', input.blogId)
-  url.searchParams.set('userId', input.userId)
-  url.searchParams.set('integrationSource', 'RBHQ')
-  return url.toString()
 }
 
 function normalizeEndpointPreview(apiUrl: string, mediaUrl: string) {
@@ -218,7 +160,7 @@ async function main() {
     },
     metricoolPreview: {
       normalizeEndpoint: normalizeEndpointPreview(apiUrl, exportPackage.video_url),
-      schedulerEndpoint: endpointPreview({ apiUrl, blogId, userId }),
+      schedulerEndpoint: buildMetricoolSchedulerEndpointPreview({ apiUrl, blogId, userId }),
       schedulerPayload,
       note: 'media.mediaId is a placeholder because this dry-run does not call Metricool media normalization.',
     },
