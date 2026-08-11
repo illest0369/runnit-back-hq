@@ -14,6 +14,7 @@ import { z } from 'zod'
 
 import { buildClipPrepV1, type CaptionPrepV1 } from './clip-prep'
 import {
+  type LocalRenderLayout,
   renderLocalClipPrepMp4,
   renderLocalClipPrepVerticalAsset,
   validateRenderedMp4Quality,
@@ -25,6 +26,15 @@ import {
 } from './mac-mini-handoff'
 import { getMetricoolWorkflowClips } from './moderation-queue'
 import { createPlatformReadyPackageFromMacMini } from './platform-package-bridge'
+import {
+  RB_WOMEN_MOMENT_TYPES,
+  RB_WOMEN_REJECTION_CODES,
+  evaluateRBWomenCandidates,
+  resolveRBWomenSourceRecord,
+  type RBWomenCandidateEvaluation,
+  type RBWomenEditorialCandidateInput,
+  type RBWomenRejectionCode,
+} from './rb-women-channel-profile'
 import { RB_WOMEN_CHANNEL_ID } from './rb-women-source-config'
 import { readTimedSegments } from './tiktok-clip-scout'
 
@@ -35,15 +45,35 @@ const SOURCE_DISPLAY_NAME = 'RB Women Opus Adapter'
 const TARGET_CLIPS = 3
 const MIN_DURATION_SECONDS = 20
 const MAX_DURATION_SECONDS = 60
-const DEFAULT_GEMINI_MODEL = process.env.RB_WOMEN_OPUS_GEMINI_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash'
+const MIN_SELECTION_SCORE = 78
+const DEFAULT_GEMINI_MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.6-flash'
+const DEFAULT_GEMINI_FILE_POLL_INTERVAL_MS = 5_000
+const DEFAULT_GEMINI_FILE_PROCESSING_TIMEOUT_MS = 1_800_000
 
 type OpusDb = SupabaseClient
+
+type GeminiFileMetadata = {
+  name?: string
+  uri?: string
+  mimeType?: string
+  state?: string
+  error?: {
+    message?: string
+    code?: number
+  }
+}
+
+type GeminiFilesApi = {
+  get(params: { name: string }): Promise<GeminiFileMetadata>
+  delete(params: { name: string }): Promise<unknown>
+}
 
 export type OpusSourceInput = {
   source: string
   title?: string | null
   assetRoot?: string | null
   writeReport?: boolean
+  runId?: string | null
 }
 
 export type PreparedOpusSource = {
@@ -63,7 +93,7 @@ export type PreparedOpusSource = {
   }
 }
 
-export type GeminiOpusCandidate = {
+export type GeminiOpusCandidate = RBWomenEditorialCandidateInput & {
   start_seconds: number
   end_seconds: number
   transcript_summary: string
@@ -76,11 +106,19 @@ export type GeminiOpusCandidate = {
 }
 
 export type SelectedOpusCandidate = GeminiOpusCandidate & {
+  editorial: RBWomenCandidateEvaluation
   rank: number
   paddedStartSeconds: number
   paddedEndSeconds: number
   sceneAdjustedStartSeconds: number
   sceneAdjustedEndSeconds: number
+  boundaryAdjustment?: {
+    originalStartSeconds: number
+    originalEndSeconds: number
+    refinedStartSeconds: number
+    refinedEndSeconds: number
+    reason: string
+  } | null
 }
 
 export type WhisperXWord = {
@@ -100,6 +138,7 @@ export type WhisperXTranscript = {
 
 export type OpusClipResult = {
   rank: number
+  stage?: 'discovered' | 'analyzed' | 'selected' | 'cut' | 'rendered' | 'uploaded' | 'packaged' | 'queue_ready' | 'scheduled' | 'failed'
   candidateId: string | null
   packageId: string | null
   clipId: string | null
@@ -110,7 +149,7 @@ export type OpusClipResult = {
   quality: LocalRenderQualityValidation | null
   selected: SelectedOpusCandidate
   captionAccuracy: 'word_timed_whisperx' | 'failed'
-  verticalCropQuality: 'clipsai_dynamic' | 'ffmpeg_vertical_blur_fallback' | 'failed'
+  verticalCropQuality: 'clipsai_dynamic' | 'ffmpeg_vertical_blur_fallback' | 'ffmpeg_subject_aware_center_crop' | 'failed'
   publishableWithoutManualEditing: boolean
   failure: string | null
 }
@@ -119,6 +158,15 @@ export type OpusRunReport = {
   result: 'PASS' | 'FAIL'
   source: PreparedOpusSource['metadata']
   geminiCandidatesReturned: number
+  eligibleCandidates: number
+  rejectedCandidates: Array<{
+    startSeconds: number
+    endSeconds: number
+    subject: string
+    competition: string
+    rejectionCodes: RBWomenRejectionCode[]
+    reason: string
+  }>
   clipsSelected: number
   clips: OpusClipResult[]
   processingTimeSeconds: number
@@ -136,7 +184,7 @@ export type OpusRunReport = {
     callsMetricoolSchedule: false
     postsToSocialPlatforms: false
     uploadsToSocialPlatforms: false
-    uploadsToR2: true
+    uploadsToR2: boolean
   }
 }
 
@@ -150,6 +198,29 @@ const GeminiCandidateSchema = z.object({
   rb_women_angle: z.string(),
   viral_reason: z.string(),
   confidence: z.number().min(0).max(1),
+  womens_basketball_primary_subject: z.boolean(),
+  competition: z.string(),
+  primary_subject_type: z.string(),
+  primary_subject_names: z.array(z.string()),
+  team_names: z.array(z.string()),
+  player_names: z.array(z.string()),
+  coach_names: z.array(z.string()),
+  event_type: z.string(),
+  moment_type: z.enum(RB_WOMEN_MOMENT_TYPES),
+  rb_women_lanes: z.array(z.string()),
+  standalone_context: z.boolean(),
+  why_fans_care: z.string(),
+  audience_fit_reason: z.string(),
+  source_reliability: z.number().min(0).max(100),
+  timeliness: z.number().min(0).max(100),
+  visual_action_score: z.number().min(0).max(100),
+  emotional_stakes_score: z.number().min(0).max(100),
+  debate_score: z.number().min(0).max(100),
+  personality_score: z.number().min(0).max(100),
+  undercovered_story_score: z.number().min(0).max(100),
+  editorial_fit_score: z.number().min(0).max(100),
+  eligibility: z.boolean(),
+  rejection_codes: z.array(z.enum(RB_WOMEN_REJECTION_CODES)),
 })
 
 const GeminiResponseSchema = z.object({
@@ -162,8 +233,6 @@ const GEMINI_RESPONSE_JSON_SCHEMA = {
   properties: {
     candidates: {
       type: 'array',
-      minItems: 6,
-      maxItems: 8,
       items: {
         type: 'object',
         additionalProperties: false,
@@ -177,6 +246,29 @@ const GEMINI_RESPONSE_JSON_SCHEMA = {
           rb_women_angle: { type: 'string' },
           viral_reason: { type: 'string' },
           confidence: { type: 'number', minimum: 0, maximum: 1 },
+          womens_basketball_primary_subject: { type: 'boolean' },
+          competition: { type: 'string' },
+          primary_subject_type: { type: 'string' },
+          primary_subject_names: { type: 'array', items: { type: 'string' } },
+          team_names: { type: 'array', items: { type: 'string' } },
+          player_names: { type: 'array', items: { type: 'string' } },
+          coach_names: { type: 'array', items: { type: 'string' } },
+          event_type: { type: 'string' },
+          moment_type: { type: 'string', enum: [...RB_WOMEN_MOMENT_TYPES] },
+          rb_women_lanes: { type: 'array', items: { type: 'string' } },
+          standalone_context: { type: 'boolean' },
+          why_fans_care: { type: 'string' },
+          audience_fit_reason: { type: 'string' },
+          source_reliability: { type: 'number', minimum: 0, maximum: 100 },
+          timeliness: { type: 'number', minimum: 0, maximum: 100 },
+          visual_action_score: { type: 'number', minimum: 0, maximum: 100 },
+          emotional_stakes_score: { type: 'number', minimum: 0, maximum: 100 },
+          debate_score: { type: 'number', minimum: 0, maximum: 100 },
+          personality_score: { type: 'number', minimum: 0, maximum: 100 },
+          undercovered_story_score: { type: 'number', minimum: 0, maximum: 100 },
+          editorial_fit_score: { type: 'number', minimum: 0, maximum: 100 },
+          eligibility: { type: 'boolean' },
+          rejection_codes: { type: 'array', items: { type: 'string', enum: [...RB_WOMEN_REJECTION_CODES] } },
         },
         required: [
           'start_seconds',
@@ -188,6 +280,29 @@ const GEMINI_RESPONSE_JSON_SCHEMA = {
           'rb_women_angle',
           'viral_reason',
           'confidence',
+          'womens_basketball_primary_subject',
+          'competition',
+          'primary_subject_type',
+          'primary_subject_names',
+          'team_names',
+          'player_names',
+          'coach_names',
+          'event_type',
+          'moment_type',
+          'rb_women_lanes',
+          'standalone_context',
+          'why_fans_care',
+          'audience_fit_reason',
+          'source_reliability',
+          'timeliness',
+          'visual_action_score',
+          'emotional_stakes_score',
+          'debate_score',
+          'personality_score',
+          'undercovered_story_score',
+          'editorial_fit_score',
+          'eligibility',
+          'rejection_codes',
         ],
       },
     },
@@ -238,6 +353,51 @@ function roundSeconds(value: number): number {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
+}
+
+function readPositiveIntegerEnv(name: string, fallback: number): number {
+  const parsed = Number(process.env[name])
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function isTransientGeminiGenerateError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  return /503|UNAVAILABLE|high demand|temporar/i.test(message)
+}
+
+async function generateGeminiContentWithRetry<T>(
+  request: () => Promise<T>,
+  input: { retries?: number; delayMs?: number; log?: (status: 'generate_retry') => void } = {},
+): Promise<T> {
+  const retries = input.retries ?? 2
+  const delayMs = input.delayMs ?? 10_000
+  let lastError: unknown = null
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      return await request()
+    } catch (error) {
+      lastError = error
+      if (attempt >= retries || !isTransientGeminiGenerateError(error)) throw error
+      input.log?.('generate_retry')
+      await sleep(delayMs)
+    }
+  }
+  throw lastError
+}
+
+function geminiFileState(file: GeminiFileMetadata): string {
+  return typeof file.state === 'string' ? file.state : ''
+}
+
+function geminiFileErrorMessage(file: GeminiFileMetadata): string {
+  const message = file.error?.message
+  return typeof message === 'string' && message.trim()
+    ? message.replace(/\s+/g, ' ').trim()
+    : 'Gemini file processing failed.'
 }
 
 async function requireBinary(binary: 'ffmpeg' | 'ffprobe' | 'yt-dlp'): Promise<void> {
@@ -384,6 +544,10 @@ export class OpusSourceAdapter {
 
     const youtubeId = parseYouTubeId(source)
     if (youtubeId) {
+      const sourceRecord = resolveRBWomenSourceRecord(source)
+      if (sourceRecord?.rightsMode === 'discovery_only') {
+        throw new Error(`RB Women source ${sourceRecord.channelName} is discovery_only and cannot be automatically downloaded or re-rendered.`)
+      }
       const [metadata, sourcePath] = await Promise.all([
         readYouTubeMetadata(source),
         downloadYouTubeMp4(source, sourceDir),
@@ -429,36 +593,100 @@ export class GeminiVideoUnderstandingAdapter {
     }
 
     const ai = new GoogleGenAI({ apiKey })
-    const file = await ai.files.upload({
-      file: source.sourcePath,
-      config: { mimeType: 'video/mp4', displayName: source.metadata.title },
-    }) as GeminiFile
-    if (!file.uri) {
-      throw new Error('Gemini file upload did not return a file URI.')
+    let uploadedFileName: string | null = null
+
+    try {
+      const uploadedFile = await ai.files.upload({
+        file: source.sourcePath,
+        config: { mimeType: 'video/mp4', displayName: source.metadata.title },
+      }) as GeminiFile
+      uploadedFileName = uploadedFile.name ?? null
+      console.error('[rb-women-opus] gemini_file:uploaded')
+      if (!uploadedFileName) {
+        throw new Error('Gemini file upload did not return a file name.')
+      }
+      if (!uploadedFile.uri) {
+        throw new Error('Gemini file upload did not return a file URI.')
+      }
+
+      const activeFile = await waitForGeminiFileActive({
+        files: ai.files,
+        fileName: uploadedFileName,
+        pollIntervalMs: readPositiveIntegerEnv('GEMINI_FILE_POLL_INTERVAL_MS', DEFAULT_GEMINI_FILE_POLL_INTERVAL_MS),
+        timeoutMs: readPositiveIntegerEnv('GEMINI_FILE_PROCESSING_TIMEOUT_MS', DEFAULT_GEMINI_FILE_PROCESSING_TIMEOUT_MS),
+        log: (status) => console.error(`[rb-women-opus] gemini_file:${status}`),
+      })
+      const prompt = buildGeminiPrompt(source)
+      const parts: Part[] = [
+        {
+          fileData: {
+            fileUri: activeFile.uri || uploadedFile.uri,
+            mimeType: activeFile.mimeType || uploadedFile.mimeType || 'video/mp4',
+          },
+        },
+        { text: prompt },
+      ]
+      const response = await generateGeminiContentWithRetry(
+        () => ai.models.generateContent({
+          model: DEFAULT_GEMINI_MODEL,
+          contents: parts,
+          config: {
+            responseMimeType: 'application/json',
+            responseJsonSchema: GEMINI_RESPONSE_JSON_SCHEMA,
+          },
+        }),
+        { log: (status) => console.error(`[rb-women-opus] gemini_file:${status}`) },
+      )
+      const text = response.text
+      if (!text) throw new Error('Gemini returned an empty candidate response.')
+      const parsed = GeminiResponseSchema.parse(JSON.parse(text))
+      return parsed.candidates
+    } finally {
+      if (uploadedFileName) {
+        try {
+          await ai.files.delete({ name: uploadedFileName })
+        } catch {
+          console.error('[rb-women-opus] gemini_file:delete_failed')
+        }
+      }
+    }
+  }
+}
+
+export async function waitForGeminiFileActive(input: {
+  files: Pick<GeminiFilesApi, 'get'>
+  fileName: string
+  pollIntervalMs?: number
+  timeoutMs?: number
+  now?: () => number
+  sleepFn?: (ms: number) => Promise<void>
+  log?: (status: 'processing' | 'active' | 'failed' | 'timeout') => void
+}): Promise<GeminiFileMetadata> {
+  const pollIntervalMs = input.pollIntervalMs ?? DEFAULT_GEMINI_FILE_POLL_INTERVAL_MS
+  const timeoutMs = input.timeoutMs ?? DEFAULT_GEMINI_FILE_PROCESSING_TIMEOUT_MS
+  const now = input.now ?? (() => Date.now())
+  const sleepFn = input.sleepFn ?? sleep
+  const startedAt = now()
+
+  while (true) {
+    const file = await input.files.get({ name: input.fileName })
+    const state = geminiFileState(file)
+
+    if (state === 'ACTIVE') {
+      input.log?.('active')
+      return file
+    }
+    if (state === 'FAILED') {
+      input.log?.('failed')
+      throw new Error(`Gemini file processing failed: ${geminiFileErrorMessage(file)}`)
+    }
+    if (now() - startedAt >= timeoutMs) {
+      input.log?.('timeout')
+      throw new Error(`Gemini file processing timeout after ${timeoutMs}ms.`)
     }
 
-    const prompt = buildGeminiPrompt(source)
-    const parts: Part[] = [
-      {
-        fileData: {
-          fileUri: file.uri,
-          mimeType: file.mimeType || 'video/mp4',
-        },
-      },
-      { text: prompt },
-    ]
-    const response = await ai.models.generateContent({
-      model: DEFAULT_GEMINI_MODEL,
-      contents: parts,
-      config: {
-        responseMimeType: 'application/json',
-        responseJsonSchema: GEMINI_RESPONSE_JSON_SCHEMA,
-      },
-    })
-    const text = response.text
-    if (!text) throw new Error('Gemini returned an empty candidate response.')
-    const parsed = GeminiResponseSchema.parse(JSON.parse(text))
-    return parsed.candidates
+    input.log?.('processing')
+    await sleepFn(pollIntervalMs)
   }
 }
 
@@ -469,10 +697,14 @@ function buildGeminiPrompt(source: PreparedOpusSource): string {
     'Return strict JSON only. No markdown. No prose outside JSON.',
     'Request: return 6 to 8 timestamped clip candidates.',
     'Each candidate must be 20 to 60 seconds, understandable alone, and suitable for a 9:16 captioned short.',
-    'Score for clear argument or quote, recognizable player or matchup, controversy/debate, cultural angle, strong standalone opening, and usable 20-60 second duration.',
-    'Do not choose game-footage tracking moments, generic intros, sponsor reads, or context-heavy segments with weak first two seconds.',
-    'Prefer RB Women angles involving women basketball, WNBA, college women basketball, NWSL, women athletes, player media narratives, debate, identity/culture, or clear press-conference quotes.',
-    'Required JSON shape: {"candidates":[{"start_seconds":number,"end_seconds":number,"transcript_summary":"string","opening_line":"string","subject":"string","visual_context":"string","rb_women_angle":"string","viral_reason":"string","confidence":0.0}]}',
+    'Hard editorial rule: RB Women means women’s basketball. The actual primary subject must be a women’s basketball player, coach, team, league, game, tournament, or labor/business/media issue specifically involving women’s basketball.',
+    'Hard reject men’s sports, NBA-only material, men’s college basketball, bowling, generic sports interviews, female reporters covering male athletes, female hosts discussing unrelated sports, generic women’s sports that is not basketball, sponsor reads, commercials, and candidates with no identifiable women’s basketball subject.',
+    'The model must identify the actual subject. A female journalist interviewing a male athlete is not women’s basketball.',
+    'Allowed competitions for eligible clips: WNBA, NCAAW, Unrivaled, FIBA_WOMEN, WOMENS_PRO_BASKETBALL, GIRLS_ELITE_BASKETBALL, WOMENS_BASKETBALL_HISTORY.',
+    'Use rejection_codes for ineligible candidates. If the source is men’s competition with a female reporter or host, use REJECT_MENS_COMPETITION or REJECT_ADJACENT_WOMAN_ONLY.',
+    'Score for women’s basketball subject strength, clear argument or quote, recognizable player/team/competition, controversy/debate, cultural angle, strong standalone opening, and usable duration.',
+    'Voice and copy should be fan-first, direct, culturally aware, search optimized, and not broadcaster or corporate empowerment copy.',
+    'Required JSON shape: {"candidates":[{"start_seconds":number,"end_seconds":number,"transcript_summary":"string","opening_line":"string","subject":"string","visual_context":"string","rb_women_angle":"string","viral_reason":"string","confidence":0.0,"womens_basketball_primary_subject":boolean,"competition":"string","primary_subject_type":"string","primary_subject_names":["string"],"team_names":["string"],"player_names":["string"],"coach_names":["string"],"event_type":"string","moment_type":"press_conference_quote","rb_women_lanes":["string"],"standalone_context":boolean,"why_fans_care":"string","audience_fit_reason":"string","source_reliability":0,"timeliness":0,"visual_action_score":0,"emotional_stakes_score":0,"debate_score":0,"personality_score":0,"undercovered_story_score":0,"editorial_fit_score":0,"eligibility":boolean,"rejection_codes":["REJECT_NO_WBB_ENTITY"]}]}',
     `Source title: ${source.metadata.title}`,
     `Source duration seconds: ${source.metadata.durationSeconds ?? 'unknown'}`,
     `Source URL/reference: ${source.metadata.videoUrl}`,
@@ -480,18 +712,21 @@ function buildGeminiPrompt(source: PreparedOpusSource): string {
 }
 
 export class CandidateSelectorAdapter {
-  select(candidates: GeminiOpusCandidate[], durationSeconds: number | null): SelectedOpusCandidate[] {
-    const ordered = candidates
-      .map((candidate) => normalizeGeminiCandidate(candidate, durationSeconds))
-      .filter((candidate): candidate is GeminiOpusCandidate => Boolean(candidate))
-      .filter((candidate) => {
-        const duration = candidate.end_seconds - candidate.start_seconds
-        return duration >= MIN_DURATION_SECONDS && duration <= MAX_DURATION_SECONDS
+  select(evaluations: RBWomenCandidateEvaluation[], durationSeconds: number | null): SelectedOpusCandidate[] {
+    const ordered = evaluations
+      .map((evaluation) => {
+        const candidate = normalizeGeminiCandidate(evaluation.candidate as GeminiOpusCandidate, durationSeconds)
+        return candidate ? { candidate, evaluation } : null
       })
-      .sort((left, right) => right.confidence - left.confidence)
+      .filter((item): item is { candidate: GeminiOpusCandidate; evaluation: RBWomenCandidateEvaluation } => Boolean(item))
+      .filter((item) => {
+        const duration = item.candidate.end_seconds - item.candidate.start_seconds
+        return duration >= MIN_DURATION_SECONDS && duration <= MAX_DURATION_SECONDS && item.evaluation.score >= MIN_SELECTION_SCORE
+      })
+      .sort((left, right) => right.evaluation.score - left.evaluation.score || right.candidate.confidence - left.candidate.confidence)
 
     const selected: SelectedOpusCandidate[] = []
-    for (const candidate of ordered) {
+    for (const { candidate, evaluation } of ordered) {
       if (selected.some((existing) => overlaps(candidate, existing))) continue
       const paddedStartSeconds = clamp(candidate.start_seconds - 1.5, 0, durationSeconds ?? candidate.start_seconds)
       const paddedEndSeconds = durationSeconds === null
@@ -499,6 +734,7 @@ export class CandidateSelectorAdapter {
         : clamp(candidate.end_seconds + 1.5, paddedStartSeconds + 1, durationSeconds)
       selected.push({
         ...candidate,
+        editorial: evaluation,
         rank: selected.length + 1,
         paddedStartSeconds: roundSeconds(paddedStartSeconds),
         paddedEndSeconds: roundSeconds(paddedEndSeconds),
@@ -528,7 +764,42 @@ function normalizeGeminiCandidate(candidate: GeminiOpusCandidate, durationSecond
     rb_women_angle: compact(candidate.rb_women_angle, 260),
     viral_reason: compact(candidate.viral_reason, 260),
     confidence: clamp(candidate.confidence, 0, 1),
+    womens_basketball_primary_subject: Boolean(candidate.womens_basketball_primary_subject),
+    competition: compact(candidate.competition, 80),
+    primary_subject_type: compact(candidate.primary_subject_type, 80),
+    primary_subject_names: stringArray(candidate.primary_subject_names).slice(0, 8),
+    team_names: stringArray(candidate.team_names).slice(0, 8),
+    player_names: stringArray(candidate.player_names).slice(0, 8),
+    coach_names: stringArray(candidate.coach_names).slice(0, 8),
+    event_type: compact(candidate.event_type, 80),
+    moment_type: candidate.moment_type,
+    rb_women_lanes: stringArray(candidate.rb_women_lanes).slice(0, 4),
+    standalone_context: Boolean(candidate.standalone_context),
+    why_fans_care: compact(candidate.why_fans_care, 260),
+    audience_fit_reason: compact(candidate.audience_fit_reason, 260),
+    source_reliability: clamp(candidate.source_reliability, 0, 100),
+    timeliness: clamp(candidate.timeliness, 0, 100),
+    visual_action_score: clamp(candidate.visual_action_score, 0, 100),
+    emotional_stakes_score: clamp(candidate.emotional_stakes_score, 0, 100),
+    debate_score: clamp(candidate.debate_score, 0, 100),
+    personality_score: clamp(candidate.personality_score, 0, 100),
+    undercovered_story_score: clamp(candidate.undercovered_story_score, 0, 100),
+    editorial_fit_score: clamp(candidate.editorial_fit_score, 0, 100),
+    eligibility: Boolean(candidate.eligibility),
+    rejection_codes: rejectionCodeArray(candidate.rejection_codes),
   }
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).map((item) => compact(item, 100))
+    : []
+}
+
+function rejectionCodeArray(value: unknown): RBWomenRejectionCode[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is RBWomenRejectionCode => RB_WOMEN_REJECTION_CODES.includes(item as RBWomenRejectionCode))
+    : []
 }
 
 function overlaps(left: GeminiOpusCandidate, right: GeminiOpusCandidate): boolean {
@@ -698,6 +969,126 @@ function wordSegments(words: WhisperXWord[]): Array<{ start: number; end: number
   return segments
 }
 
+function normalizedWords(value: string): string[] {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]+/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean)
+}
+
+function findOpeningWordOffset(words: WhisperXWord[], openingLine: string): number | null {
+  const opening = normalizedWords(openingLine).slice(0, 4)
+  if (opening.length < 2 || words.length < opening.length) return null
+  const wordTexts = words.map((word) => normalizedWords(word.word)[0] ?? '')
+  for (let index = 0; index <= wordTexts.length - opening.length; index += 1) {
+    const matches = opening.every((token, offset) => wordTexts[index + offset] === token)
+    if (matches) return words[index]?.start ?? null
+  }
+  return null
+}
+
+function speechLedMoment(candidate: SelectedOpusCandidate): boolean {
+  return [
+    'press_conference_quote',
+    'player_reaction',
+    'coach_reaction',
+    'personal_story',
+    'funny_personality',
+    'behind_the_scenes',
+    'labor_or_business',
+    'media_coverage',
+    'leadership',
+    'tactical_insight',
+  ].includes(candidate.moment_type)
+}
+
+function trimTranscript(transcript: WhisperXTranscript, startOffset: number, endOffset: number): WhisperXTranscript {
+  const keepWord = (word: WhisperXWord) => word.end > startOffset && word.start < endOffset
+  const words = transcript.words
+    .filter(keepWord)
+    .map((word) => ({
+      ...word,
+      start: roundSeconds(Math.max(0, word.start - startOffset)),
+      end: roundSeconds(Math.max(0.01, Math.min(endOffset, word.end) - startOffset)),
+    }))
+    .filter((word) => word.end > word.start)
+  const segments = transcript.segments
+    .filter((segment) => segment.end > startOffset && segment.start < endOffset)
+    .map((segment) => ({
+      start: roundSeconds(Math.max(0, segment.start - startOffset)),
+      end: roundSeconds(Math.max(0.01, Math.min(endOffset, segment.end) - startOffset)),
+      text: segment.text,
+    }))
+    .filter((segment) => segment.end > segment.start)
+  return {
+    ...transcript,
+    words,
+    segments: segments.length > 0 ? segments : wordSegments(words),
+    text: compact((segments.length > 0 ? segments : wordSegments(words)).map((segment) => segment.text).join(' '), 5000),
+  }
+}
+
+function refineBoundaryWithTranscript(
+  candidate: SelectedOpusCandidate,
+  transcript: WhisperXTranscript,
+): { selected: SelectedOpusCandidate; transcript: WhisperXTranscript; startOffset: number; endOffset: number } {
+  const clipDuration = roundSeconds(candidate.sceneAdjustedEndSeconds - candidate.sceneAdjustedStartSeconds)
+  const firstWord = transcript.words[0] ?? null
+  const lastWord = transcript.words[transcript.words.length - 1] ?? null
+  const firstSegment = transcript.segments[0] ?? null
+  const lastSegment = transcript.segments[transcript.segments.length - 1] ?? null
+  const firstSpeechStart = firstWord?.start ?? firstSegment?.start ?? 0
+  const lastSpeechEnd = lastWord?.end ?? lastSegment?.end ?? clipDuration
+  const openingOffset = findOpeningWordOffset(transcript.words, candidate.opening_line)
+  const maxLeadTrim = openingOffset !== null ? 6 : 3
+  const startOffset = clamp((openingOffset ?? firstSpeechStart) - 0.18, 0, Math.min(maxLeadTrim, Math.max(0, clipDuration - MIN_DURATION_SECONDS)))
+  const candidatePayoffOffset = clamp(candidate.end_seconds - candidate.sceneAdjustedStartSeconds + 0.75, 0, clipDuration)
+  const speechEndOffset = clamp(lastSpeechEnd + 0.65, 0, clipDuration)
+  const desiredEndOffset = speechLedMoment(candidate)
+    ? speechEndOffset
+    : Math.max(candidatePayoffOffset, Math.min(clipDuration, speechEndOffset))
+  const endOffset = clamp(desiredEndOffset, startOffset + MIN_DURATION_SECONDS - 1.5, clipDuration)
+  const refinedStart = roundSeconds(candidate.sceneAdjustedStartSeconds + startOffset)
+  const refinedEnd = roundSeconds(candidate.sceneAdjustedStartSeconds + endOffset)
+  if (
+    refinedEnd - refinedStart < MIN_DURATION_SECONDS - 1.5 ||
+    refinedEnd - refinedStart > MAX_DURATION_SECONDS + 4 ||
+    (Math.abs(refinedStart - candidate.sceneAdjustedStartSeconds) < 0.25 && Math.abs(refinedEnd - candidate.sceneAdjustedEndSeconds) < 0.25)
+  ) {
+    return { selected: candidate, transcript, startOffset: 0, endOffset: clipDuration }
+  }
+
+  return {
+    selected: {
+      ...candidate,
+      sceneAdjustedStartSeconds: refinedStart,
+      sceneAdjustedEndSeconds: refinedEnd,
+      boundaryAdjustment: {
+        originalStartSeconds: candidate.sceneAdjustedStartSeconds,
+        originalEndSeconds: candidate.sceneAdjustedEndSeconds,
+        refinedStartSeconds: refinedStart,
+        refinedEndSeconds: refinedEnd,
+        reason: openingOffset !== null ? 'opening_line_word_alignment' : 'first_and_last_speech_alignment',
+      },
+    },
+    transcript: trimTranscript(transcript, startOffset, endOffset),
+    startOffset,
+    endOffset,
+  }
+}
+
+function renderLayoutForCandidate(candidate: SelectedOpusCandidate): Extract<LocalRenderLayout, 'vertical-blur' | 'smart-center-crop'> {
+  const text = `${candidate.visual_context} ${candidate.event_type} ${candidate.moment_type}`.toLowerCase()
+  if (/\b(scoreboard|scorebug|full court|court|layup|jumper|three|block|rebound|steal|drive|transition|highlight)\b/.test(text)) {
+    return 'vertical-blur'
+  }
+  if (speechLedMoment(candidate) || /\b(interview|podium|press|studio|podcast|close-up|talking|speaking|reaction)\b/.test(text)) {
+    return 'smart-center-crop'
+  }
+  return 'vertical-blur'
+}
+
 export class ClipsAIVerticalResizeAdapter {
   async detectMode(): Promise<'clipsai_dynamic' | 'ffmpeg_vertical_blur_fallback'> {
     const available = await optionalCommand([pythonBinary(), '-c', 'import clipsai'])
@@ -712,8 +1103,10 @@ export class ExistingVerticalRendererAdapter {
     assetRoot: string
     openingText: string
     captionPrep: CaptionPrepV1
-  }): Promise<{ outputPath: string; quality: LocalRenderQualityValidation; cropQuality: 'clipsai_dynamic' | 'ffmpeg_vertical_blur_fallback' }> {
+    layout?: Extract<LocalRenderLayout, 'vertical-blur' | 'smart-center-crop'>
+  }): Promise<{ outputPath: string; quality: LocalRenderQualityValidation; cropQuality: 'clipsai_dynamic' | 'ffmpeg_vertical_blur_fallback' | 'ffmpeg_subject_aware_center_crop' }> {
     const crop = await new ClipsAIVerticalResizeAdapter().detectMode()
+    const layout = input.layout ?? 'vertical-blur'
     const rendered = await renderLocalClipPrepVerticalAsset({
       sourcePath: input.clipPath,
       packageId: input.packageId,
@@ -722,11 +1115,12 @@ export class ExistingVerticalRendererAdapter {
       captionPrep: input.captionPrep,
       burnSubtitles: true,
       clipStartSeconds: 0,
+      layout,
     })
     return {
       outputPath: rendered.outputPath,
       quality: rendered.qualityValidation,
-      cropQuality: crop,
+      cropQuality: layout === 'smart-center-crop' ? 'ffmpeg_subject_aware_center_crop' : crop,
     }
   }
 }
@@ -735,6 +1129,7 @@ export class RBHQPersistenceAdapter {
   constructor(private readonly db: OpusDb) {}
 
   async createSourceVideoAndTranscript(input: {
+    runId?: string | null
     source: PreparedOpusSource
     transcriptSegments: Array<{ start: number; end: number; text: string }>
     transcriptText: string
@@ -780,17 +1175,38 @@ export class RBHQPersistenceAdapter {
       .single()
     if (videoError || !video) throw new Error(videoError?.message || 'Ingested video upsert failed.')
 
-    const { data: transcript, error: transcriptError } = await this.db
+    const transcriptSource = input.runId ? `rb_women_autopilot:${input.runId}` : 'whisperx_selected_ranges'
+    const { data: existingTranscript, error: existingTranscriptError } = await this.db
+      .from('video_transcripts')
+      .select('id')
+      .eq('ingested_video_id', video.id)
+      .eq('transcript_source', transcriptSource)
+      .maybeSingle()
+    if (existingTranscriptError) throw new Error(existingTranscriptError.message)
+
+    const transcriptResult = existingTranscript
+      ? await this.db
+        .from('video_transcripts')
+        .update({
+          transcript_text: input.transcriptText,
+          transcript_json: input.transcriptSegments,
+          language: 'en',
+        })
+        .eq('id', existingTranscript.id)
+        .select('id')
+        .single()
+      : await this.db
       .from('video_transcripts')
       .insert({
         ingested_video_id: video.id,
-        transcript_source: 'whisperx_selected_ranges',
+        transcript_source: transcriptSource,
         transcript_text: input.transcriptText,
         transcript_json: input.transcriptSegments,
         language: 'en',
       })
       .select('id')
       .single()
+    const { data: transcript, error: transcriptError } = transcriptResult
     if (transcriptError || !transcript) throw new Error(transcriptError?.message || 'Transcript insert failed.')
 
     return {
@@ -801,6 +1217,7 @@ export class RBHQPersistenceAdapter {
   }
 
   async createCandidate(input: {
+    runId?: string | null
     videoId: string
     transcriptId: string
     selected: SelectedOpusCandidate
@@ -810,20 +1227,46 @@ export class RBHQPersistenceAdapter {
     const durationSeconds = roundSeconds(input.selected.sceneAdjustedEndSeconds - input.selected.sceneAdjustedStartSeconds)
     const hashtags = hashtagsFor(input.selected)
     const caption = buildPostCaption(input.selected, hashtags)
-    const score = Math.round(70 + input.selected.confidence * 30)
+    const score = input.selected.editorial.score
     const scoreBreakdown = {
       model: 'rb_women_opus_adapter_v1',
+      autopilotRunId: input.runId ?? null,
+      autopilotRank: String(input.selected.rank),
+      autopilotStage: 'selected',
       rank: input.selected.rank,
       rankLabel: score >= 88 ? 'must_post' : 'strong',
       urgency: 'today',
       transcriptId: input.transcriptId,
       score,
+      competition: input.selected.competition,
+      womensBasketballPrimarySubject: input.selected.womens_basketball_primary_subject,
+      primarySubjectType: input.selected.primary_subject_type,
+      primarySubjectNames: input.selected.primary_subject_names,
+      playerNames: input.selected.player_names,
+      coachNames: input.selected.coach_names,
+      teamNames: input.selected.team_names,
+      momentType: input.selected.moment_type,
+      eventType: input.selected.event_type,
+      rbWomenLane: input.selected.editorial.rbWomenLane,
+      rbWomenLanes: input.selected.rb_women_lanes,
+      namedSearchEntities: input.selected.editorial.namedSearchEntities,
+      youtubeShortsTitle: input.selected.editorial.youtubeShortsTitle,
+      selectionReason: input.selected.editorial.selectionReason,
+      queueDiversity: input.selected.editorial.queueDiversity,
+      editorialScoreBreakdown: input.selected.editorial.scoreBreakdown,
+      editorialBoosts: input.selected.editorial.boosts,
+      editorialPenalties: input.selected.editorial.penalties,
+      rejectionCodes: input.selected.editorial.rejectionCodes,
+      sourceReliability: input.selected.source_reliability,
+      timeliness: input.selected.timeliness,
       whyNow: input.selected.viral_reason,
       operatorSummary: input.selected.rb_women_angle,
       reasons: [
         input.selected.transcript_summary,
         input.selected.subject,
         input.selected.visual_context,
+        input.selected.why_fans_care,
+        input.selected.audience_fit_reason,
       ],
       suggestedCaption: caption,
       suggestedHashtags: hashtags,
@@ -858,9 +1301,7 @@ export class RBHQPersistenceAdapter {
         language: 'en',
       },
     })
-    const { data, error } = await this.db
-      .from('clip_candidates')
-      .insert({
+    const payload = {
         ingested_video_id: input.videoId,
         target_channel_id: RB_WOMEN_CHANNEL_ID,
         start_seconds: input.selected.sceneAdjustedStartSeconds,
@@ -878,9 +1319,17 @@ export class RBHQPersistenceAdapter {
         clip_reason: input.selected.viral_reason,
         opening_text: input.selected.opening_line,
         edit_notes: [
+          ...(input.runId ? [`autopilot_run:${input.runId}`, 'autopilot_stage:selected'] : []),
+          `autopilot_source_video:${input.videoId}`,
+          `autopilot_rank:${input.selected.rank}`,
           `Gemini selected ${input.selected.start_seconds}-${input.selected.end_seconds}.`,
           `Scene/padded cut ${input.selected.sceneAdjustedStartSeconds}-${input.selected.sceneAdjustedEndSeconds}.`,
+          ...(input.selected.boundaryAdjustment
+            ? [`Hook-first boundary: ${input.selected.boundaryAdjustment.originalStartSeconds}-${input.selected.boundaryAdjustment.originalEndSeconds} -> ${input.selected.boundaryAdjustment.refinedStartSeconds}-${input.selected.boundaryAdjustment.refinedEndSeconds} (${input.selected.boundaryAdjustment.reason}).`]
+            : []),
           `Visual context: ${input.selected.visual_context}`,
+          `RB Women eligibility: ${input.selected.competition}; ${input.selected.editorial.namedSearchEntities.join(', ')}`,
+          `RB Women lane: ${input.selected.editorial.rbWomenLane}; score ${score}.`,
           'RB Women Opus adapter: stop before Metricool scheduling.',
         ],
         asset_instructions: 'Automated RB Women Opus path renders a 1080x1920 H.264/AAC MP4 and uploads it to R2.',
@@ -898,11 +1347,118 @@ export class RBHQPersistenceAdapter {
         },
         status: 'approved_for_handoff',
         updated_at: now,
-      })
-      .select('id')
-      .single()
+      }
+    const existing = input.runId
+      ? await this.findAutopilotCandidate(input.runId, input.selected.rank, input.videoId)
+      : null
+    const result = existing
+      ? await this.db
+        .from('clip_candidates')
+        .update(payload)
+        .eq('id', existing.id)
+        .select('id')
+        .single()
+      : await this.db
+        .from('clip_candidates')
+        .insert(payload)
+        .select('id')
+        .single()
+    const { data, error } = result
     if (error || !data) throw new Error(error?.message || 'Clip candidate insert failed.')
     return data.id
+  }
+
+  async findAutopilotCandidate(
+    runId: string,
+    rank: number,
+    videoId?: string | null,
+  ): Promise<{ id: string } | null> {
+    const runNote = `autopilot_run:${runId}`
+    const rankNote = `autopilot_rank:${rank}`
+    let query = this.db
+      .from('clip_candidates')
+      .select('id')
+      .eq('target_channel_id', RB_WOMEN_CHANNEL_ID)
+      .contains('edit_notes', [runNote, rankNote])
+      .limit(1)
+
+    if (videoId) {
+      query = query.eq('ingested_video_id', videoId)
+    }
+
+    const { data, error } = await query.maybeSingle()
+    if (error) throw new Error(error.message)
+    if (data) return data as { id: string }
+
+    let fallbackQuery = this.db
+      .from('clip_candidates')
+      .select('id')
+      .eq('target_channel_id', RB_WOMEN_CHANNEL_ID)
+      .contains('edit_notes', [runNote])
+
+    if (videoId) {
+      fallbackQuery = fallbackQuery.eq('ingested_video_id', videoId)
+    }
+
+    const { data: fallbackCandidates, error: fallbackError } = await fallbackQuery
+    if (fallbackError) throw new Error(fallbackError.message)
+    const candidateIds = (fallbackCandidates ?? []).map((candidate) => candidate.id)
+    if (candidateIds.length === 0) return null
+
+    const { data: packages, error: packageError } = await this.db
+      .from('mac_mini_clip_packages')
+      .select('clip_candidate_id, asset_public_url, local_asset_path')
+      .in('clip_candidate_id', candidateIds)
+
+    if (packageError) throw new Error(packageError.message)
+    const matched = (packages ?? []).find((pkg) => {
+      const value = `${pkg.asset_public_url ?? ''} ${pkg.local_asset_path ?? ''}`
+      return new RegExp(`rank-${rank}(?:\\D|$)`).test(value)
+    })
+    return matched?.clip_candidate_id ? { id: matched.clip_candidate_id } : null
+  }
+
+  async findAutopilotOutput(runId: string, rank: number): Promise<{
+    candidateId: string
+    packageId: string | null
+    clipId: string | null
+    publicUrl: string | null
+    queueEligible: boolean
+  } | null> {
+    const candidate = await this.findAutopilotCandidate(runId, rank)
+    if (!candidate) return null
+
+    const { data: pkg, error: pkgError } = await this.db
+      .from('mac_mini_clip_packages')
+      .select('id, asset_public_url')
+      .eq('clip_candidate_id', candidate.id)
+      .maybeSingle()
+    if (pkgError) throw new Error(pkgError.message)
+
+    let clipId: string | null = null
+    let publicUrl = typeof pkg?.asset_public_url === 'string' ? pkg.asset_public_url : null
+    if (pkg?.id) {
+      const { data: clip, error: clipError } = await this.db
+        .from('clips')
+        .select('id, video_url')
+        .eq('external_id', `platform_package:${pkg.id}`)
+        .maybeSingle()
+      if (clipError) throw new Error(clipError.message)
+      clipId = typeof clip?.id === 'string' ? clip.id : null
+      publicUrl = typeof clip?.video_url === 'string' ? clip.video_url : publicUrl
+    }
+
+    const workflow = clipId
+      ? await getMetricoolWorkflowClips({ limit: 200, channelIds: [RB_WOMEN_CHANNEL_ID] })
+      : []
+
+    return {
+      candidateId: candidate.id,
+      packageId: typeof pkg?.id === 'string' ? pkg.id : null,
+      clipId,
+      publicUrl,
+      queueEligible: clipId ? workflow.some((clip) => clip.id === clipId) : false,
+    }
   }
 
   async packageRenderAndExport(input: {
@@ -929,7 +1485,7 @@ export class RBHQPersistenceAdapter {
 }
 
 function hashtagsFor(candidate: SelectedOpusCandidate): string[] {
-  const text = `${candidate.subject} ${candidate.rb_women_angle} ${candidate.viral_reason}`.toLowerCase()
+  const text = `${candidate.subject} ${candidate.rb_women_angle} ${candidate.viral_reason} ${candidate.competition} ${candidate.editorial.rbWomenLane}`.toLowerCase()
   const tags = ['#RBWomen', '#WomensSports']
   if (text.includes('wnba')) tags.push('#WNBA')
   if (text.includes('basketball') || text.includes('hoops')) tags.push('#Basketball')
@@ -937,11 +1493,12 @@ function hashtagsFor(candidate: SelectedOpusCandidate): string[] {
   if (text.includes('debate') || text.includes('controvers')) tags.push('#SportsDebate')
   if (text.includes('media')) tags.push('#SportsMedia')
   tags.push('#RunItBack')
-  return [...new Set(tags)].slice(0, 5)
+  return [...new Set([...tags, '#WomensBasketball', '#WNBA', '#Basketball'])].slice(0, 5)
 }
 
 function buildPostCaption(candidate: SelectedOpusCandidate, hashtags: string[]): string {
-  const base = compact(`${candidate.opening_line} ${candidate.rb_women_angle}`, 220)
+  const subject = candidate.editorial.namedSearchEntities[0] ?? candidate.subject
+  const base = compact(`${subject}: ${candidate.opening_line} ${candidate.rb_women_angle}`, 220)
   return compact(`${base}\n\n${hashtags.join(' ')}`, 300)
 }
 
@@ -1070,13 +1627,15 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
   }
   let reportPath: string | null = null
   let geminiCandidates: GeminiOpusCandidate[] = []
+  let editorialGate = evaluateRBWomenCandidates([])
   const clips: OpusClipResult[] = []
 
   try {
     geminiCandidates = await gemini.requestCandidates(source)
     adapterStatus.gemini = 'ok'
-    const selected = selector.select(geminiCandidates, source.metadata.durationSeconds)
-    const runId = randomUUID()
+    editorialGate = evaluateRBWomenCandidates(geminiCandidates)
+    const selected = selector.select(editorialGate.eligible, source.metadata.durationSeconds)
+    const runId = compact(input.runId, 100) || randomUUID()
     const allStorageSegments: Array<{ start: number; end: number; text: string }> = []
     const textParts: string[] = []
     const storageRefs: Array<{ rank: number; selected: SelectedOpusCandidate; transcript: WhisperXTranscript; captionPrep: CaptionPrepV1 }> = []
@@ -1084,6 +1643,27 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
     for (const candidate of selected) {
       let current = candidate
       try {
+        const existingOutput = await persistence.findAutopilotOutput(runId, current.rank)
+        if (existingOutput?.clipId && existingOutput.queueEligible) {
+          clips.push({
+            rank: current.rank,
+            stage: 'queue_ready',
+            candidateId: existingOutput.candidateId,
+            packageId: existingOutput.packageId,
+            clipId: existingOutput.clipId,
+            localCutPath: null,
+            localVerticalPath: null,
+            publicUrl: existingOutput.publicUrl,
+            queueEligible: true,
+            quality: null,
+            selected: current,
+            captionAccuracy: 'word_timed_whisperx',
+            verticalCropQuality: 'ffmpeg_vertical_blur_fallback',
+            publishableWithoutManualEditing: true,
+            failure: null,
+          })
+          continue
+        }
         try {
           current = await sceneDetect.adjustRange(source.sourcePath, candidate)
           adapterStatus.scenedetect = 'ok'
@@ -1099,25 +1679,40 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
           startSeconds: current.sceneAdjustedStartSeconds,
           endSeconds: current.sceneAdjustedEndSeconds,
         })
-        const transcript = await whisperx.transcribe({
+        let transcript = await whisperx.transcribe({
           clipPath: cut.outputPath,
           outputDir: path.join(assetRoot, 'whisperx', `${runId}-rank-${current.rank}`),
         })
         adapterStatus.whisperx = 'ok'
+        const refined = refineBoundaryWithTranscript(current, transcript)
+        current = refined.selected
+        transcript = refined.transcript
+        let finalCut = cut
+        const initialCutDuration = cut.quality.durationSeconds ?? (candidate.sceneAdjustedEndSeconds - candidate.sceneAdjustedStartSeconds)
+        if (refined.startOffset > 0.25 || Math.abs(refined.endOffset - initialCutDuration) > 0.25) {
+          finalCut = await ffmpeg.cut({
+            sourcePath: source.sourcePath,
+            outputPath: path.join(assetRoot, 'cuts', `${runId}-rank-${current.rank}-refined.mp4`),
+            assetRoot,
+            startSeconds: current.sceneAdjustedStartSeconds,
+            endSeconds: current.sceneAdjustedEndSeconds,
+          })
+        }
         const captionPrep = captionPrepFromWhisperX(current, transcript)
         storageRefs.push({ rank: current.rank, selected: current, transcript, captionPrep })
         allStorageSegments.push(...selectedTranscriptForStorage(current, transcript))
         textParts.push(transcript.text)
         clips.push({
           rank: current.rank,
+          stage: 'cut',
           candidateId: null,
           packageId: null,
           clipId: null,
-          localCutPath: cut.outputPath,
+          localCutPath: finalCut.outputPath,
           localVerticalPath: null,
           publicUrl: null,
           queueEligible: false,
-          quality: cut.quality,
+          quality: finalCut.quality,
           selected: current,
           captionAccuracy: 'word_timed_whisperx',
           verticalCropQuality: 'failed',
@@ -1127,6 +1722,7 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
       } catch (error) {
         clips.push({
           rank: current.rank,
+          stage: 'failed',
           candidateId: null,
           packageId: null,
           clipId: null,
@@ -1146,6 +1742,7 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
 
     if (storageRefs.length > 0) {
       const stored = await persistence.createSourceVideoAndTranscript({
+        runId,
         source,
         transcriptSegments: allStorageSegments,
         transcriptText: compact(textParts.join(' '), 8000),
@@ -1154,18 +1751,21 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
         const clip = clips.find((item) => item.rank === ref.rank)
         if (!clip?.localCutPath) continue
         const candidateId = await persistence.createCandidate({
+          runId,
           videoId: stored.videoId,
           transcriptId: stored.transcriptId,
           selected: ref.selected,
           captionPrep: ref.captionPrep,
         })
         const pkg = await createMacMiniClipPackageFromCandidate(db, candidateId)
+        const renderLayout = renderLayoutForCandidate(ref.selected)
         const rendered = await renderer.render({
           clipPath: clip.localCutPath,
           packageId: pkg.id,
           assetRoot,
           openingText: ref.selected.opening_line,
           captionPrep: ref.captionPrep,
+          layout: renderLayout,
         })
         adapterStatus.clipsai = rendered.cropQuality === 'clipsai_dynamic' ? 'ok' : 'missing_or_incompatible'
         const platform = await persistence.packageRenderAndExport({
@@ -1178,6 +1778,7 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
           expectedHeight: 1920,
         })
         Object.assign(clip, {
+          stage: platform.queueEligible ? 'queue_ready' : 'packaged',
           candidateId,
           packageId: platform.packageId,
           clipId: platform.clipId,
@@ -1202,6 +1803,15 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
     result: clips.some((clip) => clip.publishableWithoutManualEditing) ? 'PASS' : 'FAIL',
     source: source.metadata,
     geminiCandidatesReturned: geminiCandidates.length,
+    eligibleCandidates: editorialGate.eligible.length,
+    rejectedCandidates: editorialGate.rejected.map((item) => ({
+      startSeconds: item.candidate.start_seconds,
+      endSeconds: item.candidate.end_seconds,
+      subject: item.candidate.subject,
+      competition: item.candidate.competition,
+      rejectionCodes: item.rejectionCodes,
+      reason: item.selectionReason || item.candidate.viral_reason,
+    })),
     clipsSelected: clips.length,
     clips,
     processingTimeSeconds: roundSeconds((Date.now() - started) / 1000),
@@ -1211,7 +1821,7 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
       callsMetricoolSchedule: false,
       postsToSocialPlatforms: false,
       uploadsToSocialPlatforms: false,
-      uploadsToR2: true,
+      uploadsToR2: clips.some((clip) => Boolean(clip.publicUrl)),
     },
   }
 

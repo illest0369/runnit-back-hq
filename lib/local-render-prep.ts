@@ -58,7 +58,7 @@ export type LocalRenderPrepResult = {
   }
 }
 
-export type LocalRenderLayout = 'source' | 'vertical-blur'
+export type LocalRenderLayout = 'source' | 'vertical-blur' | 'smart-center-crop'
 
 export type LocalRenderQualityValidation = {
   valid: boolean
@@ -76,11 +76,11 @@ export type LocalVerticalRenderPlan = {
   targetWidth: 1080
   targetHeight: 1920
   aspectRatio: '9:16'
-  layout: 'vertical-blur'
-  safeCropStrategy: 'blurred-background-with-contained-foreground'
+  layout: Extract<LocalRenderLayout, 'vertical-blur' | 'smart-center-crop'>
+  safeCropStrategy: 'blurred-background-with-contained-foreground' | 'subject-aware-center-crop-with-blur-fallback'
   foreground: {
-    scale: 'contain'
-    crop: false
+    scale: 'contain' | 'cover'
+    crop: boolean
   }
   background: {
     scale: 'cover'
@@ -102,7 +102,7 @@ export type LocalVerticalRenderPlan = {
 
 export type LocalVerticalAssetRenderResult = {
   status: 'rendered'
-  layout: 'vertical-blur'
+  layout: Extract<LocalRenderLayout, 'vertical-blur' | 'smart-center-crop'>
   durationMode: 'source'
   packageId: string | null
   sourcePath: string
@@ -242,16 +242,18 @@ function readFirstPositiveNumber(values: Array<number | string | null | undefine
   return null
 }
 
-function verticalRenderPlan(openingText: string | null | undefined): LocalVerticalRenderPlan {
+function verticalRenderPlan(openingText: string | null | undefined, layout: Extract<LocalRenderLayout, 'vertical-blur' | 'smart-center-crop'> = 'vertical-blur'): LocalVerticalRenderPlan {
   return {
     targetWidth: 1080,
     targetHeight: 1920,
     aspectRatio: '9:16',
-    layout: 'vertical-blur',
-    safeCropStrategy: 'blurred-background-with-contained-foreground',
+    layout,
+    safeCropStrategy: layout === 'smart-center-crop'
+      ? 'subject-aware-center-crop-with-blur-fallback'
+      : 'blurred-background-with-contained-foreground',
     foreground: {
-      scale: 'contain',
-      crop: false,
+      scale: layout === 'smart-center-crop' ? 'cover' : 'contain',
+      crop: layout === 'smart-center-crop',
     },
     background: {
       scale: 'cover',
@@ -954,13 +956,15 @@ export async function renderLocalClipPrepMp4(input: {
     return `[${inputLabel}][${index + 1}:v]overlay=0:0:enable='between(t,${overlay.start.toFixed(3)},${overlay.end.toFixed(3)})'[${outputLabel}]`
   }) ?? []
   const subtitleOutputLabel = subtitleImageOverlays?.length ? `sub${subtitleImageOverlays.length - 1}` : 'pre'
-  const videoArgs = layout === 'vertical-blur'
+  const videoArgs = layout === 'vertical-blur' || layout === 'smart-center-crop'
     ? [
         '-filter_complex',
         [
           '[0:v:0]split=2[bg][fg]',
           '[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,gblur=sigma=30,eq=brightness=-0.08:saturation=1.12,setsar=1[base]',
-          '[fg]scale=1080:1920:force_original_aspect_ratio=decrease,setsar=1[front]',
+          layout === 'smart-center-crop'
+            ? '[fg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1[front]'
+            : '[fg]scale=1080:1920:force_original_aspect_ratio=decrease,setsar=1[front]',
           subtitleImageOverlays
             ? [
                 '[base][front]overlay=(W-w)/2:(H-h)/2,format=rgba[pre]',
@@ -1027,8 +1031,8 @@ export async function renderLocalClipPrepMp4(input: {
   }
   const qualityValidation = await validateRenderedMp4Quality(outputPath, {
     expectedDurationSeconds: durationSeconds,
-    expectedWidth: layout === 'vertical-blur' ? 1080 : null,
-    expectedHeight: layout === 'vertical-blur' ? 1920 : null,
+    expectedWidth: layout === 'vertical-blur' || layout === 'smart-center-crop' ? 1080 : null,
+    expectedHeight: layout === 'vertical-blur' || layout === 'smart-center-crop' ? 1920 : null,
   })
   if (!qualityValidation.valid) {
     throw new Error(`ffprobe rejected rendered Clip Prep MP4: ${qualityValidation.issues.join('; ')}`)
@@ -1142,6 +1146,7 @@ export async function renderLocalClipPrepVerticalAsset(input: {
   captionPrep?: CaptionPrepV1 | null
   burnSubtitles?: boolean
   clipStartSeconds?: number | null
+  layout?: Extract<LocalRenderLayout, 'vertical-blur' | 'smart-center-crop'>
 }): Promise<LocalVerticalAssetRenderResult> {
   const sourcePath = await validateLocalSourceMp4(input.sourcePath)
   const output = localVerticalRenderOutputPath({
@@ -1193,19 +1198,20 @@ export async function renderLocalClipPrepVerticalAsset(input: {
       }
     }
   }
+  const layout = input.layout ?? 'vertical-blur'
   const rendered = await renderLocalClipPrepMp4({
     sourcePath,
     outputPath: output.outputPath,
     assetRoot: output.assetRoot,
     startSeconds: 0,
     endSeconds: durationSeconds,
-    layout: 'vertical-blur',
+    layout,
     subtitleImageOverlays,
   })
 
   return {
     status: 'rendered',
-    layout: 'vertical-blur',
+    layout,
     durationMode: 'source',
     packageId: input.packageId?.trim() || null,
     sourcePath,
@@ -1213,7 +1219,7 @@ export async function renderLocalClipPrepVerticalAsset(input: {
     assetRoot: output.assetRoot,
     durationSeconds: rendered.durationSeconds,
     sizeBytes: rendered.sizeBytes,
-    renderPlan: verticalRenderPlan(input.openingText),
+    renderPlan: verticalRenderPlan(input.openingText, layout),
     qualityValidation: rendered.qualityValidation,
     captionPrep,
     subtitleBurn,

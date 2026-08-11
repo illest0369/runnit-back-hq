@@ -72,6 +72,8 @@
     "source-system:rb-women": "tsx scripts/rb-women-source-qa.ts",
     "rb-women:opus-probe": "tsx scripts/rb-women-opus-pipeline.ts --probe-adapters",
     "rb-women:opus-pipeline": "tsx scripts/rb-women-opus-pipeline.ts",
+    "rb-women:autopilot": "tsx scripts/rb-women-autopilot.ts",
+    "rb-women:autopilot-next": "tsx scripts/rb-women-autopilot-next.ts",
     "source-system:rb-sports": "tsx scripts/rb-sports-source-qa.ts",
     "source-system:rb-combat": "tsx scripts/rb-combat-source-qa.ts",
     "metricool:dry-run-payload": "tsx scripts/dry-run-metricool-payload.ts",

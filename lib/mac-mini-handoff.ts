@@ -233,6 +233,8 @@ const PACKAGE_SELECT = [
 
 const HIGH_PRIORITY_SCORE = 76
 const DEFAULT_MAC_MINI_ASSET_ROOT = path.join(process.cwd(), 'tmp', 'mac-mini-assets')
+const RB_WOMEN_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000004'
+const RB_WOMEN_PACKAGE_HASHTAGS = ['#RunnitBackWomen', '#WomensBasketball', '#WNBA', '#BasketballHighlights', '#WomensSports']
 
 function compact(value: string | null | undefined): string {
   return value?.replace(/\s+/g, ' ').trim() ?? ''
@@ -256,6 +258,21 @@ function stringArray(value: string[] | null | undefined): string[] {
   return Array.isArray(value)
     ? value.map(compact).filter(Boolean)
     : []
+}
+
+function normalizeRbWomenPackageHashtags(channelId: string | null, hashtags: string[]): string[] {
+  if (channelId !== RB_WOMEN_CHANNEL_ID) return hashtags
+  const seen = new Set<string>()
+  const output: string[] = []
+  for (const tag of [...hashtags, ...RB_WOMEN_PACKAGE_HASHTAGS]) {
+    const clean = tag.startsWith('#') ? compact(tag) : `#${compact(tag)}`
+    const key = clean.toLowerCase()
+    if (!clean || clean === '#' || seen.has(key)) continue
+    seen.add(key)
+    output.push(clean)
+    if (output.length >= 5) break
+  }
+  return output
 }
 
 function readBreakdownString(breakdown: Record<string, unknown> | null, key: string): string {
@@ -569,7 +586,7 @@ export async function createMacMiniClipPackageFromCandidate(
   const sourceTitle = compact(video.title || candidate.title)
   const sourceUrl = compact(video.video_url)
   const caption = compact(candidate.caption) || compact(candidate.title)
-  const hashtags = stringArray(candidate.hashtags)
+  const hashtags = normalizeRbWomenPackageHashtags(targetChannelId, stringArray(candidate.hashtags))
   const hook = compact(candidate.hook_text) || compact(candidate.title)
   const clipPrep = readClipPrepFromCandidate(candidate) ?? buildClipPrepV1({
     candidate,

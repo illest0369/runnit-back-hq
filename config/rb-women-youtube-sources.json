@@ -1,0 +1,189 @@
+[
+  {
+    "channelName": "WNBA",
+    "channelHandle": "@WNBA",
+    "sourceTier": "A_OFFICIAL_RIGHTS_CLEARED",
+    "contentTypes": ["game_highlight", "press_conference", "interview", "behind_the_scenes"],
+    "competitionsCovered": ["WNBA"],
+    "rightsMode": "approved_ingest",
+    "editorialStrengths": ["competition", "rivalry", "star treatment", "player personality"],
+    "enabled": true,
+    "notes": "Official WNBA channel."
+  },
+  {
+    "channelName": "Unrivaled Basketball",
+    "channelHandle": "@UnrivaledBasketball",
+    "sourceTier": "A_OFFICIAL_RIGHTS_CLEARED",
+    "contentTypes": ["game_highlight", "interview", "behind_the_scenes", "style_or_culture"],
+    "competitionsCovered": ["Unrivaled"],
+    "rightsMode": "approved_ingest",
+    "editorialStrengths": ["player personality", "style and culture", "competition", "labor and business"],
+    "enabled": true,
+    "notes": "Official Unrivaled channel."
+  },
+  {
+    "channelName": "Official WNBA Team Channels",
+    "channelHandle": "@official-wnba-team-channels",
+    "sourceTier": "A_OFFICIAL_RIGHTS_CLEARED",
+    "contentTypes": ["game_highlight", "press_conference", "interview", "behind_the_scenes"],
+    "competitionsCovered": ["WNBA"],
+    "rightsMode": "approved_ingest",
+    "editorialStrengths": ["team context", "coaching and leadership", "player personality"],
+    "enabled": true,
+    "notes": "Placeholder grouping for manually approved official team channels."
+  },
+  {
+    "channelName": "Official NCAA Women's Basketball Tournament",
+    "channelHandle": "@marchmadnesswbb",
+    "sourceTier": "A_OFFICIAL_RIGHTS_CLEARED",
+    "contentTypes": ["game_highlight", "press_conference", "interview"],
+    "competitionsCovered": ["NCAAW"],
+    "rightsMode": "approved_ingest",
+    "editorialStrengths": ["competition", "women's basketball history", "rivalry"],
+    "enabled": true,
+    "notes": "Official NCAA women's basketball tournament content."
+  },
+  {
+    "channelName": "Official Women's College Team and Conference Channels",
+    "channelHandle": "@official-wbb-team-conference-channels",
+    "sourceTier": "A_OFFICIAL_RIGHTS_CLEARED",
+    "contentTypes": ["game_highlight", "press_conference", "interview", "behind_the_scenes"],
+    "competitionsCovered": ["NCAAW"],
+    "rightsMode": "approved_ingest",
+    "editorialStrengths": ["competition", "coaching and leadership", "undercovered stories"],
+    "enabled": true,
+    "notes": "Placeholder grouping for manually approved official women's college basketball channels."
+  },
+  {
+    "channelName": "Approved Player-Owned Podcasts and Media",
+    "channelHandle": "@approved-player-owned-wbb-media",
+    "sourceTier": "A_OFFICIAL_RIGHTS_CLEARED",
+    "contentTypes": ["podcast", "interview", "behind_the_scenes"],
+    "competitionsCovered": ["WNBA", "NCAAW", "Unrivaled", "WOMENS_PRO_BASKETBALL"],
+    "rightsMode": "approved_ingest",
+    "editorialStrengths": ["player personality", "media power", "labor and compensation"],
+    "enabled": true,
+    "notes": "Manually approved player-owned media only."
+  },
+  {
+    "channelName": "RBHQ-Owned or Licensed Footage",
+    "channelHandle": "@rbhq-owned-licensed-wbb",
+    "sourceTier": "A_OFFICIAL_RIGHTS_CLEARED",
+    "contentTypes": ["interview", "press_conference", "behind_the_scenes", "game_highlight"],
+    "competitionsCovered": ["WNBA", "NCAAW", "Unrivaled", "FIBA_WOMEN", "WOMENS_PRO_BASKETBALL", "GIRLS_ELITE_BASKETBALL", "WOMENS_BASKETBALL_HISTORY"],
+    "rightsMode": "owned",
+    "editorialStrengths": ["competition", "culture", "access", "undercovered stories"],
+    "enabled": true,
+    "notes": "RBHQ-owned or specifically licensed footage."
+  },
+  {
+    "channelName": "Women Hooping",
+    "channelHandle": "@WomenHooping",
+    "sourceTier": "B_EDITORIAL_DISCOVERY",
+    "contentTypes": ["game_highlight", "analysis", "behind_the_scenes"],
+    "competitionsCovered": ["WNBA", "NCAAW"],
+    "rightsMode": "discovery_only",
+    "editorialStrengths": ["fan conversation", "player personality", "undercovered stories"],
+    "enabled": true,
+    "notes": "Discovery source only unless a specific asset is cleared."
+  },
+  {
+    "channelName": "Quita Loves Sports",
+    "channelHandle": "@QuitaLovesSports",
+    "sourceTier": "B_EDITORIAL_DISCOVERY",
+    "contentTypes": ["analysis", "podcast", "interview"],
+    "competitionsCovered": ["WNBA", "NCAAW"],
+    "rightsMode": "discovery_only",
+    "editorialStrengths": ["debate", "media power", "fan-native analysis"],
+    "enabled": true,
+    "notes": "Discovery source only unless manually approved."
+  },
+  {
+    "channelName": "No Cap Space WBB",
+    "channelHandle": "@NoCapSpaceWBB",
+    "sourceTier": "B_EDITORIAL_DISCOVERY",
+    "contentTypes": ["podcast", "analysis"],
+    "competitionsCovered": ["WNBA", "NCAAW"],
+    "rightsMode": "discovery_only",
+    "editorialStrengths": ["debate", "competition", "player evaluation"],
+    "enabled": true,
+    "notes": "Discovery source only unless manually approved."
+  },
+  {
+    "channelName": "The Women's Hoops Network",
+    "channelHandle": "@TheWomensHoopsNetwork",
+    "sourceTier": "B_EDITORIAL_DISCOVERY",
+    "contentTypes": ["analysis", "interview", "podcast"],
+    "competitionsCovered": ["WNBA", "NCAAW"],
+    "rightsMode": "discovery_only",
+    "editorialStrengths": ["undercovered stories", "women's basketball context"],
+    "enabled": true,
+    "notes": "Discovery source only unless manually approved."
+  },
+  {
+    "channelName": "Just Women's Sports",
+    "channelHandle": "@JustWomensSports",
+    "sourceTier": "B_EDITORIAL_DISCOVERY",
+    "contentTypes": ["studio_discussion", "interview", "podcast", "analysis"],
+    "competitionsCovered": ["WNBA", "NCAAW", "NWSL", "women's sports"],
+    "rightsMode": "manual_review",
+    "editorialStrengths": ["culture", "player personality", "media coverage"],
+    "enabled": true,
+    "notes": "Manual review before download or re-render unless a specific asset is cleared."
+  },
+  {
+    "channelName": "TOGETHXR",
+    "channelHandle": "@TOGETHXR",
+    "sourceTier": "B_EDITORIAL_DISCOVERY",
+    "contentTypes": ["interview", "behind_the_scenes", "style_or_culture"],
+    "competitionsCovered": ["WNBA", "NCAAW", "women's sports"],
+    "rightsMode": "manual_review",
+    "editorialStrengths": ["culture", "style", "representation"],
+    "enabled": true,
+    "notes": "Manual review before download or re-render unless a specific asset is cleared."
+  },
+  {
+    "channelName": "Other Manually Approved Women's-Basketball-First Channels",
+    "channelHandle": "@manually-approved-wbb-first",
+    "sourceTier": "B_EDITORIAL_DISCOVERY",
+    "contentTypes": ["game_highlight", "interview", "podcast", "analysis", "behind_the_scenes"],
+    "competitionsCovered": ["WNBA", "NCAAW", "Unrivaled", "WOMENS_PRO_BASKETBALL"],
+    "rightsMode": "manual_review",
+    "editorialStrengths": ["women's basketball first coverage"],
+    "enabled": true,
+    "notes": "Registry placeholder for later manual additions."
+  },
+  {
+    "channelName": "Her Hoop Stats",
+    "channelHandle": "@HerHoopStats",
+    "sourceTier": "C_CONTEXT_ANALYSIS",
+    "contentTypes": ["analysis", "statistics", "podcast"],
+    "competitionsCovered": ["WNBA", "NCAAW"],
+    "rightsMode": "discovery_only",
+    "editorialStrengths": ["statistics", "tactical insight", "context"],
+    "enabled": true,
+    "notes": "Use for context and discovery; do not auto-download or re-render."
+  },
+  {
+    "channelName": "Official Statistics Feeds",
+    "channelHandle": "@official-wbb-statistics-feeds",
+    "sourceTier": "C_CONTEXT_ANALYSIS",
+    "contentTypes": ["statistics", "context"],
+    "competitionsCovered": ["WNBA", "NCAAW", "Unrivaled", "FIBA_WOMEN"],
+    "rightsMode": "discovery_only",
+    "editorialStrengths": ["context", "verification"],
+    "enabled": true,
+    "notes": "Context source only."
+  },
+  {
+    "channelName": "Reputable Women's Basketball Reporting",
+    "channelHandle": "@reputable-wbb-reporting",
+    "sourceTier": "C_CONTEXT_ANALYSIS",
+    "contentTypes": ["reporting", "analysis", "context"],
+    "competitionsCovered": ["WNBA", "NCAAW", "Unrivaled", "WOMENS_PRO_BASKETBALL"],
+    "rightsMode": "discovery_only",
+    "editorialStrengths": ["reporting", "media power", "labor and compensation"],
+    "enabled": true,
+    "notes": "Context source only unless a specific asset is cleared."
+  }
+]
