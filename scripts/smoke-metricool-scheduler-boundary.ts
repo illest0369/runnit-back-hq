@@ -2,7 +2,9 @@ import { readFileSync } from 'node:fs'
 
 import {
   assertMetricoolSchedulerContract,
+  buildMetricoolNormalizeHeaders,
   buildMetricoolSchedulerEndpointPreview,
+  buildMetricoolSchedulerHeaders,
   buildSchedulerPayload,
   formatMetricoolDateTimeForTimezone,
   metricoolSchedulerError,
@@ -21,6 +23,16 @@ function readObject(value: unknown): Record<string, unknown> {
 function main() {
   process.env.METRICOOL_TIMEZONE = 'America/Los_Angeles'
   const normalizedMediaId = 'https://app.metricool.com/media/normalized/rbhq-test.mp4'
+  const normalizeHeaders = buildMetricoolNormalizeHeaders('fake-token')
+  assert(normalizeHeaders['X-Mc-Auth'] === 'fake-token', 'Normalize headers must include X-Mc-Auth.')
+  assert(!('Accept' in normalizeHeaders), 'Normalize request must not request application/json only.')
+  assert(!('Content-Type' in normalizeHeaders), 'Normalize GET must not send Content-Type.')
+
+  const schedulerHeaders = buildMetricoolSchedulerHeaders('fake-token')
+  assert(schedulerHeaders['X-Mc-Auth'] === 'fake-token', 'Scheduler headers must include X-Mc-Auth.')
+  assert(schedulerHeaders['Content-Type'] === 'application/json', 'Scheduler POST must send JSON Content-Type.')
+  assert(schedulerHeaders.Accept === 'application/json', 'Scheduler POST must request JSON response.')
+
   const payload = buildSchedulerPayload({
     caption: 'RB Women controlled scheduler boundary test.',
     hashtags: ['#RBWomen', '#WomensSports'],
@@ -107,6 +119,8 @@ function main() {
     publicationDate: payload.publicationDate,
     providerNetworks: providers.map((provider) => provider.network),
     mediaIdPreserved: media.mediaId === normalizedMediaId,
+    normalizeHeaderNames: Object.keys(normalizeHeaders),
+    schedulerHeaderNames: Object.keys(schedulerHeaders),
     validationDetailsPreserved: schedulerError.includes('must not be null'),
     tokenDiagnosticRedacted: sanitized.token === '[redacted]',
     duplicatePreventionGuard: true,

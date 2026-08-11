@@ -350,11 +350,17 @@ export function buildMetricoolSchedulerEndpointPreview(input: {
   )
 }
 
-function buildMetricoolJsonHeaders(apiKey: string): Record<string, string> {
+export function buildMetricoolSchedulerHeaders(apiKey: string): Record<string, string> {
   return {
     'X-Mc-Auth': apiKey,
     'Content-Type': 'application/json',
     Accept: 'application/json',
+  }
+}
+
+export function buildMetricoolNormalizeHeaders(apiKey: string): Record<string, string> {
+  return {
+    'X-Mc-Auth': apiKey,
   }
 }
 
@@ -709,7 +715,7 @@ export async function sendClipToMetricool(
     const normalizeEndpoint = buildNormalizeEndpoint(config, mp4Url)
     const normalizeResponse = await fetch(normalizeEndpoint, {
       method: 'GET',
-      headers: buildMetricoolJsonHeaders(config.apiKey),
+      headers: buildMetricoolNormalizeHeaders(config.apiKey),
     })
     const normalizeBody = await readResponseBody(normalizeResponse)
     if (!normalizeResponse.ok) {
@@ -773,7 +779,7 @@ export async function sendClipToMetricool(
 
     const response = await fetch(endpoint, {
       method: 'POST',
-      headers: buildMetricoolJsonHeaders(config.apiKey),
+      headers: buildMetricoolSchedulerHeaders(config.apiKey),
       body: JSON.stringify(requestPayload),
     })
     const responseBody = await readResponseBody(response)

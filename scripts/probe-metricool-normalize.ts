@@ -1,7 +1,7 @@
 import { config } from 'dotenv'
 
 import { buildPublishExportPackage } from '../lib/export/build-export'
-import { getMetricoolMediaIdPath } from '../lib/metricool'
+import { buildMetricoolNormalizeHeaders, getMetricoolMediaIdPath } from '../lib/metricool'
 import { getClipById } from '../lib/moderation-queue'
 
 config({ path: '.env.local', quiet: true })
@@ -119,14 +119,12 @@ async function main() {
   const apiUrl = requiredEnv('METRICOOL_API_URL')
   const apiKey = requiredEnv('METRICOOL_API_KEY')
   const endpoint = normalizeEndpoint(apiUrl, mediaUrl)
+  const normalizeHeaders = buildMetricoolNormalizeHeaders(apiKey)
   const [mp4, normalizeResponse] = await Promise.all([
     headMp4(mediaUrl),
     fetch(endpoint, {
       method: 'GET',
-      headers: {
-        'X-Mc-Auth': apiKey,
-        'Content-Type': 'application/json',
-      },
+      headers: normalizeHeaders,
     }),
   ])
   const responseBody = await readResponseBody(normalizeResponse)
@@ -163,7 +161,7 @@ async function main() {
       method: 'GET',
       endpointPath: endpoint.pathname,
       queryParamNames: [...endpoint.searchParams.keys()],
-      headerNames: ['X-Mc-Auth', 'Content-Type'],
+      headerNames: Object.keys(normalizeHeaders),
       status: normalizeResponse.status,
       ok: normalizeResponse.ok,
       topLevelKeys,
