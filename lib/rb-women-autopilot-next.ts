@@ -4,6 +4,7 @@ import { editorialScore } from './source-system'
 import {
   createOpusSupabaseClient,
   YouTubeAcquisitionError,
+  type GeminiGenerationTelemetry,
 } from './rb-women-opus-pipeline'
 import { runRBWomenAutopilot, type RBWomenAutopilotReport } from './rb-women-autopilot'
 import { RB_WOMEN_CHANNEL_ID } from './rb-women-source-config'
@@ -59,6 +60,7 @@ type CandidateRow = {
 }
 
 export const MAX_AUTOPILOT_NEXT_SOURCE_ATTEMPTS = 3
+const DEFAULT_GEMINI_ANALYSIS_RETRY_AFTER_MS = 15 * 60_000
 
 export function boundedAutopilotNextSourceAttempts<T>(sources: T[], limit = MAX_AUTOPILOT_NEXT_SOURCE_ATTEMPTS): T[] {
   return sources.slice(0, Math.max(0, limit))
@@ -81,6 +83,9 @@ export type RBWomenAutopilotNextReport = RBWomenAutopilotReport & {
     downloadStatus: string
     reason: string
   }>
+  transientAnalysis?: {
+    retryAfter: string
+  } | null
 }
 
 function firstJoined<T>(value: T | T[] | null | undefined): T | null {
@@ -91,6 +96,26 @@ function firstJoined<T>(value: T | T[] | null | undefined): T | null {
 function compact(value: string | null | undefined, maxLength = 500): string {
   const clean = value?.replace(/\s+/g, ' ').trim() ?? ''
   return clean.length <= maxLength ? clean : `${clean.slice(0, maxLength - 3).trim()}...`
+}
+
+function readPositiveIntegerEnv(name: string, fallback: number): number {
+  const parsed = Number(process.env[name])
+  return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback
+}
+
+function scoreBreakdownRecord(value: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  return value && typeof value === 'object' ? value : {}
+}
+
+function analysisRetryAfter(row: CandidateRow): number | null {
+  const value = scoreBreakdownRecord(row.score_breakdown).analysis_retry_after
+  if (typeof value !== 'string' || !value.trim()) return null
+  const parsed = Date.parse(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function isGeminiTransientReport(report: Pick<RBWomenAutopilotReport, 'gemini'>): boolean {
+  return report.gemini?.finalStatus === 'transient_failed'
 }
 
 function sourceRankScore(row: CandidateRow): number {
@@ -147,6 +172,8 @@ export async function selectRankedRBWomenAutopilotSources(
     const video = firstJoined(row.ingested_videos)
     const source = firstJoined(video?.source_channels)
     if (!video?.video_url) continue
+    const retryAfter = analysisRetryAfter(row)
+    if (retryAfter && retryAfter > Date.now()) continue
     if (source?.target_rbhq_channel_id !== RB_WOMEN_CHANNEL_ID || source.enabled === false) continue
     if (await alreadyAutopiloted(db, row.ingested_video_id)) continue
     const score = sourceRankScore(row)
@@ -210,6 +237,50 @@ async function recordAcquisitionFailure(
   if (error) throw new Error(error.message)
 }
 
+async function recordGeminiTransientFailure(
+  db: AutopilotNextDb,
+  input: {
+    row: CandidateRow
+    gemini: GeminiGenerationTelemetry
+  },
+): Promise<string> {
+  const now = new Date().toISOString()
+  const retryAfter = new Date(Date.now() + readPositiveIntegerEnv('GEMINI_ANALYSIS_RETRY_AFTER_MS', DEFAULT_GEMINI_ANALYSIS_RETRY_AFTER_MS)).toISOString()
+  const existingBreakdown = scoreBreakdownRecord(input.row.score_breakdown)
+  const nextBreakdown = {
+    ...existingBreakdown,
+    analysis_status: 'transient_failed',
+    analysis_retry_after: retryAfter,
+    gemini: {
+      primaryModel: input.gemini.primaryModel,
+      fallbackModel: input.gemini.fallbackModel,
+      modelUsed: input.gemini.modelUsed,
+      attempts: input.gemini.attempts,
+      transientFailures: input.gemini.transientFailures,
+      fallbackUsed: input.gemini.fallbackUsed,
+      finalStatus: input.gemini.finalStatus,
+      failed_at: now,
+    },
+  }
+  const existingNotes = Array.isArray(input.row.edit_notes) ? input.row.edit_notes : []
+  const { error } = await db
+    .from('clip_candidates')
+    .update({
+      score_breakdown: nextBreakdown,
+      edit_notes: [
+        ...existingNotes,
+        'analysis_status:transient_failed',
+        `analysis_retry_after:${retryAfter}`,
+      ],
+      updated_at: now,
+    })
+    .eq('id', input.row.id)
+    .eq('status', 'candidate')
+
+  if (error) throw new Error(error.message)
+  return retryAfter
+}
+
 export async function runRBWomenAutopilotNext(input: {
   dryRun?: boolean
   writeReport?: boolean
@@ -233,6 +304,9 @@ export async function runRBWomenAutopilotNext(input: {
         writeReport: input.writeReport,
         runId: `rb-women-autopilot-next-${selected.row.ingested_video_id}`,
       })
+      const transientRetryAfter = isGeminiTransientReport(report)
+        ? await recordGeminiTransientFailure(db, { row: selected.row, gemini: report.gemini as GeminiGenerationTelemetry })
+        : null
 
       return {
         ...report,
@@ -246,6 +320,7 @@ export async function runRBWomenAutopilotNext(input: {
           reason: selected.reason,
         },
         skippedSources,
+        transientAnalysis: transientRetryAfter ? { retryAfter: transientRetryAfter } : null,
       }
     } catch (error) {
       if (!(error instanceof YouTubeAcquisitionError)) {

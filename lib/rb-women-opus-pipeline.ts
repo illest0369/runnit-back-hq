@@ -46,9 +46,13 @@ const TARGET_CLIPS = 3
 const MIN_DURATION_SECONDS = 20
 const MAX_DURATION_SECONDS = 60
 const MIN_SELECTION_SCORE = 78
-const DEFAULT_GEMINI_MODEL = process.env.GEMINI_VIDEO_MODEL || 'gemini-3.6-flash'
+const DEFAULT_GEMINI_MODEL = process.env.GEMINI_MODEL_PRIMARY || process.env.GEMINI_VIDEO_MODEL || 'gemini-3.6-flash'
 const DEFAULT_GEMINI_FILE_POLL_INTERVAL_MS = 5_000
 const DEFAULT_GEMINI_FILE_PROCESSING_TIMEOUT_MS = 1_800_000
+const DEFAULT_GEMINI_GENERATE_MAX_ATTEMPTS = 4
+const DEFAULT_GEMINI_GENERATE_INITIAL_DELAY_MS = 15_000
+const DEFAULT_GEMINI_GENERATE_MAX_DELAY_MS = 120_000
+const DEFAULT_GEMINI_GENERATE_MAX_RETRY_ELAPSED_MS = 600_000
 
 type OpusDb = SupabaseClient
 
@@ -66,6 +70,41 @@ type GeminiFileMetadata = {
 type GeminiFilesApi = {
   get(params: { name: string }): Promise<GeminiFileMetadata>
   delete(params: { name: string }): Promise<unknown>
+}
+
+export type GeminiGenerationStatus = 'ok' | 'transient_failed' | 'permanent_failed'
+
+export type GeminiGenerationAttempt = {
+  model: string
+  attempt: number
+  statusCode: number | null
+  classification: 'transient_http' | 'transient_network' | 'permanent_http' | 'permanent_request' | 'unknown'
+  retryable: boolean
+  delayMs: number | null
+}
+
+export type GeminiGenerationTelemetry = {
+  primaryModel: string
+  fallbackModel: string | null
+  modelUsed: string | null
+  attempts: number
+  transientFailures: number
+  fallbackUsed: boolean
+  finalStatus: GeminiGenerationStatus
+  attemptLog: GeminiGenerationAttempt[]
+}
+
+export class GeminiTransientGenerationError extends Error {
+  readonly telemetry: GeminiGenerationTelemetry
+
+  constructor(message: string, telemetry: GeminiGenerationTelemetry, options: { cause?: unknown } = {}) {
+    super(message)
+    this.name = 'GeminiTransientGenerationError'
+    this.telemetry = telemetry
+    if (options.cause) {
+      this.cause = options.cause
+    }
+  }
 }
 
 export type OpusSourceInput = {
@@ -139,6 +178,11 @@ export type GeminiOpusCandidate = RBWomenEditorialCandidateInput & {
   rb_women_angle: string
   viral_reason: string
   confidence: number
+}
+
+export type GeminiCandidateGenerationResult = {
+  candidates: GeminiOpusCandidate[]
+  telemetry: GeminiGenerationTelemetry
 }
 
 export type SelectedOpusCandidate = GeminiOpusCandidate & {
@@ -231,6 +275,7 @@ export type OpusRunReport = {
   clips: OpusClipResult[]
   processingTimeSeconds: number
   reportPath: string | null
+  gemini: GeminiGenerationTelemetry
   adapterStatus: {
     gemini: 'ok' | 'failed'
     ffmpeg: 'ok' | 'failed'
@@ -424,29 +469,169 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function isTransientGeminiGenerateError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error)
-  return /503|UNAVAILABLE|high demand|temporar/i.test(message)
+function errorText(error: unknown): string {
+  if (error instanceof Error) {
+    const cause = error.cause ? ` ${errorText(error.cause)}` : ''
+    return `${error.message}${cause}`
+  }
+  return String(error)
 }
 
-async function generateGeminiContentWithRetry<T>(
-  request: () => Promise<T>,
-  input: { retries?: number; delayMs?: number; log?: (status: 'generate_retry') => void } = {},
+function extractGeminiStatusCode(error: unknown): number | null {
+  if (error && typeof error === 'object') {
+    const status = (error as { status?: unknown }).status
+    if (typeof status === 'number' && Number.isInteger(status)) return status
+    const code = (error as { code?: unknown }).code
+    if (typeof code === 'number' && Number.isInteger(code)) return code
+  }
+  const text = errorText(error)
+  const jsonCode = /"code"\s*:\s*(\d{3})/.exec(text)?.[1]
+  if (jsonCode) return Number(jsonCode)
+  const statusMatch = /(?:status|HTTP|Error:)\s*:?\s*(\d{3})/i.exec(text)?.[1]
+  return statusMatch ? Number(statusMatch) : null
+}
+
+export function classifyGeminiGenerateError(error: unknown): Omit<GeminiGenerationAttempt, 'model' | 'attempt' | 'delayMs'> {
+  const statusCode = extractGeminiStatusCode(error)
+  if ([408, 429, 500, 502, 503, 504].includes(statusCode ?? 0)) {
+    return { statusCode, classification: 'transient_http', retryable: true }
+  }
+  if ([400, 401, 403].includes(statusCode ?? 0)) {
+    return { statusCode, classification: statusCode === 400 ? 'permanent_request' : 'permanent_http', retryable: false }
+  }
+  const text = errorText(error)
+  if (/fetch failed|etimedout|econnreset|econnrefused|und_err|socket hang up|network|timeout|aborted/i.test(text)) {
+    return { statusCode, classification: 'transient_network', retryable: true }
+  }
+  return { statusCode, classification: statusCode ? 'permanent_http' : 'unknown', retryable: false }
+}
+
+function geminiGenerateRetryPolicy(input: {
+  maxAttempts?: number
+  initialDelayMs?: number
+  maxDelayMs?: number
+  maxElapsedMs?: number
+} = {}) {
+  return {
+    maxAttempts: input.maxAttempts ?? readPositiveIntegerEnv('GEMINI_GENERATE_MAX_ATTEMPTS', DEFAULT_GEMINI_GENERATE_MAX_ATTEMPTS),
+    initialDelayMs: input.initialDelayMs ?? readPositiveIntegerEnv('GEMINI_GENERATE_INITIAL_DELAY_MS', DEFAULT_GEMINI_GENERATE_INITIAL_DELAY_MS),
+    maxDelayMs: input.maxDelayMs ?? readPositiveIntegerEnv('GEMINI_GENERATE_MAX_DELAY_MS', DEFAULT_GEMINI_GENERATE_MAX_DELAY_MS),
+    maxElapsedMs: input.maxElapsedMs ?? readPositiveIntegerEnv('GEMINI_GENERATE_MAX_RETRY_ELAPSED_MS', DEFAULT_GEMINI_GENERATE_MAX_RETRY_ELAPSED_MS),
+  }
+}
+
+function nextGeminiDelayMs(attempt: number, policy: ReturnType<typeof geminiGenerateRetryPolicy>, jitter = Math.random): number {
+  const exponential = policy.initialDelayMs * (2 ** Math.max(0, attempt - 1))
+  const base = Math.min(exponential, policy.maxDelayMs)
+  const jitterFactor = 0.8 + Math.max(0, Math.min(1, jitter())) * 0.4
+  return Math.max(1, Math.round(base * jitterFactor))
+}
+
+function emptyGeminiTelemetry(primaryModel: string, fallbackModel: string | null): GeminiGenerationTelemetry {
+  return {
+    primaryModel,
+    fallbackModel,
+    modelUsed: null,
+    attempts: 0,
+    transientFailures: 0,
+    fallbackUsed: false,
+    finalStatus: 'permanent_failed',
+    attemptLog: [],
+  }
+}
+
+async function generateGeminiContentForModel<T>(
+  model: string,
+  request: (model: string) => Promise<T>,
+  telemetry: GeminiGenerationTelemetry,
+  input: {
+    policy: ReturnType<typeof geminiGenerateRetryPolicy>
+    sleepFn: (ms: number) => Promise<void>
+    now: () => number
+    jitter: () => number
+    log?: (status: 'generate_retry', details: { model: string; attempt: number; delayMs: number; statusCode: number | null }) => void
+  },
 ): Promise<T> {
-  const retries = input.retries ?? 2
-  const delayMs = input.delayMs ?? 10_000
+  const started = input.now()
   let lastError: unknown = null
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
+  for (let attempt = 1; attempt <= input.policy.maxAttempts; attempt += 1) {
+    telemetry.attempts += 1
     try {
-      return await request()
+      const result = await request(model)
+      telemetry.modelUsed = model
+      telemetry.finalStatus = 'ok'
+      return result
     } catch (error) {
       lastError = error
-      if (attempt >= retries || !isTransientGeminiGenerateError(error)) throw error
-      input.log?.('generate_retry')
-      await sleep(delayMs)
+      const classified = classifyGeminiGenerateError(error)
+      if (classified.retryable) telemetry.transientFailures += 1
+      const nextDelayMs = classified.retryable && attempt < input.policy.maxAttempts
+        ? nextGeminiDelayMs(attempt, input.policy, input.jitter)
+        : null
+      const canRetry = nextDelayMs !== null && input.now() - started + nextDelayMs <= input.policy.maxElapsedMs
+      telemetry.attemptLog.push({
+        model,
+        attempt,
+        ...classified,
+        delayMs: canRetry ? nextDelayMs : null,
+      })
+
+      if (!classified.retryable) {
+        telemetry.finalStatus = 'permanent_failed'
+        throw error
+      }
+      if (!canRetry || nextDelayMs === null) {
+        telemetry.finalStatus = 'transient_failed'
+        throw new GeminiTransientGenerationError('Gemini candidate generation exhausted transient retries.', telemetry, { cause: error })
+      }
+      input.log?.('generate_retry', { model, attempt, delayMs: nextDelayMs, statusCode: classified.statusCode })
+      await input.sleepFn(nextDelayMs)
     }
   }
-  throw lastError
+  telemetry.finalStatus = 'transient_failed'
+  throw new GeminiTransientGenerationError('Gemini candidate generation exhausted transient retries.', telemetry, { cause: lastError })
+}
+
+export async function generateGeminiContentWithModelFallback<T>(
+  request: (model: string) => Promise<T>,
+  input: {
+    primaryModel?: string | null
+    fallbackModel?: string | null
+    maxAttempts?: number
+    initialDelayMs?: number
+    maxDelayMs?: number
+    maxElapsedMs?: number
+    sleepFn?: (ms: number) => Promise<void>
+    now?: () => number
+    jitter?: () => number
+    log?: (status: 'generate_retry', details: { model: string; attempt: number; delayMs: number; statusCode: number | null }) => void
+  } = {},
+): Promise<{ response: T; telemetry: GeminiGenerationTelemetry }> {
+  const primaryModel = input.primaryModel?.trim() || DEFAULT_GEMINI_MODEL
+  const configuredFallback = input.fallbackModel?.trim() || process.env.GEMINI_MODEL_FALLBACK?.trim() || null
+  const fallbackModel = configuredFallback && configuredFallback !== primaryModel ? configuredFallback : null
+  const telemetry = emptyGeminiTelemetry(primaryModel, fallbackModel)
+  const policy = geminiGenerateRetryPolicy(input)
+  const retryInput = {
+    policy,
+    sleepFn: input.sleepFn ?? sleep,
+    now: input.now ?? Date.now,
+    jitter: input.jitter ?? Math.random,
+    log: input.log,
+  }
+
+  try {
+    const response = await generateGeminiContentForModel(primaryModel, request, telemetry, retryInput)
+    return { response, telemetry }
+  } catch (error) {
+    if (!(error instanceof GeminiTransientGenerationError) || !fallbackModel) {
+      throw error
+    }
+  }
+
+  telemetry.fallbackUsed = true
+  const response = await generateGeminiContentForModel(fallbackModel, request, telemetry, retryInput)
+  return { response, telemetry }
 }
 
 function geminiFileState(file: GeminiFileMetadata): string {
@@ -649,6 +834,16 @@ async function downloadYouTubeMp4(sourceUrl: string, outputDir: string): Promise
   await mkdir(outputDir, { recursive: true })
   const stem = sanitizeStem(`source-${parseYouTubeId(sourceUrl) ?? hashText(sourceUrl)}`)
   const outputTemplate = path.join(outputDir, `${stem}.%(ext)s`)
+  const expectedPath = path.join(outputDir, `${stem}.mp4`)
+  try {
+    return {
+      sourcePath: await validateAcquiredMp4(expectedPath),
+      downloadStatus: 'downloaded',
+      authRetryAttempted: false,
+    }
+  } catch {
+    // Continue with yt-dlp. A missing or invalid cached file should not block acquisition.
+  }
   const result = await runYtDlpWithAuthFallback([
     '--no-playlist',
     '--merge-output-format',
@@ -660,7 +855,7 @@ async function downloadYouTubeMp4(sourceUrl: string, outputDir: string): Promise
     sourceUrl,
   ])
   return {
-    sourcePath: await validateAcquiredMp4(path.join(outputDir, `${stem}.mp4`)),
+    sourcePath: await validateAcquiredMp4(expectedPath),
     downloadStatus: result.downloadStatus,
     authRetryAttempted: result.authRetryAttempted,
   }
@@ -742,6 +937,10 @@ export class OpusSourceAdapter {
 
 export class GeminiVideoUnderstandingAdapter {
   async requestCandidates(source: PreparedOpusSource): Promise<GeminiOpusCandidate[]> {
+    return (await this.requestCandidateGeneration(source)).candidates
+  }
+
+  async requestCandidateGeneration(source: PreparedOpusSource): Promise<GeminiCandidateGenerationResult> {
     const apiKey = process.env.GEMINI_API_KEY?.trim()
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY is required for Gemini video understanding.')
@@ -781,9 +980,9 @@ export class GeminiVideoUnderstandingAdapter {
         },
         { text: prompt },
       ]
-      const response = await generateGeminiContentWithRetry(
-        () => ai.models.generateContent({
-          model: DEFAULT_GEMINI_MODEL,
+      const generation = await generateGeminiContentWithModelFallback(
+        (model) => ai.models.generateContent({
+          model,
           contents: parts,
           config: {
             responseMimeType: 'application/json',
@@ -792,10 +991,14 @@ export class GeminiVideoUnderstandingAdapter {
         }),
         { log: (status) => console.error(`[rb-women-opus] gemini_file:${status}`) },
       )
+      const response = generation.response
       const text = response.text
       if (!text) throw new Error('Gemini returned an empty candidate response.')
       const parsed = GeminiResponseSchema.parse(JSON.parse(text))
-      return parsed.candidates
+      return {
+        candidates: parsed.candidates,
+        telemetry: generation.telemetry,
+      }
     } finally {
       if (uploadedFileName) {
         try {
@@ -2021,18 +2224,36 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
   }
   let reportPath: string | null = null
   let geminiCandidates: GeminiOpusCandidate[] = []
+  const configuredGeminiFallbackModel = process.env.GEMINI_MODEL_FALLBACK?.trim() || null
+  let geminiTelemetry = emptyGeminiTelemetry(
+    DEFAULT_GEMINI_MODEL,
+    configuredGeminiFallbackModel && configuredGeminiFallbackModel !== DEFAULT_GEMINI_MODEL
+      ? configuredGeminiFallbackModel
+      : null,
+  )
   let editorialGate = evaluateRBWomenCandidates([])
   const clips: OpusClipResult[] = []
 
   try {
-    geminiCandidates = await gemini.requestCandidates(source)
-    adapterStatus.gemini = 'ok'
-    editorialGate = evaluateRBWomenCandidates(geminiCandidates)
-    const selected = selector.select(editorialGate.eligible, source.metadata.durationSeconds)
-    const runId = compact(input.runId, 100) || randomUUID()
-    const allStorageSegments: Array<{ start: number; end: number; text: string }> = []
-    const textParts: string[] = []
-    const storageRefs: Array<{ rank: number; selected: SelectedOpusCandidate; transcript: WhisperXTranscript; captionPrep: CaptionPrepV1 }> = []
+    try {
+      const generation = await gemini.requestCandidateGeneration(source)
+      geminiCandidates = generation.candidates
+      geminiTelemetry = generation.telemetry
+      adapterStatus.gemini = 'ok'
+    } catch (error) {
+      if (!(error instanceof GeminiTransientGenerationError)) {
+        throw error
+      }
+      geminiTelemetry = error.telemetry
+    }
+
+    if (geminiCandidates.length > 0) {
+      editorialGate = evaluateRBWomenCandidates(geminiCandidates)
+      const selected = selector.select(editorialGate.eligible, source.metadata.durationSeconds)
+      const runId = compact(input.runId, 100) || randomUUID()
+      const allStorageSegments: Array<{ start: number; end: number; text: string }> = []
+      const textParts: string[] = []
+      const storageRefs: Array<{ rank: number; selected: SelectedOpusCandidate; transcript: WhisperXTranscript; captionPrep: CaptionPrepV1 }> = []
 
     for (const candidate of selected) {
       let current = candidate
@@ -2187,6 +2408,7 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
       }
       adapterStatus.rbhqPipeline = 'ok'
     }
+    }
   } finally {
     if (input.writeReport) {
       await mkdir(assetRoot, { recursive: true })
@@ -2211,6 +2433,7 @@ export async function runRBWomenOpusPipeline(db: OpusDb, input: OpusSourceInput)
     clips,
     processingTimeSeconds: roundSeconds((Date.now() - started) / 1000),
     reportPath,
+    gemini: geminiTelemetry,
     adapterStatus,
     safety: {
       callsMetricoolSchedule: false,

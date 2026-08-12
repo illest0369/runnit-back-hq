@@ -14,6 +14,7 @@ import {
 import {
   createOpusSupabaseClient,
   runRBWomenOpusPipeline,
+  type GeminiGenerationTelemetry,
   type OpusRunReport,
 } from './rb-women-opus-pipeline'
 import { RB_WOMEN_CHANNEL_ID } from './rb-women-source-config'
@@ -62,6 +63,7 @@ export type RBWomenAutopilotReport = {
   clipsFailed: number
   duplicatesPrevented: number
   processingTimeSeconds: number
+  gemini?: GeminiGenerationTelemetry
   clips: AutopilotClipReport[]
 }
 
@@ -534,6 +536,7 @@ export async function runRBWomenAutopilot(input: RBWomenAutopilotInput): Promise
     clipsFailed: clips.filter((clip) => clip.error).length,
     duplicatesPrevented,
     processingTimeSeconds: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
+    gemini: opus.gemini,
     clips,
   }
 }
