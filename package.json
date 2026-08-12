@@ -80,7 +80,8 @@
     "assets:cleanup-expired": "tsx scripts/cleanup-expired-assets.ts",
     "worker:clips": "node dist/workers/startWorker.js",
     "worker:post:dry-run": "node dist/workers/startPostDryRunWorker.js",
-    "worker:post:dry-run:local": "RBHQ_POST_QUEUE_NAME=rbhq-post-local-dry-run node dist/workers/startPostDryRunWorker.js"
+    "worker:post:dry-run:local": "RBHQ_POST_QUEUE_NAME=rbhq-post-local-dry-run node dist/workers/startPostDryRunWorker.js",
+    "smoke:rb-women-youtube-acquisition": "tsx scripts/smoke-rb-women-youtube-acquisition.ts"
   },
   "engines": {
     "node": "22.x"

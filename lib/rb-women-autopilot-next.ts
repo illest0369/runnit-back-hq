@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { editorialScore } from './source-system'
 import {
   createOpusSupabaseClient,
+  YouTubeAcquisitionError,
 } from './rb-women-opus-pipeline'
 import { runRBWomenAutopilot, type RBWomenAutopilotReport } from './rb-women-autopilot'
 import { RB_WOMEN_CHANNEL_ID } from './rb-women-source-config'
@@ -15,6 +16,7 @@ type CandidateRow = {
   title: string
   score: number | null
   score_breakdown: Record<string, unknown> | null
+  edit_notes: string[] | null
   status: string
   created_at: string | null
   ingested_videos: {
@@ -56,6 +58,12 @@ type CandidateRow = {
   }> | null
 }
 
+export const MAX_AUTOPILOT_NEXT_SOURCE_ATTEMPTS = 3
+
+export function boundedAutopilotNextSourceAttempts<T>(sources: T[], limit = MAX_AUTOPILOT_NEXT_SOURCE_ATTEMPTS): T[] {
+  return sources.slice(0, Math.max(0, limit))
+}
+
 export type RBWomenAutopilotNextReport = RBWomenAutopilotReport & {
   selectedSource: {
     candidateId: string
@@ -66,6 +74,13 @@ export type RBWomenAutopilotNextReport = RBWomenAutopilotReport & {
     sourceRankScore: number
     reason: string
   } | null
+  skippedSources?: Array<{
+    candidateId: string
+    videoId: string
+    title: string
+    downloadStatus: string
+    reason: string
+  }>
 }
 
 function firstJoined<T>(value: T | T[] | null | undefined): T | null {
@@ -107,7 +122,7 @@ async function loadEligibleCandidates(db: AutopilotNextDb): Promise<CandidateRow
   const { data, error } = await db
     .from('clip_candidates')
     .select(
-      `id, ingested_video_id, title, score, score_breakdown, status, created_at,
+      `id, ingested_video_id, title, score, score_breakdown, edit_notes, status, created_at,
        ingested_videos!inner (
          id, video_url, title, published_at,
          source_channels!inner ( id, channel_key, display_name, enabled, target_rbhq_channel_id )
@@ -122,9 +137,9 @@ async function loadEligibleCandidates(db: AutopilotNextDb): Promise<CandidateRow
   return (data ?? []) as unknown as CandidateRow[]
 }
 
-export async function selectNextRBWomenAutopilotSource(
+export async function selectRankedRBWomenAutopilotSources(
   db: AutopilotNextDb = createOpusSupabaseClient(),
-): Promise<{ row: CandidateRow; rankScore: number; reason: string } | null> {
+): Promise<Array<{ row: CandidateRow; rankScore: number; reason: string }>> {
   const candidates = await loadEligibleCandidates(db)
   const eligible: Array<{ row: CandidateRow; rankScore: number; reason: string }> = []
 
@@ -147,7 +162,52 @@ export async function selectNextRBWomenAutopilotSource(
     Date.parse(firstJoined(right.row.ingested_videos)?.published_at ?? right.row.created_at ?? '') -
       Date.parse(firstJoined(left.row.ingested_videos)?.published_at ?? left.row.created_at ?? ''),
   )
-  return eligible[0] ?? null
+  return eligible
+}
+
+export async function selectNextRBWomenAutopilotSource(
+  db: AutopilotNextDb = createOpusSupabaseClient(),
+): Promise<{ row: CandidateRow; rankScore: number; reason: string } | null> {
+  return (await selectRankedRBWomenAutopilotSources(db))[0] ?? null
+}
+
+async function recordAcquisitionFailure(
+  db: AutopilotNextDb,
+  input: {
+    row: CandidateRow
+    error: YouTubeAcquisitionError
+  },
+) {
+  const now = new Date().toISOString()
+  const existingBreakdown = input.row.score_breakdown ?? {}
+  const nextBreakdown = {
+    ...existingBreakdown,
+    download_status: input.error.downloadStatus,
+    acquisition: {
+      download_status: input.error.downloadStatus,
+      failed_at: now,
+      auth_retry_attempted: input.error.authRetryAttempted,
+      auth_retry_succeeded: input.error.authRetrySucceeded,
+      reason: input.error.message,
+    },
+  }
+  const existingNotes = Array.isArray(input.row.edit_notes) ? input.row.edit_notes : []
+  const { error } = await db
+    .from('clip_candidates')
+    .update({
+      status: 'acquisition_failed',
+      score_breakdown: nextBreakdown,
+      edit_notes: [
+        ...existingNotes,
+        `download_status:${input.error.downloadStatus}`,
+        `acquisition_failed_at:${now}`,
+      ],
+      updated_at: now,
+    })
+    .eq('id', input.row.id)
+    .eq('status', 'candidate')
+
+  if (error) throw new Error(error.message)
 }
 
 export async function runRBWomenAutopilotNext(input: {
@@ -155,30 +215,53 @@ export async function runRBWomenAutopilotNext(input: {
   writeReport?: boolean
 } = {}): Promise<RBWomenAutopilotNextReport> {
   const db = createOpusSupabaseClient()
-  const selected = await selectNextRBWomenAutopilotSource(db)
-  if (!selected) {
+  const rankedSources = boundedAutopilotNextSourceAttempts(await selectRankedRBWomenAutopilotSources(db))
+  if (rankedSources.length === 0) {
     throw new Error('No unprocessed RB Women scouting source is available.')
   }
 
-  const video = firstJoined(selected.row.ingested_videos)
-  const source = firstJoined(video?.source_channels)
-  const report = await runRBWomenAutopilot({
-    sourceId: selected.row.ingested_video_id,
-    dryRun: input.dryRun,
-    writeReport: input.writeReport,
-    runId: `rb-women-autopilot-next-${selected.row.ingested_video_id}`,
-  })
+  const skippedSources: RBWomenAutopilotNextReport['skippedSources'] = []
+  let lastAcquisitionError: YouTubeAcquisitionError | null = null
 
-  return {
-    ...report,
-    selectedSource: {
-      candidateId: selected.row.id,
-      videoId: selected.row.ingested_video_id,
-      title: selected.row.title,
-      sourceName: source?.display_name ?? '',
-      sourceChannelKey: source?.channel_key ?? null,
-      sourceRankScore: selected.rankScore,
-      reason: selected.reason,
-    },
+  for (const selected of rankedSources) {
+    const video = firstJoined(selected.row.ingested_videos)
+    const source = firstJoined(video?.source_channels)
+    try {
+      const report = await runRBWomenAutopilot({
+        sourceId: selected.row.ingested_video_id,
+        dryRun: input.dryRun,
+        writeReport: input.writeReport,
+        runId: `rb-women-autopilot-next-${selected.row.ingested_video_id}`,
+      })
+
+      return {
+        ...report,
+        selectedSource: {
+          candidateId: selected.row.id,
+          videoId: selected.row.ingested_video_id,
+          title: selected.row.title,
+          sourceName: source?.display_name ?? '',
+          sourceChannelKey: source?.channel_key ?? null,
+          sourceRankScore: selected.rankScore,
+          reason: selected.reason,
+        },
+        skippedSources,
+      }
+    } catch (error) {
+      if (!(error instanceof YouTubeAcquisitionError)) {
+        throw error
+      }
+      lastAcquisitionError = error
+      await recordAcquisitionFailure(db, { row: selected.row, error })
+      skippedSources.push({
+        candidateId: selected.row.id,
+        videoId: selected.row.ingested_video_id,
+        title: selected.row.title,
+        downloadStatus: error.downloadStatus,
+        reason: error.message,
+      })
+    }
   }
+
+  throw new Error(`No RB Women source could be acquired after ${rankedSources.length} ranked attempts. Last status: ${lastAcquisitionError?.downloadStatus ?? 'unknown'}.`)
 }

@@ -81,6 +81,11 @@ export type PreparedOpusSource = {
   inputKind: 'youtube_url' | 'public_mp4_url' | 'local_mp4'
   sourcePath: string
   sourceDownloaded: boolean
+  acquisition?: {
+    downloadStatus: YouTubeDownloadStatus
+    authRetryAttempted: boolean
+    authRetrySucceeded: boolean
+  } | null
   metadata: {
     title: string
     description: string | null
@@ -90,6 +95,37 @@ export type PreparedOpusSource = {
     platform: 'youtube' | 'r2_mp4' | 'local_video'
     externalVideoId: string
     videoUrl: string
+  }
+}
+
+export type YouTubeDownloadStatus =
+  | 'downloaded'
+  | 'auth_retry_succeeded'
+  | 'unavailable'
+  | 'private'
+  | 'geo_blocked'
+  | 'auth_required'
+  | 'download_failed'
+
+export class YouTubeAcquisitionError extends Error {
+  readonly downloadStatus: YouTubeDownloadStatus
+  readonly authRetryAttempted: boolean
+  readonly authRetrySucceeded: boolean
+
+  constructor(message: string, input: {
+    downloadStatus: YouTubeDownloadStatus
+    authRetryAttempted?: boolean
+    authRetrySucceeded?: boolean
+    cause?: unknown
+  }) {
+    super(message)
+    this.name = 'YouTubeAcquisitionError'
+    this.downloadStatus = input.downloadStatus
+    this.authRetryAttempted = input.authRetryAttempted ?? false
+    this.authRetrySucceeded = input.authRetrySucceeded ?? false
+    if (input.cause) {
+      this.cause = input.cause
+    }
   }
 }
 
@@ -459,6 +495,26 @@ async function probeDurationSeconds(filePath: string): Promise<number | null> {
   return Number.isFinite(duration) ? roundSeconds(duration) : null
 }
 
+async function validateAcquiredMp4(filePath: string): Promise<string> {
+  const absolute = await ensureLocalMp4(filePath)
+  await requireBinary('ffprobe')
+  const { stdout } = await execFileAsync(
+    'ffprobe',
+    ['-v', 'error', '-show_streams', '-show_entries', 'format=duration', '-of', 'json', absolute],
+    { maxBuffer: 1024 * 1024 },
+  )
+  const parsed = JSON.parse(stdout) as {
+    streams?: Array<{ codec_type?: string }>
+    format?: { duration?: string }
+  }
+  const duration = Number(parsed.format?.duration)
+  const hasVideo = (parsed.streams ?? []).some((stream) => stream.codec_type === 'video')
+  if (!hasVideo || !Number.isFinite(duration) || duration <= 0) {
+    throw new Error(`Acquired MP4 failed ffprobe validation: ${absolute}`)
+  }
+  return absolute
+}
+
 async function ensureLocalMp4(filePath: string): Promise<string> {
   const absolute = path.resolve(filePath)
   const fileStat = await stat(absolute)
@@ -471,6 +527,80 @@ async function ensureLocalMp4(filePath: string): Promise<string> {
   return absolute
 }
 
+function stderrFromError(error: unknown): string {
+  if (!error || typeof error !== 'object') return error instanceof Error ? error.message : String(error)
+  const record = error as { stderr?: unknown; stdout?: unknown; message?: unknown }
+  return [record.stderr, record.stdout, record.message]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join('\n')
+}
+
+export function classifyYouTubeAcquisitionFailure(errorText: string): YouTubeDownloadStatus {
+  const text = errorText.toLowerCase()
+  if (/sign in|not a bot|confirm you're not a bot|confirm you’re not a bot|cookies|required.*cookies|use --cookies|age.?restricted|age restricted|account/.test(text)) {
+    return 'auth_required'
+  }
+  if (/private video|this video is private/.test(text)) return 'private'
+  if (/not available in your country|geo.?restricted|geo.?blocked|not available from your location/.test(text)) return 'geo_blocked'
+  if (/video unavailable|unavailable|removed by the uploader|does not exist|copyright claim/.test(text)) return 'unavailable'
+  return 'download_failed'
+}
+
+function ytDlpCookiesFromBrowser(): string | null {
+  const value = process.env.YTDLP_COOKIES_FROM_BROWSER?.trim()
+  return value || null
+}
+
+export function buildYtDlpArgs(baseArgs: string[], input: { cookiesFromBrowser?: string | null } = {}): string[] {
+  const browser = input.cookiesFromBrowser?.trim()
+  return browser ? ['--cookies-from-browser', browser, ...baseArgs] : baseArgs
+}
+
+async function runYtDlpWithAuthFallback(baseArgs: string[]): Promise<{
+  stdout: string
+  downloadStatus: Extract<YouTubeDownloadStatus, 'downloaded' | 'auth_retry_succeeded'>
+  authRetryAttempted: boolean
+}> {
+  await requireBinary('yt-dlp')
+  try {
+    const { stdout } = await execFileAsync('yt-dlp', buildYtDlpArgs(baseArgs), { maxBuffer: 1024 * 1024 * 20 })
+    return { stdout, downloadStatus: 'downloaded', authRetryAttempted: false }
+  } catch (error) {
+    const failureText = stderrFromError(error)
+    const status = classifyYouTubeAcquisitionFailure(failureText)
+    if (status !== 'auth_required') {
+      throw new YouTubeAcquisitionError(`YouTube acquisition failed: ${status}.`, {
+        downloadStatus: status,
+        authRetryAttempted: false,
+        cause: error,
+      })
+    }
+
+    const browser = ytDlpCookiesFromBrowser()
+    if (!browser) {
+      throw new YouTubeAcquisitionError('YouTube acquisition requires authenticated browser cookies. Set YTDLP_COOKIES_FROM_BROWSER=safari or another yt-dlp supported browser.', {
+        downloadStatus: 'auth_required',
+        authRetryAttempted: false,
+        cause: error,
+      })
+    }
+
+    try {
+      const { stdout } = await execFileAsync('yt-dlp', buildYtDlpArgs(baseArgs, { cookiesFromBrowser: browser }), {
+        maxBuffer: 1024 * 1024 * 20,
+      })
+      return { stdout, downloadStatus: 'auth_retry_succeeded', authRetryAttempted: true }
+    } catch (retryError) {
+      const retryStatus = classifyYouTubeAcquisitionFailure(stderrFromError(retryError))
+      throw new YouTubeAcquisitionError(`YouTube authenticated acquisition failed: ${retryStatus}.`, {
+        downloadStatus: retryStatus === 'download_failed' ? 'auth_required' : retryStatus,
+        authRetryAttempted: true,
+        cause: retryError,
+      })
+    }
+  }
+}
+
 async function downloadPublicMp4(sourceUrl: string, outputDir: string): Promise<string> {
   await mkdir(outputDir, { recursive: true })
   const response = await fetch(sourceUrl)
@@ -480,16 +610,11 @@ async function downloadPublicMp4(sourceUrl: string, outputDir: string): Promise<
   const outputPath = path.join(outputDir, `source-${hashText(sourceUrl)}.mp4`)
   const bytes = Buffer.from(await response.arrayBuffer())
   await writeFile(outputPath, bytes)
-  return ensureLocalMp4(outputPath)
+  return validateAcquiredMp4(outputPath)
 }
 
 async function readYouTubeMetadata(sourceUrl: string): Promise<PreparedOpusSource['metadata']> {
-  await requireBinary('yt-dlp')
-  const { stdout } = await execFileAsync(
-    'yt-dlp',
-    ['--dump-single-json', '--no-playlist', '--skip-download', sourceUrl],
-    { maxBuffer: 1024 * 1024 * 8 },
-  )
+  const { stdout } = await runYtDlpWithAuthFallback(['--dump-single-json', '--no-playlist', '--skip-download', sourceUrl])
   const parsed = JSON.parse(stdout) as {
     id?: string
     title?: string
@@ -516,26 +641,29 @@ async function readYouTubeMetadata(sourceUrl: string): Promise<PreparedOpusSourc
   }
 }
 
-async function downloadYouTubeMp4(sourceUrl: string, outputDir: string): Promise<string> {
-  await requireBinary('yt-dlp')
+async function downloadYouTubeMp4(sourceUrl: string, outputDir: string): Promise<{
+  sourcePath: string
+  downloadStatus: Extract<YouTubeDownloadStatus, 'downloaded' | 'auth_retry_succeeded'>
+  authRetryAttempted: boolean
+}> {
   await mkdir(outputDir, { recursive: true })
   const stem = sanitizeStem(`source-${parseYouTubeId(sourceUrl) ?? hashText(sourceUrl)}`)
   const outputTemplate = path.join(outputDir, `${stem}.%(ext)s`)
-  await execFileAsync(
-    'yt-dlp',
-    [
-      '--no-playlist',
-      '--merge-output-format',
-      'mp4',
-      '-f',
-      'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best',
-      '-o',
-      outputTemplate,
-      sourceUrl,
-    ],
-    { maxBuffer: 1024 * 1024 * 20 },
-  )
-  return ensureLocalMp4(path.join(outputDir, `${stem}.mp4`))
+  const result = await runYtDlpWithAuthFallback([
+    '--no-playlist',
+    '--merge-output-format',
+    'mp4',
+    '-f',
+    'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best',
+    '-o',
+    outputTemplate,
+    sourceUrl,
+  ])
+  return {
+    sourcePath: await validateAcquiredMp4(path.join(outputDir, `${stem}.mp4`)),
+    downloadStatus: result.downloadStatus,
+    authRetryAttempted: result.authRetryAttempted,
+  }
 }
 
 export class OpusSourceAdapter {
@@ -572,15 +700,18 @@ export class OpusSourceAdapter {
       if (sourceRecord?.rightsMode === 'discovery_only') {
         throw new Error(`RB Women source ${sourceRecord.channelName} is discovery_only and cannot be automatically downloaded or re-rendered.`)
       }
-      const [metadata, sourcePath] = await Promise.all([
-        readYouTubeMetadata(source),
-        downloadYouTubeMp4(source, sourceDir),
-      ])
+      const metadata = await readYouTubeMetadata(source)
+      const downloaded = await downloadYouTubeMp4(source, sourceDir)
       return {
         input: source,
         inputKind: 'youtube_url',
-        sourcePath,
+        sourcePath: downloaded.sourcePath,
         sourceDownloaded: true,
+        acquisition: {
+          downloadStatus: downloaded.downloadStatus,
+          authRetryAttempted: downloaded.authRetryAttempted,
+          authRetrySucceeded: downloaded.downloadStatus === 'auth_retry_succeeded',
+        },
         metadata: {
           ...metadata,
           title: compact(input.title, 180) || metadata.title,
