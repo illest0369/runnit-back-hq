@@ -25,6 +25,7 @@ const requiredSql = [
   /force row level security/i,
   /rbhq_channel_isolation/i,
   /rbhq_super_admin_only/i,
+  /grant select, insert, update, delete on public\.operator_channel_assignments to authenticated/i,
   /rbhq_can_access_channel/i,
 ]
 
