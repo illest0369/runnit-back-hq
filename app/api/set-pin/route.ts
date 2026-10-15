@@ -3,11 +3,23 @@ export const dynamic = 'force-dynamic'
 
 import { NextResponse } from 'next/server'
 
-import { createSession } from '@/lib/auth'
+import { getSessionFromRequest } from '@/lib/auth'
+import { validateCsrfRequest } from '@/lib/csrf'
 import { isValidPinFormat } from '@/lib/deployment-pin'
 import { consumeAuthRateLimit } from '@/lib/rate-limit'
 
 export async function POST(request: Request) {
+  const session = await getSessionFromRequest(request)
+  if (!session) {
+    return NextResponse.json({ ok: false, error: 'Unauthorized' }, { status: 401 })
+  }
+  if (session.role !== 'admin') {
+    return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 })
+  }
+  if (!validateCsrfRequest(request)) {
+    return NextResponse.json({ ok: false, error: 'Invalid CSRF token.' }, { status: 403 })
+  }
+
   const { supabaseAdmin } = await import('@/lib/supabase')
   const bcrypt = await import('bcryptjs')
   const body = await request.json().catch(() => ({}))
@@ -36,36 +48,12 @@ export async function POST(request: Request) {
     .from('users')
     .update({ pin_hash: hash })
     .eq('id', user_id)
-    .select('id, username, role')
+    .select('id')
     .single()
 
   if (updateError || !user) {
     return NextResponse.json({ ok: false, error: updateError?.message ?? 'Unable to set PIN' }, { status: 500 })
   }
-
-  const isSuperAdmin = user.role === 'admin' || user.role === 'super_admin'
-  const accessQuery = isSuperAdmin
-    ? await supabaseAdmin.from('channels').select('id')
-    : await supabaseAdmin
-        .from('operator_channel_assignments')
-        .select('channel_id')
-        .eq('user_id', user.id)
-  if (accessQuery.error) {
-    return NextResponse.json({ ok: false, error: accessQuery.error.message }, { status: 500 })
-  }
-  const channelIds = (accessQuery.data ?? []).map((record: { id?: string; channel_id?: string }) =>
-    isSuperAdmin ? record.id : record.channel_id,
-  ).filter((channelId): channelId is string => Boolean(channelId))
-  if (!isSuperAdmin && channelIds.length !== 1) {
-    return NextResponse.json({ ok: false, error: 'Operator requires exactly one channel assignment.' }, { status: 403 })
-  }
-
-  await createSession({
-    userId: user.id,
-    username: user.username,
-    role: isSuperAdmin ? 'admin' : 'operator',
-    channelIds,
-  })
 
   return NextResponse.json({ ok: true })
 }
