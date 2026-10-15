@@ -207,6 +207,7 @@ export function createRbhqWorkers() {
         .from('rbhq_clips')
         .select('id, channel_id, workflow_state, source_item_id, rbhq_source_items(title, creator, source_platform, raw_payload)')
         .eq('id', job.data.clipId)
+        .eq('channel_id', job.data.channelId)
         .single()
 
       if (error || !clip) {
@@ -266,7 +267,10 @@ export function createRbhqWorkers() {
     RBHQ_POST_QUEUE_NAME,
     async (job) => {
       await ownershipGuard.assertEntity(job.data.channelId, 'moderation_clip', job.data.postId)
-      const clip = await getClipById(job.data.postId, { includeMetricoolHandoffStatus: false })
+      const clip = await getClipById(job.data.postId, {
+        channelIds: [job.data.channelId],
+        includeMetricoolHandoffStatus: false,
+      })
 
       if (!clip) {
         throw new Error('CLIP_NOT_FOUND')
@@ -311,6 +315,7 @@ export function createRbhqWorkers() {
         .from('posts')
         .select('channel_id')
         .eq('id', job.data.postId)
+        .eq('channel_id', job.data.channelId)
         .maybeSingle()
       if (error || !post?.channel_id) {
         throw new Error(error?.message || 'ANALYTICS_POST_NOT_FOUND')

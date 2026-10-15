@@ -37,7 +37,7 @@ function isMissingSchemaObjectError(error: { message?: string } | null | undefin
   )
 }
 
-export async function getSourceSuggestion(suggestionId: string): Promise<{
+export async function getSourceSuggestion(suggestionId: string, channelId: string): Promise<{
   id: string
   source_title: string
   initial_score: number
@@ -46,6 +46,7 @@ export async function getSourceSuggestion(suggestionId: string): Promise<{
     .from('source_suggestions')
     .select('id, source_title, initial_score')
     .eq('id', suggestionId)
+    .eq('channel_id', channelId)
     .maybeSingle()
 
   if (error) {
@@ -58,6 +59,7 @@ export async function getSourceSuggestion(suggestionId: string): Promise<{
 export async function updateSourceSuggestionStatus(
   suggestionId: string | null | undefined,
   status: 'suggested' | 'processing' | 'ready' | 'failed',
+  channelId: string,
 ) {
   if (!suggestionId) {
     return
@@ -67,6 +69,7 @@ export async function updateSourceSuggestionStatus(
     .from('source_suggestions')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', suggestionId)
+    .eq('channel_id', channelId)
 
   if (error) {
     throw new Error(error.message)
@@ -177,18 +180,27 @@ export async function saveGeneratedClipRecord(input: SaveGeneratedPostInput): Pr
   }
 
   if (postError) {
-    await supabaseAdminClient.from('queue_jobs').delete().eq('id', queueJobId)
+    await supabaseAdminClient
+      .from('queue_jobs')
+      .delete()
+      .eq('id', queueJobId)
+      .eq('channel_id', input.channelId)
     throw new Error(postError.message)
   }
 
   return { queueJobId, postId }
 }
 
-export async function updateProcessedVideoStatus(videoUrl: string, status: 'processed' | 'failed') {
+export async function updateProcessedVideoStatus(
+  videoUrl: string,
+  status: 'processed' | 'failed',
+  channelId: string,
+) {
   const { error } = await supabaseAdminClient
     .from('processed_videos')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('video_url', videoUrl)
+    .eq('channel_id', channelId)
 
   if (error) {
     if (isMissingSchemaObjectError(error)) {

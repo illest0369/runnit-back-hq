@@ -104,5 +104,11 @@ const worker = readFileSync(path.join(root, 'workers/rbhqWorker.ts'), 'utf8')
 assert.match(worker, /validateIngestJobOwnership/)
 assert.match(worker, /validateApifyPollJobOwnership/)
 assert.match(worker, /ownershipGuard\.assertEntity/)
+assert.match(worker, /\.eq\('channel_id', job\.data\.channelId\)/)
+
+const clipWorkerDb = readFileSync(path.join(root, 'lib/clip-worker-db.ts'), 'utf8')
+assert.match(clipWorkerDb, /\.eq\('channel_id', channelId\)/)
+const clipRender = readFileSync(path.join(root, 'lib/clip-render.ts'), 'utf8')
+assert.match(clipRender, /\.eq\('channel_id', input\.channelId\)/)
 
 console.log('PASS migration RLS, centralized session resolution, UI isolation, and storage scoping')

@@ -142,7 +142,7 @@ export async function generateClipsFromVideo(
 ): Promise<ClipGenerationJobResult> {
   await validateClipGenerationJobOwnership(ownershipGuard, input)
   await ensureClipDirectories()
-  await updateSourceSuggestionStatus(input.sourceSuggestionId, 'processing')
+  await updateSourceSuggestionStatus(input.sourceSuggestionId, 'processing', input.channelId)
   await reportProgress?.(toProgress('download', 10, 'Downloading source video.'))
 
   let download: Awaited<ReturnType<typeof downloadVideo>> | null = null
@@ -158,7 +158,7 @@ export async function generateClipsFromVideo(
     const generatedClipDir = getGeneratedClipDir()
     const learningContext = await getReplyLearningContext()
     const sourceSuggestion = input.sourceSuggestionId
-      ? await getSourceSuggestion(input.sourceSuggestionId)
+      ? await getSourceSuggestion(input.sourceSuggestionId, input.channelId)
       : null
 
     await reportProgress?.(toProgress('transcribe', 30, 'Transcribing source video.'))
@@ -178,7 +178,7 @@ export async function generateClipsFromVideo(
     })
 
     if (clipsToProcess.length === 0) {
-      await updateProcessedVideoStatus(input.videoUrl, 'failed')
+      await updateProcessedVideoStatus(input.videoUrl, 'failed', input.channelId)
       throw new Error('No clip passed the quality gate.')
     }
 
@@ -233,6 +233,7 @@ export async function generateClipsFromVideo(
         if (input.moderationClipId && !attachedModerationClip) {
           await completeModerationClipRender({
             clipId: input.moderationClipId,
+            channelId: input.channelId,
             publicClipUrl: upload.publicUrl,
           })
           attachedModerationClip = true
@@ -365,7 +366,7 @@ export async function generateClipsFromVideo(
     }
 
     if (savedRecords.length === 0) {
-      await updateProcessedVideoStatus(input.videoUrl, 'failed')
+      await updateProcessedVideoStatus(input.videoUrl, 'failed', input.channelId)
       throw new Error('Every segment failed during cut, upload, or save.')
     }
 
@@ -376,8 +377,8 @@ export async function generateClipsFromVideo(
           channelId: input.channelId,
         })
 
-    await updateProcessedVideoStatus(input.videoUrl, 'processed')
-    await updateSourceSuggestionStatus(input.sourceSuggestionId, 'ready')
+    await updateProcessedVideoStatus(input.videoUrl, 'processed', input.channelId)
+    await updateSourceSuggestionStatus(input.sourceSuggestionId, 'ready', input.channelId)
     await reportProgress?.(toProgress('complete', 100, 'Clip generation complete.'))
     console.log('[clip-service] completed job', {
       jobId: input.jobId,
@@ -392,11 +393,12 @@ export async function generateClipsFromVideo(
       queueJobIds: savedRecords.map((record) => record.queueJobId),
     }
   } catch (error) {
-    await markModerationClipRenderFailed(
-      input.moderationClipId,
-      error instanceof Error ? error.message : String(error),
-    )
-    await updateSourceSuggestionStatus(input.sourceSuggestionId, 'failed')
+    await markModerationClipRenderFailed({
+      clipId: input.moderationClipId,
+      channelId: input.channelId,
+      reason: error instanceof Error ? error.message : String(error),
+    })
+    await updateSourceSuggestionStatus(input.sourceSuggestionId, 'failed', input.channelId)
     throw error
   } finally {
     await cleanupPaths(localFiles)

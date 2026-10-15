@@ -62,18 +62,22 @@ function toRenderableClip(row: Record<string, unknown>): RenderableClip {
 }
 
 export async function markModerationClipRenderFailed(
-  clipId: string | null | undefined,
-  reason: string,
+  input: {
+    clipId: string | null | undefined
+    channelId: string
+    reason: string
+  },
 ) {
-  if (!clipId) return
+  if (!input.clipId) return
 
   const { error } = await supabaseAdmin
     .from('clips')
     .update({
       publish_status: 'render_failed',
-      analytics: { render_error: reason, render_failed_at: new Date().toISOString() },
+      analytics: { render_error: input.reason, render_failed_at: new Date().toISOString() },
     })
-    .eq('id', clipId)
+    .eq('id', input.clipId)
+    .eq('channel_id', input.channelId)
 
   if (error) {
     console.warn('[clip-render] failed to mark render_failed:', error.message)
@@ -82,6 +86,7 @@ export async function markModerationClipRenderFailed(
 
 export async function completeModerationClipRender(input: {
   clipId: string | null | undefined
+  channelId: string
   publicClipUrl: string
 }) {
   if (!input.clipId) return null
@@ -93,6 +98,7 @@ export async function completeModerationClipRender(input: {
       publish_status: 'metricool_ready_manual_export',
     })
     .eq('id', input.clipId)
+    .eq('channel_id', input.channelId)
     .select(CLIP_SELECT)
     .maybeSingle()
 
@@ -104,6 +110,7 @@ export async function completeModerationClipRender(input: {
         publish_status: 'ready_for_manual_publish',
       })
       .eq('id', input.clipId)
+      .eq('channel_id', input.channelId)
       .select(CLIP_SELECT)
       .maybeSingle())
   }
@@ -126,6 +133,7 @@ export async function completeModerationClipRender(input: {
     metricool.publishStatus === 'metricool_failed'
   ) {
     const updated = await updateClipMetricoolStatus(clip.id, {
+      channelIds: [input.channelId],
       publishStatus: metricool.publishStatus,
       metricoolPostId: metricool.metricoolPostId,
     })
