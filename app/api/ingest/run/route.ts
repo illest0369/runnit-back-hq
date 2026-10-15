@@ -1,22 +1,16 @@
 import { execFile } from 'node:child_process'
-import { createHmac } from 'node:crypto'
 import { promisify } from 'node:util'
 
 import { NextResponse } from 'next/server'
 
 import { validateCsrfRequest } from '@/lib/csrf'
 import { resolveApifyToken } from '@/lib/apify/client'
+import { getSessionFromRequest } from '@/lib/auth'
 import { buildCuratedSourceJobs, listCuratedSources, type RbhqIngestMode } from '@/lib/rbhq-source-ingest'
 
 export const dynamic = 'force-dynamic'
 
 type IngestPlatform = keyof typeof ACTORS
-type SessionUser = {
-  userId: string
-  username: string
-  role: 'admin' | 'operator' | 'user'
-  channelIds: string[]
-}
 
 const ACTORS = {
   youtube: process.env.APIFY_YOUTUBE_ACTOR_ID,
@@ -53,52 +47,6 @@ const SOURCE_INPUTS = {
 
 const execFileAsync = promisify(execFile)
 
-function readCookie(request: Request, name: string): string {
-  const cookieHeader = request.headers.get('cookie') ?? ''
-  const raw = cookieHeader
-    .split(';')
-    .map((value) => value.trim())
-    .find((value) => value.startsWith(`${name}=`))
-    ?.slice(name.length + 1)
-
-  return raw ? decodeURIComponent(raw) : ''
-}
-
-function getSessionSecret() {
-  return process.env.SESSION_SECRET?.trim() || 'runnit-back-dev-session-secret'
-}
-
-function decodeSessionPayload(encodedPayload: string): SessionUser | null {
-  try {
-    return JSON.parse(Buffer.from(encodedPayload, 'base64url').toString('utf8')) as SessionUser
-  } catch {
-    return null
-  }
-}
-
-function requireSessionFromRequest(request: Request): SessionUser {
-  const raw = readCookie(request, 'rb_session')
-  const [encodedPayload, providedSignature] = raw.split('.')
-  if (!encodedPayload || !providedSignature) {
-    throw new Error('Unauthorized')
-  }
-
-  const expectedSignature = createHmac('sha256', getSessionSecret())
-    .update(encodedPayload)
-    .digest('base64url')
-
-  if (providedSignature !== expectedSignature) {
-    throw new Error('Unauthorized')
-  }
-
-  const session = decodeSessionPayload(encodedPayload)
-  if (!session) {
-    throw new Error('Unauthorized')
-  }
-
-  return session
-}
-
 function missingEnvForIngest(platform: IngestPlatform) {
   const missing = [
     'REDIS_URL',
@@ -130,6 +78,7 @@ function missingBaseEnvForIngest() {
 }
 
 async function enqueueIngestJob(input: {
+  channelId: string
   platform: IngestPlatform
   actorId: string
   input: Record<string, unknown>
@@ -148,7 +97,10 @@ async function enqueueIngestJob(input: {
 
 export async function POST(request: Request) {
   try {
-    const session = requireSessionFromRequest(request)
+    const session = await getSessionFromRequest(request)
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     if (session.role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
@@ -181,6 +133,9 @@ export async function POST(request: Request) {
     const channelIds = Array.isArray(body.channelIds)
       ? body.channelIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
       : []
+    if (channelIds.some((channelId) => !session.channelIds.includes(channelId))) {
+      return NextResponse.json({ error: 'Channel not found.' }, { status: 404 })
+    }
     const limit = typeof body.limit === 'number' && Number.isFinite(body.limit)
       ? Math.min(100, Math.max(1, Math.trunc(body.limit)))
       : 30
@@ -206,20 +161,34 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'No curated sources were available for native ingest.' }, { status: 400 })
       }
 
-      const jobId = await enqueueIngestJob({
-        platform: 'youtube',
-        actorId: 'native',
-        input: { sourceIds: sources.map((source) => source.id), limit },
-        mode: 'native',
-        sourceIds: sources.map((source) => source.id),
-        sourceCount: sources.length,
-      })
+      const groupedSources = new Map<string, typeof sources>()
+      for (const source of sources) {
+        const channelSources = groupedSources.get(source.channel_id) ?? []
+        channelSources.push(source)
+        groupedSources.set(source.channel_id, channelSources)
+      }
+      const enqueued = await Promise.all(
+        [...groupedSources.entries()].map(async ([channelId, channelSources]) => ({
+          channelId,
+          platform: 'youtube' as const,
+          jobId: await enqueueIngestJob({
+            channelId,
+            platform: 'youtube',
+            actorId: 'native',
+            input: { sourceIds: channelSources.map((source) => source.id), limit },
+            mode: 'native',
+            sourceIds: channelSources.map((source) => source.id),
+            sourceCount: channelSources.length,
+          }),
+          sourceCount: channelSources.length,
+        })),
+      )
 
       return NextResponse.json({
         ok: true,
         mode: 'native',
         sources: sources.length,
-        jobs: [{ platform: 'youtube', jobId, sourceCount: sources.length }],
+        jobs: enqueued,
       })
     }
 
@@ -243,8 +212,10 @@ export async function POST(request: Request) {
 
       const enqueued = await Promise.all(
         jobs.map(async (job) => ({
+          channelId: job.channelId,
           platform: job.platform,
           jobId: await enqueueIngestJob({
+            channelId: job.channelId,
             platform: job.platform,
             actorId: job.actorId,
             input: job.input,
@@ -272,7 +243,15 @@ export async function POST(request: Request) {
       )
     }
 
+    if (channelIds.length !== 1) {
+      return NextResponse.json(
+        { error: 'Discovery ingest requires exactly one target channel.' },
+        { status: 400 },
+      )
+    }
+
     const jobId = await enqueueIngestJob({
+      channelId: channelIds[0],
       platform,
       actorId,
       input: SOURCE_INPUTS[platform],

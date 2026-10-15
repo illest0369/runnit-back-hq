@@ -3,6 +3,7 @@ import { Queue, type Queue as QueueType } from 'bullmq'
 import type IORedisType from 'ioredis'
 
 import { createRedisConnection, getSharedRedisConnection } from './redis'
+import { assertChannelQueueScope } from './channel-scope'
 import { getMaxAgentRetries, isWarRoomEnabled } from './war-room-runtime'
 
 export const CLIP_GENERATION_QUEUE_NAME = 'clip-generation'
@@ -34,6 +35,7 @@ export type ClipGenerationJobResult = {
 }
 
 export type RbhqIngestJobData = {
+  channelId: string
   platform: 'youtube' | 'tiktok' | 'instagram' | 'reddit'
   actorId?: string
   input: Record<string, unknown>
@@ -43,6 +45,7 @@ export type RbhqIngestJobData = {
 }
 
 export type RbhqApifyPollJobData = {
+  channelId: string
   platform: 'youtube' | 'tiktok' | 'instagram' | 'reddit'
   runId: string
   mode?: 'native' | 'curated' | 'discovery' | 'apify'
@@ -52,12 +55,13 @@ export type RbhqApifyPollJobData = {
 
 export type RbhqScoreJobData = {
   clipId: string
+  channelId: string
 }
 
 export type RbhqPostJobData = {
   postId: string
   clipId?: string
-  channelId?: string | null
+  channelId: string
   lane?: {
     id: string
     slug: string
@@ -77,6 +81,7 @@ export type RbhqPostJobData = {
 
 export type RbhqAnalyticsJobData = {
   postId: string
+  channelId: string
 }
 
 declare global {
@@ -123,6 +128,7 @@ export function getClipGenerationQueue() {
 }
 
 export async function enqueueClipGenerationJob(input: ClipGenerationJobData) {
+  assertChannelQueueScope(input.channelId, input.channelId)
   const queue = getClipGenerationQueue()
   const jobId = randomUUID()
   const job = await queue.add('generate-clips', input, {
@@ -193,38 +199,43 @@ export function getRbhqAnalyticsQueue() {
 }
 
 export async function enqueueRbhqIngestJob(input: RbhqIngestJobData) {
+  assertChannelQueueScope(input.channelId, input.channelId)
   const fingerprint = createHash('sha256')
-    .update(JSON.stringify({ actorInput: input.input, mode: input.mode, sourceIds: input.sourceIds }))
+    .update(JSON.stringify({ channelId: input.channelId, actorInput: input.input, mode: input.mode, sourceIds: input.sourceIds }))
     .digest('hex')
     .slice(0, 16)
   const rerunSuffix = input.mode === 'native' || input.mode === 'curated' ? `-${Date.now()}` : ''
   const job = await getRbhqIngestQueue().add('run-apify-actor', input, {
-    jobId: `rbhq-ingest-${input.platform}-${input.actorId ?? input.mode ?? 'native'}-${fingerprint}${rerunSuffix}`,
+    jobId: `rbhq-ingest-${input.channelId}-${input.platform}-${input.actorId ?? input.mode ?? 'native'}-${fingerprint}${rerunSuffix}`,
   })
   return String(job.id)
 }
 
 export async function enqueueRbhqApifyPollJob(input: RbhqApifyPollJobData, delay = 30_000) {
+  assertChannelQueueScope(input.channelId, input.channelId)
   const job = await getRbhqApifyPollQueue().add('poll-apify-run', input, {
     delay,
-    jobId: `rbhq-apify-${input.runId}-${Date.now()}`,
+    jobId: `rbhq-apify-${input.channelId}-${input.runId}-${Date.now()}`,
   })
   return String(job.id)
 }
 
 export async function enqueueRbhqScoreJob(input: RbhqScoreJobData) {
-  return String(await getRbhqScoreQueue().add('score-clip', input, { jobId: `rbhq-score-${input.clipId}` }))
+  assertChannelQueueScope(input.channelId, input.channelId)
+  return String(await getRbhqScoreQueue().add('score-clip', input, { jobId: `rbhq-score-${input.channelId}-${input.clipId}` }))
 }
 
 export async function enqueueRbhqPostJob(input: RbhqPostJobData) {
+  assertChannelQueueScope(input.channelId, input.channelId)
   const job = await getRbhqPostQueue().add('post-to-tiktok', input, {
-    jobId: `rbhq-post-${input.postId}`,
+    jobId: `rbhq-post-${input.channelId}-${input.postId}`,
   })
 
   return String(job.id)
 }
 
 export async function enqueueRbhqAnalyticsJob(input: RbhqAnalyticsJobData, delay = 30 * 60_000) {
+  assertChannelQueueScope(input.channelId, input.channelId)
   return String(await getRbhqAnalyticsQueue().add('poll-tiktok-analytics', input, { delay }))
 }
 

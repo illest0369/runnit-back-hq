@@ -866,6 +866,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
   }, [fetchDailyPlan, fetchQueue, fetchPublishQueue, fetchSources, queueMode, scoreThreshold, selectedChannelId, source, urgencyFilter, user]);
 
   function handleChannelChange(channelId: string) {
+    if (user?.role !== "admin") return;
     if (channelId === selectedChannelId) return;
     optimisticIdsRef.current.clear();
     setSelectedChannelId(channelId);
@@ -1006,6 +1007,8 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
     );
   }
 
+  const canSwitchChannels = user.role === "admin";
+
   return (
     <main className={`rbhq-system rbhq-theme-${channelTheme} min-h-dvh w-full overflow-x-hidden bg-[var(--rb-bg)] text-[var(--rb-text)]`}>
       <div className="operator-phone-shell relative mx-auto min-h-dvh w-full max-w-[520px] overflow-x-hidden">
@@ -1018,6 +1021,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
               publishItems={publishItems}
               sources={sources}
               channels={user.channels ?? []}
+              canSwitchChannels={canSwitchChannels}
               selectedChannelId={selectedChannelId}
               onSelectChannel={handleChannelChange}
               onNavigate={setTab}
@@ -1028,6 +1032,7 @@ export default function OperatorApp({ initialTab = "queue" }: { initialTab?: App
               key="queue"
               clips={clips}
               channels={user.channels ?? []}
+              canSwitchChannels={canSwitchChannels}
               selectedChannelId={selectedChannelId}
               error={error}
               queueMode={queueMode}
@@ -1126,6 +1131,7 @@ function LoadingDeck() {
 function QueueScreen({
   clips,
   channels,
+  canSwitchChannels,
   selectedChannelId,
   error,
   queueMode,
@@ -1145,6 +1151,7 @@ function QueueScreen({
 }: {
   clips: Clip[];
   channels: UserChannel[];
+  canSwitchChannels: boolean;
   selectedChannelId: string;
   error: string;
   queueMode: QueueMode;
@@ -1249,7 +1256,7 @@ function QueueScreen({
         <h1 className="text-[24px] font-black text-[var(--rb-text)]">Queue</h1>
       </header>
 
-      {channels.length > 1 && (
+      {canSwitchChannels && channels.length > 1 && (
         <div className="hide-scrollbar flex shrink-0 gap-2 overflow-x-auto border-b border-[var(--rb-line)] px-5 py-3">
           {channels.map((ch) => (
             <button
@@ -2957,6 +2964,7 @@ function DashboardScreen({
   publishItems,
   sources,
   channels,
+  canSwitchChannels,
   selectedChannelId,
   onSelectChannel,
   onNavigate,
@@ -2966,6 +2974,7 @@ function DashboardScreen({
   publishItems: PublishQueueItem[];
   sources: SourceFilterOption[];
   channels: UserChannel[];
+  canSwitchChannels: boolean;
   selectedChannelId: string;
   onSelectChannel: (id: string) => void;
   onNavigate: (tab: AppTab) => void;
@@ -2984,7 +2993,9 @@ function DashboardScreen({
     >
       <div className="px-5 pb-4 pt-[calc(env(safe-area-inset-top,0px)+58px)]">
         <h1 className="text-[24px] font-black text-[var(--rb-text)]">RBHQ 🔥</h1>
-        <p className="mt-1 text-[13px] text-[var(--rb-muted)]">Admin Command Center</p>
+        <p className="mt-1 text-[13px] text-[var(--rb-muted)]">
+          {canSwitchChannels ? "Admin Command Center" : "Channel Command Center"}
+        </p>
       </div>
 
       <div className="mx-5 mb-4 rounded-[20px] bg-[#0A0A0A] p-5">

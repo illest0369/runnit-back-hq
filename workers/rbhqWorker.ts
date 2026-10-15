@@ -28,6 +28,7 @@ import { markSourcesIngestStarted, updateSourcesIngestHealth } from '../lib/rbhq
 import { runNativeRbhqIngest } from '../lib/rbhq-native-ingest'
 import { supabaseAdminClient } from '../lib/supabase-admin'
 import { transitionRbhqState } from '../lib/workflow/transition'
+import { assertChannelQueueScope } from '../lib/channel-scope'
 
 const TERMINAL_APIFY_STATUSES = new Set(['SUCCEEDED', 'FAILED', 'ABORTED', 'TIMED-OUT'])
 const MAC_MINI_READY_PUBLISH_STATUSES = new Set([
@@ -45,7 +46,7 @@ function buildDryRunPostPayload(jobData: RbhqPostJobData, clip: Awaited<ReturnTy
   return {
     postId: jobData.postId,
     clipId: jobData.clipId ?? clip.id,
-    channelId: jobData.channelId ?? clip.channel_id,
+    channelId: jobData.channelId,
     lane: jobData.lane ?? null,
     tiktok: jobData.tiktok ?? null,
     caption: jobData.caption ?? analysis?.captionDraft ?? '',
@@ -99,10 +100,20 @@ async function resolveSingleChannelIdForSources(sourceIds: string[]) {
   return channelIds.length === 1 ? channelIds[0] : null
 }
 
+async function assertSourceQueueScope(channelId: string, sourceIds: string[]) {
+  if (sourceIds.length === 0) return
+  const sourceChannelId = await resolveSingleChannelIdForSources(sourceIds)
+  if (!sourceChannelId) {
+    throw new Error('QUEUE_SOURCES_REQUIRE_ONE_CHANNEL')
+  }
+  assertChannelQueueScope(channelId, sourceChannelId)
+}
+
 export function createRbhqWorkers() {
   const ingestWorker = new Worker<RbhqIngestJobData, string, 'run-apify-actor'>(
     RBHQ_INGEST_QUEUE_NAME,
     async (job) => {
+      await assertSourceQueueScope(job.data.channelId, job.data.sourceIds ?? [])
       if (job.data.mode === 'native') {
         const result = await runNativeRbhqIngest({
           sourceIds: job.data.sourceIds,
@@ -118,6 +129,7 @@ export function createRbhqWorkers() {
       }
       const run = await runApifyActor(job.data.actorId, job.data.input)
       await enqueueRbhqApifyPollJob({
+        channelId: job.data.channelId,
         platform: job.data.platform,
         runId: run.id,
         mode: job.data.mode,
@@ -155,7 +167,8 @@ export function createRbhqWorkers() {
 
       const storedCount = await upsertSourceItems(items)
       const importBatchId = `apify:${job.data.runId}:${new Date().toISOString()}`
-      const channelId = await resolveSingleChannelIdForSources(job.data.sourceIds ?? [])
+      await assertSourceQueueScope(job.data.channelId, job.data.sourceIds ?? [])
+      const channelId = job.data.channelId
       const normalized = normalizeApifyDatasetItems(rawItems, {
         importBatchId,
         defaultSourceName: `Apify ${job.data.platform}`,
@@ -186,13 +199,14 @@ export function createRbhqWorkers() {
     async (job) => {
       const { data: clip, error } = await supabaseAdminClient
         .from('rbhq_clips')
-        .select('id, workflow_state, source_item_id, rbhq_source_items(title, creator, source_platform, raw_payload)')
+        .select('id, channel_id, workflow_state, source_item_id, rbhq_source_items(title, creator, source_platform, raw_payload)')
         .eq('id', job.data.clipId)
         .single()
 
       if (error || !clip) {
         throw new Error(error?.message || 'CLIP_NOT_FOUND')
       }
+      assertChannelQueueScope(job.data.channelId, clip.channel_id)
 
       const source = Array.isArray(clip.rbhq_source_items)
         ? clip.rbhq_source_items[0]
@@ -252,6 +266,10 @@ export function createRbhqWorkers() {
       if (!clip) {
         throw new Error('CLIP_NOT_FOUND')
       }
+      if (!clip.channel_id) {
+        throw new Error('CLIP_MISSING_CHANNEL_SCOPE')
+      }
+      assertChannelQueueScope(job.data.channelId, clip.channel_id)
 
       if (clip.status !== 'approved') {
         throw new Error(`CLIP_NOT_APPROVED:${clip.status}`)
@@ -285,6 +303,15 @@ export function createRbhqWorkers() {
   const analyticsWorker = new Worker<RbhqAnalyticsJobData, string, 'poll-tiktok-analytics'>(
     RBHQ_ANALYTICS_QUEUE_NAME,
     async (job) => {
+      const { data: post, error } = await supabaseAdminClient
+        .from('posts')
+        .select('channel_id')
+        .eq('id', job.data.postId)
+        .maybeSingle()
+      if (error || !post?.channel_id) {
+        throw new Error(error?.message || 'ANALYTICS_POST_NOT_FOUND')
+      }
+      assertChannelQueueScope(job.data.channelId, post.channel_id)
       await recordTikTokAnalyticsSnapshot({
         postId: job.data.postId,
         views: 0,

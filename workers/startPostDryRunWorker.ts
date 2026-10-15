@@ -8,6 +8,7 @@ import {
 } from '../lib/queue'
 import { getClipById } from '../lib/moderation-queue'
 import { getStoredTikTokAnalysis, hasTikTokPostingReadiness } from '../lib/tiktok-analyzer'
+import { assertChannelQueueScope } from '../lib/channel-scope'
 
 config({ path: '.env.local', quiet: true })
 config({ quiet: true })
@@ -27,7 +28,7 @@ function buildDryRunPayload(jobData: RbhqPostJobData, clip: Awaited<ReturnType<t
   return {
     postId: jobData.postId,
     clipId: jobData.clipId ?? clip.id,
-    channelId: jobData.channelId ?? clip.channel_id,
+    channelId: jobData.channelId,
     lane: jobData.lane ?? null,
     tiktok: jobData.tiktok ?? null,
     caption: jobData.caption ?? analysis?.captionDraft ?? '',
@@ -62,6 +63,10 @@ async function startPostDryRunWorker() {
       if (!clip) {
         throw new Error('CLIP_NOT_FOUND')
       }
+      if (!clip.channel_id) {
+        throw new Error('CLIP_MISSING_CHANNEL_SCOPE')
+      }
+      assertChannelQueueScope(job.data.channelId, clip.channel_id)
 
       if (clip.status !== 'approved') {
         throw new Error(`CLIP_NOT_APPROVED:${clip.status}`)

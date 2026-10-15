@@ -11,6 +11,7 @@ import {
 } from './auth-shared'
 import { listChannelMeta } from './channel-meta'
 import { getSessionSecret } from './security'
+import { resolveServerSession } from './server-channel-session'
 import { signSessionPayload } from './session'
 
 export { readSessionCookie, SESSION_COOKIE } from './auth-shared'
@@ -90,7 +91,7 @@ export function hasValidDeploymentPinFromRequest(request: Request): boolean {
 export async function getSession(): Promise<SessionUser | null> {
   const cookieStore = await cookies()
   const raw = cookieStore.get(SESSION_COOKIE)?.value
-  return readSessionCookie(raw)
+  return resolveServerSession(await readSessionCookie(raw))
 }
 
 export async function getSessionFromRequest(request: Request): Promise<SessionUser | null> {
@@ -102,7 +103,7 @@ export async function getSessionFromRequest(request: Request): Promise<SessionUs
       .find((value) => value.startsWith(`${SESSION_COOKIE}=`))
       ?.slice(SESSION_COOKIE.length + 1)
 
-  return readSessionCookie(raw ? decodeURIComponent(raw) : undefined)
+  return resolveServerSession(await readSessionCookie(raw ? decodeURIComponent(raw) : undefined))
 }
 
 export function clearSessionCookie(response: CookieTarget) {

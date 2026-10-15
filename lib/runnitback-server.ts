@@ -154,28 +154,6 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
 }
 
-async function getLegacyChannelAccess(userId: string): Promise<string[]> {
-  const { data, error } = await supabaseAdmin
-    .from('user_channel_access')
-    .select('channel_id')
-    .eq('user_id', userId)
-
-  if (!error) {
-    return (data ?? []).map((row: { channel_id: string }) => row.channel_id)
-  }
-
-  const fallback = await supabaseAdmin
-    .from('user_channels')
-    .select('channel_id')
-    .eq('user_id', userId)
-
-  if (fallback.error) {
-    throw new Error(fallback.error.message)
-  }
-
-  return (fallback.data ?? []).map((row: { channel_id: string }) => row.channel_id)
-}
-
 export async function requireAppSession(): Promise<SessionWithRole> {
   const session = await getSession()
 
@@ -193,15 +171,11 @@ async function requireSessionWithRole(session: SessionUser | null): Promise<Sess
     throw new Error('Unauthorized')
   }
 
-  const channelIds = session.channelIds.length
-    ? session.channelIds
-    : await getLegacyChannelAccess(session.userId)
-
   return {
     userId: session.userId,
     username: session.username,
     role: normalizeRole(session.role),
-    channelIds,
+    channelIds: session.channelIds,
   }
 }
 

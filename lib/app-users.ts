@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 
 import type { SessionUser } from './auth'
-import { getChannelMeta } from './channel-meta'
+import { getChannelMeta, listChannelMeta } from './channel-meta'
 import { isProductionRuntime } from './security'
 import { supabaseAdminClient } from './supabase-admin'
 
@@ -34,28 +34,10 @@ type NormalizedAppUser = {
   pinHash: string | null
 }
 
-const RBHQ_OPERATOR_USERNAMES = new Set([
-  'rb_sports',
-  'rb_arena',
-  'rb_women',
-  'rb_combat',
-  'rb_futbol',
-  'rb_cfb',
-])
-
-const RB_SPORTS_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000001'
 const RB_ARENA_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000002'
 const RB_FUTBOL_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000005'
-const RB_CFB_CHANNEL_ID = '93484eef-06d8-46fd-bce2-ce252422c58e'
-
-const ADMIN_ASSIGNED_CHANNEL_IDS = [
-  RB_SPORTS_CHANNEL_ID,
-  RB_FUTBOL_CHANNEL_ID,
-  RB_CFB_CHANNEL_ID,
-]
 const MATT_ASSIGNED_CHANNEL_IDS = [RB_ARENA_CHANNEL_ID]
 const EXTRA_APP_CHANNEL_IDS = new Set([RB_FUTBOL_CHANNEL_ID])
-const MALY_USERNAMES = new Set(['maly', 'malyhernandez'])
 
 // Matt — Gaming / Esports operator (@runnitbackgaming). Recognizes both the
 // email login (production) and the bare username alias (local / legacy).
@@ -73,6 +55,7 @@ const MATT_USERNAMES = new Set(['matt', 'matt@runnitbackhq.com'])
 // ---------------------------------------------------------------------------
 
 function normalizeRole(value: string | undefined): Role {
+  if (value === 'super_admin') return 'admin'
   if (value === 'admin' || value === 'operator' || value === 'user') {
     return value
   }
@@ -235,15 +218,7 @@ function canConfiguredUserAuthenticate(user: NormalizedAppUser): boolean {
     return true
   }
 
-  if (RBHQ_OPERATOR_USERNAMES.has(user.username)) {
-    return true
-  }
-
-  if (isMattUser(user.username)) {
-    return true
-  }
-
-  return user.channelIds.length > 0
+  return resolveSessionChannelIds(user).length === 1
 }
 
 export async function authenticateAppUserByPin(secret: string): Promise<SessionUser | null> {
@@ -294,6 +269,22 @@ function sessionUserFromConfiguredUser(user: NormalizedAppUser): SessionUser {
     role: user.role,
     channelIds: resolveSessionChannelIds(user),
   }
+}
+
+export function resolveConfiguredSessionAccess(
+  userId: string,
+  username: string,
+): Pick<SessionUser, 'role' | 'channelIds'> | null {
+  const normalizedUsername = username.trim().toLowerCase()
+  const user = getConfiguredAppUsers().find(
+    (entry) => entry.userId === userId && entry.username === normalizedUsername,
+  )
+  if (!user) return null
+
+  const channelIds = resolveSessionChannelIds(user)
+  if (user.role !== 'admin' && channelIds.length !== 1) return null
+
+  return { role: user.role, channelIds }
 }
 
 async function authenticateDatabaseAppUser(
@@ -367,23 +358,10 @@ async function authenticateDatabaseAppUserByEmailPassword(
 }
 
 function resolveSessionChannelIds(user: Pick<NormalizedAppUser, 'username' | 'role' | 'channelIds'>): string[] {
-  if (isMalyUser(user.username)) {
-    return ADMIN_ASSIGNED_CHANNEL_IDS
-  }
-
-  if (isMattUser(user.username)) {
-    return MATT_ASSIGNED_CHANNEL_IDS
-  }
-
-  if (user.role === 'admin' && user.channelIds.length === 0) {
-    return ADMIN_ASSIGNED_CHANNEL_IDS
-  }
+  if (user.role === 'admin') return listChannelMeta().map((channel) => channel.id)
+  if (isMattUser(user.username)) return MATT_ASSIGNED_CHANNEL_IDS
 
   return user.channelIds
-}
-
-function isMalyUser(username: string): boolean {
-  return MALY_USERNAMES.has(username.trim().toLowerCase())
 }
 
 function isMattUser(username: string): boolean {
@@ -395,33 +373,18 @@ function isKnownAppChannelId(channelId: string): boolean {
 }
 
 async function loadUserChannelIds(userId: string): Promise<string[]> {
-  const [{ data: accessRows, error: accessError }, { data: legacyRows, error: legacyError }] = await Promise.all([
-    supabaseAdminClient
-      .from('user_channel_access')
-      .select('channel_id')
-      .eq('user_id', userId),
-    supabaseAdminClient
-      .from('user_channels')
-      .select('channel_id')
-      .eq('user_id', userId),
-  ])
+  const { data, error } = await supabaseAdminClient
+    .from('operator_channel_assignments')
+    .select('channel_id')
+    .eq('user_id', userId)
 
-  if (accessError && !isMissingRelationError(accessError.message)) {
-    throw new Error(accessError.message)
-  }
-  if (legacyError && !isMissingRelationError(legacyError.message)) {
-    throw new Error(legacyError.message)
-  }
+  if (error) throw new Error(error.message)
 
-  const channelIds = [
-    ...new Set(
-      [...(accessRows ?? []), ...(legacyRows ?? [])]
-        .map((row: { channel_id: string | null }) => row.channel_id)
-        .filter((value): value is string => Boolean(value && getChannelMeta(value))),
-    ),
-  ]
-
-  return channelIds
+  return [...new Set(
+    (data ?? [])
+      .map((row: { channel_id: string | null }) => row.channel_id)
+      .filter((value): value is string => Boolean(value && getChannelMeta(value))),
+  )]
 }
 
 function canDatabaseUserAuthenticate(input: {
@@ -433,20 +396,7 @@ function canDatabaseUserAuthenticate(input: {
     return true
   }
 
-  if (RBHQ_OPERATOR_USERNAMES.has(input.username)) {
-    return true
-  }
-
-  if (isMattUser(input.username)) {
-    return true
-  }
-
-  return input.channelIds.length > 0
-}
-
-function isMissingRelationError(message: string): boolean {
-  const normalized = message.toLowerCase()
-  return normalized.includes('does not exist') || normalized.includes('could not find the table')
+  return input.channelIds.length === 1
 }
 
 function isMissingColumnError(message: string): boolean {
@@ -461,7 +411,7 @@ async function authenticateDatabaseAppUserByPin(secret: string): Promise<Session
   const { data: users, error } = await supabaseAdminClient
     .from('users')
     .select('id, username, pin_hash, role')
-    .in('role', ['operator', 'admin', 'user'])
+    .in('role', ['operator', 'admin', 'super_admin', 'user'])
 
   if (error) {
     throw new Error(error.message)

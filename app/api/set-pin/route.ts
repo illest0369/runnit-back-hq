@@ -43,26 +43,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: updateError?.message ?? 'Unable to set PIN' }, { status: 500 })
   }
 
-  const accessQuery = await supabaseAdmin
-    .from('user_channel_access')
-    .select('channel_id')
-    .eq('user_id', user.id)
-
-  const fallbackQuery = accessQuery.error
-    ? await supabaseAdmin
-        .from('user_channels')
+  const isSuperAdmin = user.role === 'admin' || user.role === 'super_admin'
+  const accessQuery = isSuperAdmin
+    ? await supabaseAdmin.from('channels').select('id')
+    : await supabaseAdmin
+        .from('operator_channel_assignments')
         .select('channel_id')
         .eq('user_id', user.id)
-    : null
-
-  const channelIds = (
-    accessQuery.error ? fallbackQuery?.data ?? [] : accessQuery.data ?? []
-  ).map((record: { channel_id: string }) => record.channel_id)
+  if (accessQuery.error) {
+    return NextResponse.json({ ok: false, error: accessQuery.error.message }, { status: 500 })
+  }
+  const channelIds = (accessQuery.data ?? []).map((record: { id?: string; channel_id?: string }) =>
+    isSuperAdmin ? record.id : record.channel_id,
+  ).filter((channelId): channelId is string => Boolean(channelId))
+  if (!isSuperAdmin && channelIds.length !== 1) {
+    return NextResponse.json({ ok: false, error: 'Operator requires exactly one channel assignment.' }, { status: 403 })
+  }
 
   await createSession({
     userId: user.id,
     username: user.username,
-    role: user.role === 'admin' ? 'admin' : 'operator',
+    role: isSuperAdmin ? 'admin' : 'operator',
     channelIds,
   })
 

@@ -163,6 +163,9 @@ function sanitizeRBSportsStoredCopy(
 }
 
 function buildRbhqPostJobData(clip: ModerationClip): RbhqPostJobData {
+  if (!clip.channel_id) {
+    throw new Error('Posting queue requires a channel-scoped clip.')
+  }
   const channel = clip.channel_id ? getChannelMeta(clip.channel_id) : null
   const analysis = getStoredTikTokAnalysis(clip.moderation_notes)
   const editorialCaption = readJsonNote<string>(clip.moderation_notes, EDITORIAL_CAPTION_PREFIX)

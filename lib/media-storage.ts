@@ -2,6 +2,7 @@ import path from 'node:path'
 import { rm } from 'node:fs/promises'
 
 import { copyGeneratedClipToStorage, deleteR2Object } from './clip-storage'
+import { buildChannelStorageKey } from './channel-scope'
 import { validateRetryReadyLocalAsset } from './retry-ready-asset-validation'
 
 export type PlatformMediaStorageMode = 'r2' | 'local_dev'
@@ -45,23 +46,26 @@ function objectKeyFor(input: {
   localPath: string
   packageId: string
   laneSlug?: string | null
-  channelId?: string | null
+  channelId: string
 }) {
   const ext = path.extname(input.localPath).toLowerCase() || '.mp4'
   const basename = path.basename(input.localPath, path.extname(input.localPath))
-  return [
-    'platform-packages',
-    safeSegment(input.laneSlug ?? input.channelId),
-    safeSegment(input.packageId),
-    `${safeSegment(basename)}${ext}`,
-  ].join('/')
+  return buildChannelStorageKey({
+    channelId: input.channelId,
+    category: 'platform-packages',
+    segments: [
+      safeSegment(input.laneSlug),
+      safeSegment(input.packageId),
+      `${safeSegment(basename)}${ext}`,
+    ],
+  })
 }
 
 export async function storePlatformMp4Asset(input: {
   localPath: string
   packageId: string
   laneSlug?: string | null
-  channelId?: string | null
+  channelId: string
 }): Promise<StoredPlatformMediaAsset> {
   const validation = await validateRetryReadyLocalAsset(input.localPath)
   if (
@@ -107,8 +111,10 @@ export async function storePlatformMp4Asset(input: {
 }
 
 export async function deleteStoredPlatformMp4Asset(asset: Pick<StoredPlatformMediaAsset, 'objectKey' | 'storageMode'>): Promise<void> {
-  if (!asset.objectKey.startsWith('platform-packages/')) {
-    throw new Error('Refusing to delete a media asset outside platform-packages/.')
+  const isScopedKey = /^channels\/[0-9a-f-]+\/platform-packages\//i.test(asset.objectKey)
+  const isLegacyKey = asset.objectKey.startsWith('platform-packages/')
+  if (!isScopedKey && !isLegacyKey) {
+    throw new Error('Refusing to delete a media asset outside channel-scoped platform packages.')
   }
 
   if (asset.storageMode === 'r2') {

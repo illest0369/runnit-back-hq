@@ -23,6 +23,7 @@ export type CuratedSourceRow = {
 }
 
 export type CuratedSourceJob = {
+  channelId: string
   platform: Exclude<RbhqSourcePlatform, 'direct'>
   actorId: string
   sourceIds: string[]
@@ -219,6 +220,7 @@ export function buildCuratedSourceJobs(sources: CuratedSourceRow[]): CuratedSour
 
   return [...byPlatformAndChannel.values()]
     .map(({ platform, sources: platformSources }) => ({
+      channelId: platformSources[0].channel_id,
       platform,
       actorId: actorForPlatform(platform),
       sourceIds: platformSources.map((source) => source.id),

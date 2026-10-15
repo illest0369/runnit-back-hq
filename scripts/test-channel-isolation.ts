@@ -76,6 +76,7 @@ assert.equal(superAdmin.role, 'admin')
 assert.equal(superAdmin.isSuperAdmin, true)
 assert.deepEqual(superAdmin.channelIds, [CHANNEL_A, CHANNEL_B])
 assert.equal(resolveRequestedChannelId(superAdmin, CHANNEL_B), CHANNEL_B)
+expectChannelAccessError(() => resolveRequestedChannelId(superAdmin, 'a1000000-0000-4000-8000-000000000099'), 'CHANNEL_NOT_FOUND')
 
 const configuredOperator = resolveChannelAccess(session({
   userId: 'env:operator-a',
@@ -105,6 +106,14 @@ const storageKey = buildChannelStorageKey({
   segments: ['package-1', 'clip.mp4'],
 })
 assert.equal(storageKey, `channels/${CHANNEL_A}/platform-packages/package-1/clip.mp4`)
+expectChannelAccessError(
+  () => buildChannelStorageKey({
+    channelId: CHANNEL_A,
+    category: 'platform-packages',
+    segments: ['..', 'clip.mp4'],
+  }),
+  'INVALID_STORAGE_KEY',
+)
 assert.doesNotThrow(() => assertChannelStorageKey(CHANNEL_A, storageKey))
 expectChannelAccessError(
   () => assertChannelStorageKey(CHANNEL_B, storageKey),

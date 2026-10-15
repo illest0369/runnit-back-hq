@@ -21,6 +21,10 @@ const requiredSql = [
   /alter table public\.video_transcripts enable row level security/i,
   /alter table public\.clip_candidates enable row level security/i,
   /alter table public\.mac_mini_clip_packages enable row level security/i,
+  /having count\(distinct legacy\.channel_id\) = 1/i,
+  /force row level security/i,
+  /rbhq_channel_isolation/i,
+  /rbhq_super_admin_only/i,
   /rbhq_can_access_channel/i,
 ]
 
@@ -37,6 +41,13 @@ assert.doesNotMatch(
 const authSource = readFileSync(path.join(root, 'lib/auth.ts'), 'utf8')
 assert.match(authSource, /resolveServerSession/)
 
+const serverSession = readFileSync(path.join(root, 'lib/server-channel-session.ts'), 'utf8')
+assert.match(serverSession, /operator_channel_assignments/)
+assert.doesNotMatch(serverSession, /user_channel_access|user_channels/)
+
+const serverDataAccess = readFileSync(path.join(root, 'lib/runnitback-server.ts'), 'utf8')
+assert.doesNotMatch(serverDataAccess, /getLegacyChannelAccess|user_channel_access|user_channels/)
+
 const ingestRoute = readFileSync(path.join(root, 'app/api/ingest/run/route.ts'), 'utf8')
 assert.match(ingestRoute, /getSessionFromRequest/)
 assert.doesNotMatch(ingestRoute, /decodeSessionPayload|createHmac/)
@@ -48,5 +59,23 @@ assert.match(operatorApp, /canSwitchChannels && channels\.length > 1/)
 const mediaStorage = readFileSync(path.join(root, 'lib/media-storage.ts'), 'utf8')
 assert.match(mediaStorage, /buildChannelStorageKey/)
 assert.match(mediaStorage, /channelId: string/)
+
+const queue = readFileSync(path.join(root, 'lib/queue.ts'), 'utf8')
+for (const queueType of [
+  'RbhqIngestJobData',
+  'RbhqApifyPollJobData',
+  'RbhqScoreJobData',
+  'RbhqPostJobData',
+  'RbhqAnalyticsJobData',
+]) {
+  assert.match(
+    queue,
+    new RegExp(`type ${queueType} = \\{[\\s\\S]*?channelId: string`),
+    `${queueType} must carry a required channel scope`,
+  )
+}
+
+const worker = readFileSync(path.join(root, 'workers/rbhqWorker.ts'), 'utf8')
+assert.match(worker, /assertChannelQueueScope/)
 
 console.log('PASS migration RLS, centralized session resolution, UI isolation, and storage scoping')
