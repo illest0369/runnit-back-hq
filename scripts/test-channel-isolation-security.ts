@@ -52,6 +52,12 @@ const ingestRoute = readFileSync(path.join(root, 'app/api/ingest/run/route.ts'),
 assert.match(ingestRoute, /getSessionFromRequest/)
 assert.doesNotMatch(ingestRoute, /decodeSessionPayload|createHmac/)
 
+const setPinRoute = readFileSync(path.join(root, 'app/api/set-pin/route.ts'), 'utf8')
+assert.match(setPinRoute, /getSessionFromRequest/)
+assert.match(setPinRoute, /validateCsrfRequest/)
+assert.match(setPinRoute, /session\.role !== 'admin'/)
+assert.doesNotMatch(setPinRoute, /createSession/)
+
 const operatorApp = readFileSync(path.join(root, 'components/rbhq/OperatorApp.tsx'), 'utf8')
 assert.match(operatorApp, /const canSwitchChannels = user\.role === "admin"/)
 assert.match(operatorApp, /canSwitchChannels && channels\.length > 1/)
