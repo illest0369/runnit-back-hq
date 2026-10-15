@@ -118,6 +118,10 @@ expectChannelAccessError(
   () => assertChannelStorageKey(CHANNEL_B, storageKey),
   'CROSS_CHANNEL_STORAGE_ACCESS',
 )
+expectChannelAccessError(
+  () => assertChannelStorageKey(CHANNEL_A, `channels/${CHANNEL_A}/platform-packages/../secret.mp4`),
+  'INVALID_STORAGE_KEY',
+)
 assert.doesNotThrow(() => assertChannelQueueScope(CHANNEL_A, CHANNEL_A))
 expectChannelAccessError(
   () => assertChannelQueueScope(CHANNEL_A, CHANNEL_B),

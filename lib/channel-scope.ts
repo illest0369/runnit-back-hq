@@ -38,8 +38,21 @@ export function buildChannelStorageKey(input: {
 }
 
 export function assertChannelStorageKey(expectedChannelId: string, objectKey: string): void {
-  const expectedPrefix = `channels/${assertChannelId(expectedChannelId)}/`
-  if (!objectKey.startsWith(expectedPrefix)) {
+  const expected = assertChannelId(expectedChannelId)
+  const parts = objectKey.split('/')
+  if (parts[0] !== 'channels') {
+    throw new ChannelAccessError(
+      'CROSS_CHANNEL_STORAGE_ACCESS',
+      'Storage object does not belong to the authorized channel.',
+    )
+  }
+  if (parts.length < 4 || parts.some((part) => !part.trim())) {
+    throw new ChannelAccessError('INVALID_STORAGE_KEY', 'Storage key structure is invalid.', 400)
+  }
+
+  const actualChannelId = assertChannelId(parts[1])
+  parts.slice(2).forEach(assertPathSegment)
+  if (actualChannelId !== expected) {
     throw new ChannelAccessError(
       'CROSS_CHANNEL_STORAGE_ACCESS',
       'Storage object does not belong to the authorized channel.',
