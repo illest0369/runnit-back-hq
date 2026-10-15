@@ -1,12 +1,11 @@
-import { execFile } from 'node:child_process'
-import { promisify } from 'node:util'
-
 import { NextResponse } from 'next/server'
 
 import { validateCsrfRequest } from '@/lib/csrf'
 import { resolveApifyToken } from '@/lib/apify/client'
 import { getSessionFromRequest } from '@/lib/auth'
+import { createSupabaseChannelOwnershipGuard } from '@/lib/channel-ownership'
 import { buildCuratedSourceJobs, listCuratedSources, type RbhqIngestMode } from '@/lib/rbhq-source-ingest'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export const dynamic = 'force-dynamic'
 
@@ -45,7 +44,7 @@ const SOURCE_INPUTS = {
   },
 } as const
 
-const execFileAsync = promisify(execFile)
+const ownershipGuard = createSupabaseChannelOwnershipGuard(supabaseAdmin)
 
 function missingEnvForIngest(platform: IngestPlatform) {
   const missing = [
@@ -86,13 +85,8 @@ async function enqueueIngestJob(input: {
   sourceIds?: string[]
   sourceCount?: number
 }) {
-  const { stdout } = await execFileAsync(
-    process.execPath,
-    ['scripts/enqueue-rbhq-ingest-job.mjs', JSON.stringify(input)],
-    { cwd: process.cwd(), timeout: 10_000 },
-  )
-  const result = JSON.parse(stdout) as { jobId: string }
-  return result.jobId
+  const { enqueueRbhqIngestJob } = await import('@/lib/queue')
+  return enqueueRbhqIngestJob(input)
 }
 
 export async function POST(request: Request) {
@@ -168,20 +162,24 @@ export async function POST(request: Request) {
         groupedSources.set(source.channel_id, channelSources)
       }
       const enqueued = await Promise.all(
-        [...groupedSources.entries()].map(async ([channelId, channelSources]) => ({
-          channelId,
-          platform: 'youtube' as const,
-          jobId: await enqueueIngestJob({
+        [...groupedSources.entries()].map(async ([channelId, channelSources]) => {
+          const ownedSourceIds = channelSources.map((source) => source.id)
+          await ownershipGuard.assertSources(channelId, ownedSourceIds, { requireSources: true })
+          return {
             channelId,
-            platform: 'youtube',
-            actorId: 'native',
-            input: { sourceIds: channelSources.map((source) => source.id), limit },
-            mode: 'native',
-            sourceIds: channelSources.map((source) => source.id),
+            platform: 'youtube' as const,
+            jobId: await enqueueIngestJob({
+              channelId,
+              platform: 'youtube',
+              actorId: 'native',
+              input: { sourceIds: ownedSourceIds, limit },
+              mode: 'native',
+              sourceIds: ownedSourceIds,
+              sourceCount: channelSources.length,
+            }),
             sourceCount: channelSources.length,
-          }),
-          sourceCount: channelSources.length,
-        })),
+          }
+        }),
       )
 
       return NextResponse.json({
@@ -211,20 +209,23 @@ export async function POST(request: Request) {
       }
 
       const enqueued = await Promise.all(
-        jobs.map(async (job) => ({
-          channelId: job.channelId,
-          platform: job.platform,
-          jobId: await enqueueIngestJob({
+        jobs.map(async (job) => {
+          await ownershipGuard.assertSources(job.channelId, job.sourceIds, { requireSources: true })
+          return {
             channelId: job.channelId,
             platform: job.platform,
-            actorId: job.actorId,
-            input: job.input,
-            mode: 'apify',
-            sourceIds: job.sourceIds,
+            jobId: await enqueueIngestJob({
+              channelId: job.channelId,
+              platform: job.platform,
+              actorId: job.actorId,
+              input: job.input,
+              mode: 'apify',
+              sourceIds: job.sourceIds,
+              sourceCount: job.sourceCount,
+            }),
             sourceCount: job.sourceCount,
-          }),
-          sourceCount: job.sourceCount,
-        })),
+          }
+        }),
       )
 
       return NextResponse.json({
@@ -250,6 +251,7 @@ export async function POST(request: Request) {
       )
     }
 
+    await ownershipGuard.assertChannel(channelIds[0])
     const jobId = await enqueueIngestJob({
       channelId: channelIds[0],
       platform,

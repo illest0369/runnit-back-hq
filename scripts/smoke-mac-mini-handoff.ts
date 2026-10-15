@@ -187,19 +187,27 @@ async function main() {
     assert.equal(created.payload.safety.finalPostClickAllowed, false)
     assert.equal(created.sourceUrl, 'https://www.youtube.com/watch?v=MACMINISMOKE')
     assert.notEqual(created.caption, 'STALE CAPTION')
-    assert.ok(created.caption.includes('Quick review:'))
+    assert.match(created.caption, /changes the roster conversation right now\.$/)
     assert.ok(created.hashtags.some((tag) => tag.toLowerCase().includes('tradetalk')))
     assert.ok(created.score > 10)
-    assert.ok(created.whyNow.includes('0-3 hour viral window'))
+    assert.equal(
+      created.whyNow,
+      'Develop: RB Sports roster movement needs operator review because recognizable entity (RB Sports roster movement)..',
+    )
     assert.notEqual(created.operatorSummary, 'STALE operator summary')
-    assert.ok(created.operatorSummary.includes('0-3 hour viral window'))
+    assert.match(created.operatorSummary, /^RB Sports (post now|develop|hold): \d+\/100/)
     assert.ok(created.editNotes.some((note) => note.includes('candidate_start_seconds:4')))
 
     const syncedCandidate = db.rows('clip_candidates')[0]
     assert.notEqual(syncedCandidate?.caption, 'STALE CAPTION')
     assert.ok(Array.isArray(syncedCandidate?.hashtags) && syncedCandidate.hashtags.length > 1)
     assert.ok(Number(syncedCandidate?.score) > 10)
-    assert.equal((syncedCandidate?.score_breakdown as Record<string, unknown>)?.model, 'rbhq_intelligence_v1')
+    const scoreBreakdown = syncedCandidate?.score_breakdown as Record<string, unknown>
+    assert.equal(scoreBreakdown.model, 'rbhq_intelligence_v1')
+    assert.equal(scoreBreakdown.rankLabel, 'strong')
+    assert.equal(scoreBreakdown.urgency, 'today')
+    assert.equal(scoreBreakdown.whyNow, created.whyNow)
+    assert.equal(scoreBreakdown.operatorSummary, created.operatorSummary)
 
     const pending = await getPendingMacMiniClipPackages(db as never, { limit: 5 })
     assert.equal(pending.length, 1)

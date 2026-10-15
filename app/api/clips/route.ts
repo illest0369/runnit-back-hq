@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic'
 import { NextResponse } from 'next/server'
 
 import { getSession } from '@/lib/auth'
+import { ChannelAccessError } from '@/lib/channel-access'
+import { createSupabaseChannelOwnershipGuard } from '@/lib/channel-ownership'
 import { getClips, getNextPendingClip } from '@/lib/moderation-queue'
 import { getRBHQIntelligenceV1 } from '@/lib/intelligence-v1'
 import {
@@ -76,6 +78,25 @@ async function loadCandidateState(clips: ReviewClip[]): Promise<{
   if (candidateIds.length === 0) {
     return { candidates: new Map(), packages: new Map() }
   }
+  const channelIds = [...new Set(clips.map((clip) => clip.channel_id).filter((id): id is string => Boolean(id)))]
+  if (channelIds.length !== 1) {
+    throw new Error('Review queue rows must resolve to exactly one channel.')
+  }
+  const channelId = channelIds[0]
+  const ownershipGuard = createSupabaseChannelOwnershipGuard(supabaseAdmin)
+  const ownedCandidateIds: string[] = []
+  for (const candidateId of candidateIds) {
+    try {
+      await ownershipGuard.assertEntity(channelId, 'clip_candidate', candidateId)
+      ownedCandidateIds.push(candidateId)
+    } catch (error) {
+      if (!(error instanceof ChannelAccessError)) throw error
+      // Poisoned or stale cross-channel links are omitted from the operator response.
+    }
+  }
+  if (ownedCandidateIds.length === 0) {
+    return { candidates: new Map(), packages: new Map() }
+  }
 
   const [{ data: candidates, error: candidateError }, { data: packages, error: packageError }] = await Promise.all([
     supabaseAdmin
@@ -85,7 +106,8 @@ async function loadCandidateState(clips: ReviewClip[]): Promise<{
          clip_prep, suggested_clip_start_seconds, suggested_clip_end_seconds, suggested_clip_length_seconds,
          clip_reason, opening_text, edit_notes, asset_instructions, clip_prep_status, clip_prep_confidence`,
       )
-      .in('id', candidateIds),
+      .in('id', ownedCandidateIds)
+      .eq('target_channel_id', channelId),
     supabaseAdmin
       .from('mac_mini_clip_packages')
       .select(
@@ -93,7 +115,8 @@ async function loadCandidateState(clips: ReviewClip[]): Promise<{
          dry_run_at, dry_run_result, dry_run_error, package_payload,
          tiktok_staging_status, tiktok_staging_requested_at, tiktok_staging_at, tiktok_staging_error`,
       )
-      .in('clip_candidate_id', candidateIds),
+      .in('clip_candidate_id', ownedCandidateIds)
+      .eq('target_channel_id', channelId),
   ])
 
   if (candidateError) throw new Error(candidateError.message)

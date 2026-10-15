@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
+import { assertChannelStorageKey } from './channel-scope'
 import { deleteStoredPlatformMp4Asset } from './media-storage'
 
 type AssetRetentionDb = Pick<SupabaseClient, 'from'>
@@ -13,9 +14,12 @@ export type AssetDeleteStatus =
   | 'skipped_pending_publish'
   | 'skipped_local_dev'
   | 'skipped_missing_storage_key'
+  | 'skipped_missing_channel_scope'
+  | 'skipped_legacy_unscoped'
 
 type ExpiredClipAssetRow = {
   id: string
+  channel_id: string | null
   publish_status: string | null
   asset_storage_provider: string | null
   asset_storage_key: string | null
@@ -83,6 +87,7 @@ function linkedPackageUpdate(storageKey: string | null, update: Record<string, u
 
 async function updatePackageRowsByStorageKey(
   db: AssetRetentionDb,
+  channelId: string,
   storageKey: string | null,
   update: Record<string, unknown>,
 ) {
@@ -92,12 +97,14 @@ async function updatePackageRowsByStorageKey(
     .from('mac_mini_clip_packages')
     .update(payload)
     .eq('asset_storage_key', storageKey)
+    .eq('target_channel_id', channelId)
   if (error) throw new Error(error.message)
 }
 
 async function updateClipAssetDeleteStatus(
   db: AssetRetentionDb,
   clipId: string,
+  channelId: string,
   storageKey: string | null,
   update: Record<string, unknown>,
 ) {
@@ -105,13 +112,14 @@ async function updateClipAssetDeleteStatus(
     .from('clips')
     .update(update)
     .eq('id', clipId)
+    .eq('channel_id', channelId)
   if (error) throw new Error(error.message)
-  await updatePackageRowsByStorageKey(db, storageKey, update)
+  await updatePackageRowsByStorageKey(db, channelId, storageKey, update)
 }
 
 export async function extendClipAssetRetentionForSchedule(
   db: AssetRetentionDb,
-  input: { clipId: string; scheduledPublishTime: string | Date; now?: Date },
+  input: { clipId: string; channelId: string; scheduledPublishTime: string | Date; now?: Date },
 ): Promise<{ ok: boolean; assetExpiresAt: string; storageKey: string | null }> {
   const expiresAt = assetExpiresAt({
     now: input.now,
@@ -119,10 +127,12 @@ export async function extendClipAssetRetentionForSchedule(
   })
   const { data, error } = await (db as any)
     .from('clips')
-    .select('id, asset_storage_key')
+    .select('id, channel_id, asset_storage_key')
     .eq('id', input.clipId)
+    .eq('channel_id', input.channelId)
     .maybeSingle()
   if (error) throw new Error(error.message)
+  if (!data) throw new Error('Clip not found in the authorized channel.')
 
   const storageKey = typeof data?.asset_storage_key === 'string' ? data.asset_storage_key : null
   const update = {
@@ -131,7 +141,7 @@ export async function extendClipAssetRetentionForSchedule(
     asset_delete_error: null,
   }
 
-  await updateClipAssetDeleteStatus(db, input.clipId, storageKey, update)
+  await updateClipAssetDeleteStatus(db, input.clipId, input.channelId, storageKey, update)
   return { ok: true, assetExpiresAt: expiresAt, storageKey }
 }
 
@@ -140,18 +150,18 @@ export async function cleanupExpiredAssets(
   input: {
     now?: Date
     limit?: number
-    deleteObject?: (storageKey: string) => Promise<void>
+    deleteObject?: (storageKey: string, channelId: string) => Promise<void>
   } = {},
 ): Promise<AssetCleanupResult> {
   const now = input.now ?? new Date()
   const limit = Math.max(1, Math.min(500, Math.trunc(input.limit ?? 100)))
-  const deleteObject = input.deleteObject ?? (async (storageKey: string) => {
-    await deleteStoredPlatformMp4Asset({ objectKey: storageKey, storageMode: 'r2' })
+  const deleteObject = input.deleteObject ?? (async (storageKey: string, channelId: string) => {
+    await deleteStoredPlatformMp4Asset({ objectKey: storageKey, storageMode: 'r2', channelId })
   })
 
   const { data, error } = await (db as any)
     .from('clips')
-    .select('id, publish_status, asset_storage_provider, asset_storage_key, asset_public_url, asset_expires_at, asset_deleted_at')
+    .select('id, channel_id, publish_status, asset_storage_provider, asset_storage_key, asset_public_url, asset_expires_at, asset_deleted_at')
     .lte('asset_expires_at', now.toISOString())
     .is('asset_deleted_at', null)
     .order('asset_expires_at', { ascending: true })
@@ -171,11 +181,25 @@ export async function cleanupExpiredAssets(
   for (const row of rows) {
     const storageKey = row.asset_storage_key?.trim() || null
     const storageProvider = row.asset_storage_provider?.trim() || null
+    const channelId = row.channel_id?.trim() || null
 
     try {
+      if (!channelId) {
+        const status: AssetDeleteStatus = 'skipped_missing_channel_scope'
+        result.skipped += 1
+        result.results.push({
+          clipId: row.id,
+          storageProvider,
+          storageKey,
+          status,
+          error: 'Clip is missing channel scope.',
+        })
+        continue
+      }
+
       if (isPendingPublishStatus(row.publish_status)) {
         const status: AssetDeleteStatus = 'skipped_pending_publish'
-        await updateClipAssetDeleteStatus(db, row.id, storageKey, {
+        await updateClipAssetDeleteStatus(db, row.id, channelId, storageKey, {
           asset_delete_status: status,
           asset_delete_error: null,
         })
@@ -186,7 +210,7 @@ export async function cleanupExpiredAssets(
 
       if (storageProvider !== 'r2') {
         const status: AssetDeleteStatus = 'skipped_local_dev'
-        await updateClipAssetDeleteStatus(db, row.id, storageKey, {
+        await updateClipAssetDeleteStatus(db, row.id, channelId, storageKey, {
           asset_delete_status: status,
           asset_delete_error: 'Only durable R2 assets are deleted by cleanup.',
         })
@@ -197,7 +221,7 @@ export async function cleanupExpiredAssets(
 
       if (!storageKey) {
         const status: AssetDeleteStatus = 'skipped_missing_storage_key'
-        await updateClipAssetDeleteStatus(db, row.id, storageKey, {
+        await updateClipAssetDeleteStatus(db, row.id, channelId, storageKey, {
           asset_delete_status: status,
           asset_delete_error: 'Durable asset storage key is missing.',
         })
@@ -206,10 +230,21 @@ export async function cleanupExpiredAssets(
         continue
       }
 
-      await deleteObject(storageKey)
+      if (!storageKey.startsWith('channels/')) {
+        const status: AssetDeleteStatus = 'skipped_legacy_unscoped'
+        await updateClipAssetDeleteStatus(db, row.id, channelId, storageKey, {
+          asset_delete_status: status,
+          asset_delete_error: 'Legacy unscoped storage keys require reconciliation before deletion.',
+        })
+        result.skipped += 1
+        result.results.push({ clipId: row.id, storageProvider, storageKey, status, error: null })
+        continue
+      }
+      assertChannelStorageKey(channelId, storageKey)
+      await deleteObject(storageKey, channelId)
       const status: AssetDeleteStatus = 'deleted'
       const deletedAt = now.toISOString()
-      await updateClipAssetDeleteStatus(db, row.id, storageKey, {
+      await updateClipAssetDeleteStatus(db, row.id, channelId, storageKey, {
         asset_deleted_at: deletedAt,
         asset_delete_status: status,
         asset_delete_error: null,
@@ -219,7 +254,7 @@ export async function cleanupExpiredAssets(
     } catch (deleteError) {
       const status: AssetDeleteStatus = 'failed'
       const message = compactError(deleteError)
-      await updateClipAssetDeleteStatus(db, row.id, storageKey, {
+      if (channelId) await updateClipAssetDeleteStatus(db, row.id, channelId, storageKey, {
         asset_delete_status: status,
         asset_delete_error: message,
       }).catch(() => undefined)

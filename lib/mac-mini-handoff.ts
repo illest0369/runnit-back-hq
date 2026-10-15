@@ -12,6 +12,7 @@ import {
 } from './clip-prep'
 import { syncLoadedCandidateIntelligenceV1 } from './candidate-intelligence'
 import { getChannelMeta } from './channel-meta'
+import { createSupabaseChannelOwnershipGuard } from './channel-ownership'
 import { deriveTikTokStagingStatus, type TikTokStagingStatus } from './operator-staging'
 
 export type MacMiniPackageStatus = 'ready' | 'fetched' | 'dry_run_complete' | 'dry_run_failed' | 'cancelled'
@@ -547,8 +548,13 @@ function buildPayload(input: {
 export async function createMacMiniClipPackageFromCandidate(
   supabase: MacMiniDb,
   candidateId: string,
-  input: { now?: () => Date; packageId?: string } = {},
+  input: { now?: () => Date; packageId?: string; expectedChannelId?: string } = {},
 ): Promise<MacMiniClipPackage> {
+  if (input.expectedChannelId) {
+    await createSupabaseChannelOwnershipGuard(supabase)
+      .assertEntity(input.expectedChannelId, 'clip_candidate', candidateId)
+  }
+
   const { data: existing, error: existingError } = await supabase
     .from('mac_mini_clip_packages')
     .select(PACKAGE_SELECT)

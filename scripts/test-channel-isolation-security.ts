@@ -3,34 +3,50 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 const root = process.cwd()
-const migrationPath = path.join(root, 'supabase/migrations/202610140001_channel_isolation.sql')
-const migration = readFileSync(migrationPath, 'utf8')
+const migrationPaths = [
+  'supabase/migrations/202610140001_channel_isolation_schema.sql',
+  'supabase/migrations/202610140002_channel_assignment_backfill.sql',
+  'supabase/migrations/202610140003_channel_isolation_rls.sql',
+]
+const migrations = migrationPaths.map((migrationPath) =>
+  readFileSync(path.join(root, migrationPath), 'utf8'),
+)
+const migration = migrations.join('\n')
 
 const requiredSql = [
   /create table if not exists public\.operator_channel_assignments/i,
   /user_id uuid primary key/i,
   /channel_id uuid not null/i,
-  /create or replace function public\.rbhq_is_super_admin/i,
-  /create or replace function public\.rbhq_current_channel_id/i,
-  /create or replace function public\.rbhq_can_access_channel/i,
+  /create or replace function private\.rbhq_is_super_admin/i,
+  /create or replace function private\.rbhq_current_channel_id/i,
+  /create or replace function private\.rbhq_can_access_channel/i,
   /alter table public\.channels enable row level security/i,
   /alter table public\.operator_channel_assignments enable row level security/i,
-  /alter table public\.clips enable row level security/i,
-  /alter table public\.source_channels enable row level security/i,
+  /rbhq_install_direct_policy\('clips', 'channel_id'\)/i,
+  /rbhq_install_direct_policy\('source_channels', 'target_rbhq_channel_id'\)/i,
   /alter table public\.ingested_videos enable row level security/i,
   /alter table public\.video_transcripts enable row level security/i,
-  /alter table public\.clip_candidates enable row level security/i,
-  /alter table public\.mac_mini_clip_packages enable row level security/i,
+  /rbhq_install_direct_policy\('clip_candidates', 'target_channel_id'\)/i,
+  /rbhq_install_direct_policy\('mac_mini_clip_packages', 'target_channel_id'\)/i,
   /having count\(distinct legacy\.channel_id\) = 1/i,
   /force row level security/i,
+  /as restrictive/i,
+  /create policy rbhq_authenticated_gate/i,
   /rbhq_channel_isolation/i,
   /rbhq_super_admin_only/i,
-  /grant select, insert, update, delete on public\.operator_channel_assignments to authenticated/i,
+  /grant select, insert, update, delete on public\.operator_channel_assignments to authenticated, service_role/i,
+  /create policy rbhq_assignments_insert_scope/i,
+  /with check \(\(select private\.rbhq_is_super_admin\(\)\)\)/i,
   /rbhq_can_access_channel/i,
 ]
 
 for (const pattern of requiredSql) {
   assert.match(migration, pattern, `migration is missing security control ${pattern}`)
+}
+
+for (const [index, sql] of migrations.entries()) {
+  assert.match(sql, /^begin;/im, `${migrationPaths[index]} must begin a transaction`)
+  assert.match(sql, /commit;\s*$/im, `${migrationPaths[index]} must commit its transaction`)
 }
 
 assert.doesNotMatch(
@@ -51,7 +67,9 @@ assert.doesNotMatch(serverDataAccess, /getLegacyChannelAccess|user_channel_acces
 
 const ingestRoute = readFileSync(path.join(root, 'app/api/ingest/run/route.ts'), 'utf8')
 assert.match(ingestRoute, /getSessionFromRequest/)
+assert.match(ingestRoute, /enqueueRbhqIngestJob/)
 assert.doesNotMatch(ingestRoute, /decodeSessionPayload|createHmac/)
+assert.doesNotMatch(ingestRoute, /enqueue-rbhq-ingest-job\.mjs|execFile/)
 
 const setPinRoute = readFileSync(path.join(root, 'app/api/set-pin/route.ts'), 'utf8')
 assert.match(setPinRoute, /getSessionFromRequest/)
@@ -83,6 +101,8 @@ for (const queueType of [
 }
 
 const worker = readFileSync(path.join(root, 'workers/rbhqWorker.ts'), 'utf8')
-assert.match(worker, /assertChannelQueueScope/)
+assert.match(worker, /validateIngestJobOwnership/)
+assert.match(worker, /validateApifyPollJobOwnership/)
+assert.match(worker, /ownershipGuard\.assertEntity/)
 
 console.log('PASS migration RLS, centralized session resolution, UI isolation, and storage scoping')

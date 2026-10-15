@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 
 import { getSessionFromRequest } from '@/lib/auth'
 import { refreshClipPrepForCandidate } from '@/lib/clip-prep'
+import { ChannelAccessError } from '@/lib/channel-access'
+import { createSupabaseChannelOwnershipGuard } from '@/lib/channel-ownership'
 import { validateCsrfRequest } from '@/lib/csrf'
 import { createMacMiniClipPackageFromCandidate, getMacMiniClipPackageById, requestTikTokStagingForPackage } from '@/lib/mac-mini-handoff'
 import { approveClip, getClipById, holdClip, rejectClip } from '@/lib/moderation-queue'
@@ -64,11 +66,33 @@ export async function POST(request: Request, context: RouteContext) {
     if (!candidateId) {
       return NextResponse.json({ ok: false, error: 'Clip is not linked to a persisted Intelligence V1 candidate.' }, { status: 400 })
     }
+    if (!clip.channel_id) {
+      return NextResponse.json({ ok: false, error: 'Clip is missing channel ownership.' }, { status: 409 })
+    }
+
+    const ownershipGuard = createSupabaseChannelOwnershipGuard(supabaseAdmin)
+    try {
+      await ownershipGuard.assertEntity(clip.channel_id, 'clip_candidate', candidateId)
+    } catch (error) {
+      if (error instanceof ChannelAccessError) {
+        return NextResponse.json({ ok: false, error: 'Clip candidate not found.' }, { status: 404 })
+      }
+      throw error
+    }
 
     if (body.action === 'stage_in_tiktok' || body.action === 'create_platform_package') {
       const packageId = body.package_id?.trim()
       if (!packageId) {
         return NextResponse.json({ ok: false, error: `package_id is required for ${body.action === 'stage_in_tiktok' ? 'TikTok staging' : 'platform package export'}.` }, { status: 400 })
+      }
+
+      try {
+        await ownershipGuard.assertEntity(clip.channel_id, 'mac_mini_package', packageId)
+      } catch (error) {
+        if (error instanceof ChannelAccessError) {
+          return NextResponse.json({ ok: false, error: 'Mac mini package not found for this channel.' }, { status: 404 })
+        }
+        throw error
       }
 
       const existing = await getMacMiniClipPackageById(supabaseAdmin, packageId)
@@ -169,10 +193,9 @@ export async function POST(request: Request, context: RouteContext) {
       )
     }
 
-    const pkg = await createMacMiniClipPackageFromCandidate(supabaseAdmin, candidateId)
-    if (session.channelIds.length > 0 && !session.channelIds.includes(pkg.targetChannelId)) {
-      return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 })
-    }
+    const pkg = await createMacMiniClipPackageFromCandidate(supabaseAdmin, candidateId, {
+      expectedChannelId: clip.channel_id,
+    })
 
     return NextResponse.json(
       {

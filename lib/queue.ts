@@ -4,7 +4,14 @@ import type IORedisType from 'ioredis'
 
 import { createRedisConnection, getSharedRedisConnection } from './redis'
 import { assertChannelQueueScope } from './channel-scope'
+import { createSupabaseChannelOwnershipGuard } from './channel-ownership'
 import { getMaxAgentRetries, isWarRoomEnabled } from './war-room-runtime'
+import { supabaseAdminClient } from './supabase-admin'
+import {
+  validateApifyPollJobOwnership,
+  validateClipGenerationJobOwnership,
+  validateIngestJobOwnership,
+} from './channel-job-ownership'
 
 export const CLIP_GENERATION_QUEUE_NAME = 'clip-generation'
 export const RBHQ_INGEST_QUEUE_NAME = 'rbhq-ingest'
@@ -12,6 +19,7 @@ export const RBHQ_APIFY_POLL_QUEUE_NAME = 'rbhq-apify-poll'
 export const RBHQ_SCORE_QUEUE_NAME = 'rbhq-score'
 export const RBHQ_POST_QUEUE_NAME = process.env.RBHQ_POST_QUEUE_NAME?.trim() || 'rbhq-post'
 export const RBHQ_ANALYTICS_QUEUE_NAME = 'rbhq-analytics'
+const ownershipGuard = createSupabaseChannelOwnershipGuard(supabaseAdminClient)
 
 export type ClipGenerationJobData = {
   videoUrl: string
@@ -129,6 +137,7 @@ export function getClipGenerationQueue() {
 
 export async function enqueueClipGenerationJob(input: ClipGenerationJobData) {
   assertChannelQueueScope(input.channelId, input.channelId)
+  await validateClipGenerationJobOwnership(ownershipGuard, input)
   const queue = getClipGenerationQueue()
   const jobId = randomUUID()
   const job = await queue.add('generate-clips', input, {
@@ -200,6 +209,7 @@ export function getRbhqAnalyticsQueue() {
 
 export async function enqueueRbhqIngestJob(input: RbhqIngestJobData) {
   assertChannelQueueScope(input.channelId, input.channelId)
+  await validateIngestJobOwnership(ownershipGuard, input)
   const fingerprint = createHash('sha256')
     .update(JSON.stringify({ channelId: input.channelId, actorInput: input.input, mode: input.mode, sourceIds: input.sourceIds }))
     .digest('hex')
@@ -213,6 +223,7 @@ export async function enqueueRbhqIngestJob(input: RbhqIngestJobData) {
 
 export async function enqueueRbhqApifyPollJob(input: RbhqApifyPollJobData, delay = 30_000) {
   assertChannelQueueScope(input.channelId, input.channelId)
+  await validateApifyPollJobOwnership(ownershipGuard, input)
   const job = await getRbhqApifyPollQueue().add('poll-apify-run', input, {
     delay,
     jobId: `rbhq-apify-${input.channelId}-${input.runId}-${Date.now()}`,
@@ -222,11 +233,13 @@ export async function enqueueRbhqApifyPollJob(input: RbhqApifyPollJobData, delay
 
 export async function enqueueRbhqScoreJob(input: RbhqScoreJobData) {
   assertChannelQueueScope(input.channelId, input.channelId)
+  await ownershipGuard.assertEntity(input.channelId, 'rbhq_clip', input.clipId)
   return String(await getRbhqScoreQueue().add('score-clip', input, { jobId: `rbhq-score-${input.channelId}-${input.clipId}` }))
 }
 
 export async function enqueueRbhqPostJob(input: RbhqPostJobData) {
   assertChannelQueueScope(input.channelId, input.channelId)
+  await ownershipGuard.assertEntity(input.channelId, 'moderation_clip', input.postId)
   const job = await getRbhqPostQueue().add('post-to-tiktok', input, {
     jobId: `rbhq-post-${input.channelId}-${input.postId}`,
   })
@@ -236,6 +249,7 @@ export async function enqueueRbhqPostJob(input: RbhqPostJobData) {
 
 export async function enqueueRbhqAnalyticsJob(input: RbhqAnalyticsJobData, delay = 30 * 60_000) {
   assertChannelQueueScope(input.channelId, input.channelId)
+  await ownershipGuard.assertEntity(input.channelId, 'post', input.postId)
   return String(await getRbhqAnalyticsQueue().add('poll-tiktok-analytics', input, { delay }))
 }
 

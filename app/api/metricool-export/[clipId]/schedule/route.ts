@@ -105,6 +105,9 @@ export async function POST(request: Request, context: RouteContext) {
   if (!current.video_url?.trim()) {
     return NextResponse.json({ ok: false, error: 'Clip is missing a video URL.' }, { status: 409 })
   }
+  if (!current.channel_id) {
+    return NextResponse.json({ ok: false, error: 'Clip is missing channel ownership.' }, { status: 409 })
+  }
 
   const config = validateMetricoolConfigForChannel(current.channel_id)
   if (!config.ok) {
@@ -128,6 +131,7 @@ export async function POST(request: Request, context: RouteContext) {
   if (ok) {
     await extendClipAssetRetentionForSchedule(supabaseAdmin, {
       clipId,
+      channelId: current.channel_id,
       scheduledPublishTime: scheduledAt,
     }).catch((error) => {
       console.warn(

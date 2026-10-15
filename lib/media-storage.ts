@@ -2,7 +2,7 @@ import path from 'node:path'
 import { rm } from 'node:fs/promises'
 
 import { copyGeneratedClipToStorage, deleteR2Object } from './clip-storage'
-import { buildChannelStorageKey } from './channel-scope'
+import { assertChannelStorageKey, buildChannelStorageKey } from './channel-scope'
 import { validateRetryReadyLocalAsset } from './retry-ready-asset-validation'
 
 export type PlatformMediaStorageMode = 'r2' | 'local_dev'
@@ -13,6 +13,7 @@ export type StoredPlatformMediaAsset = {
   localUrl: string | null
   storageMode: PlatformMediaStorageMode
   objectKey: string
+  channelId: string
   sourceLocalPath: string
   durationSeconds: number
   width: number
@@ -97,6 +98,7 @@ export async function storePlatformMp4Asset(input: {
     localUrl: stored.localUrl,
     storageMode,
     objectKey,
+    channelId: input.channelId,
     sourceLocalPath: validation.assetPath,
     durationSeconds: validation.durationSeconds,
     width: validation.width,
@@ -110,10 +112,11 @@ export async function storePlatformMp4Asset(input: {
   return asset
 }
 
-export async function deleteStoredPlatformMp4Asset(asset: Pick<StoredPlatformMediaAsset, 'objectKey' | 'storageMode'>): Promise<void> {
-  const isScopedKey = /^channels\/[0-9a-f-]+\/platform-packages\//i.test(asset.objectKey)
-  const isLegacyKey = asset.objectKey.startsWith('platform-packages/')
-  if (!isScopedKey && !isLegacyKey) {
+export async function deleteStoredPlatformMp4Asset(
+  asset: Pick<StoredPlatformMediaAsset, 'objectKey' | 'storageMode' | 'channelId'>,
+): Promise<void> {
+  assertChannelStorageKey(asset.channelId, asset.objectKey)
+  if (!asset.objectKey.includes('/platform-packages/')) {
     throw new Error('Refusing to delete a media asset outside channel-scoped platform packages.')
   }
 

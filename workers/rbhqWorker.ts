@@ -1,5 +1,10 @@
 import { Worker } from 'bullmq'
 
+import { createSupabaseChannelOwnershipGuard } from '../lib/channel-ownership'
+import {
+  validateApifyPollJobOwnership,
+  validateIngestJobOwnership,
+} from '../lib/channel-job-ownership'
 import { getApifyDatasetItems, getApifyRun, runApifyActor } from '../lib/apify/client'
 import {
   normalizeApifyDatasetItems,
@@ -28,7 +33,6 @@ import { markSourcesIngestStarted, updateSourcesIngestHealth } from '../lib/rbhq
 import { runNativeRbhqIngest } from '../lib/rbhq-native-ingest'
 import { supabaseAdminClient } from '../lib/supabase-admin'
 import { transitionRbhqState } from '../lib/workflow/transition'
-import { assertChannelQueueScope } from '../lib/channel-scope'
 
 const TERMINAL_APIFY_STATUSES = new Set(['SUCCEEDED', 'FAILED', 'ABORTED', 'TIMED-OUT'])
 const MAC_MINI_READY_PUBLISH_STATUSES = new Set([
@@ -57,63 +61,64 @@ function buildDryRunPostPayload(jobData: RbhqPostJobData, clip: Awaited<ReturnTy
   }
 }
 
-async function upsertSourceItems(items: NormalizedSourceItem[]) {
+const ownershipGuard = createSupabaseChannelOwnershipGuard(supabaseAdminClient)
+
+async function upsertSourceItems(items: NormalizedSourceItem[], channelId: string) {
   if (items.length === 0) {
     return 0
   }
 
-  const { error } = await supabaseAdminClient
+  await ownershipGuard.assertChannel(channelId)
+  const payloadByUrl = new Map(items.map((item) => [
+    item.source_url,
+    {
+      ...item,
+      channel_id: channelId,
+      duration_seconds: item.duration_seconds ?? null,
+      views: item.views ?? 0,
+      likes: item.likes ?? 0,
+      comments: item.comments ?? 0,
+      upload_date: item.upload_date ?? null,
+    },
+  ]))
+  const payloads = [...payloadByUrl.values()]
+  const sourceUrls = [...new Set(payloads.map((item) => item.source_url))]
+  const { data: existing, error: existingError } = await supabaseAdminClient
     .from('rbhq_source_items')
-    .upsert(
-      items.map((item) => ({
-        ...item,
-        duration_seconds: item.duration_seconds ?? null,
-        views: item.views ?? 0,
-        likes: item.likes ?? 0,
-        comments: item.comments ?? 0,
-        upload_date: item.upload_date ?? null,
-      })),
-      { onConflict: 'source_url' },
-    )
+    .select('id, source_url')
+    .in('source_url', sourceUrls)
+  if (existingError) throw new Error(existingError.message)
 
-  if (error) {
-    throw new Error(error.message)
+  const existingByUrl = new Map(
+    (existing ?? []).map((row: { id: string; source_url: string }) => [row.source_url, row.id]),
+  )
+  for (const itemId of existingByUrl.values()) {
+    await ownershipGuard.assertEntity(channelId, 'source_item', itemId)
   }
 
-  return items.length
-}
-
-async function resolveSingleChannelIdForSources(sourceIds: string[]) {
-  const ids = [...new Set(sourceIds.filter(Boolean))]
-  if (ids.length === 0) return null
-
-  const { data, error } = await supabaseAdminClient
-    .from('sources')
-    .select('channel_id')
-    .in('id', ids)
-
-  if (error) {
-    throw new Error(error.message)
+  for (const payload of payloads) {
+    const existingId = existingByUrl.get(payload.source_url)
+    const query = existingId
+      ? supabaseAdminClient
+          .from('rbhq_source_items')
+          .update(payload)
+          .eq('id', existingId)
+          .eq('channel_id', channelId)
+      : supabaseAdminClient
+          .from('rbhq_source_items')
+          .insert(payload)
+    const { error } = await query
+    if (error) throw new Error(error.message)
   }
 
-  const channelIds = [...new Set((data ?? []).map((row: { channel_id: string | null }) => row.channel_id).filter(Boolean))]
-  return channelIds.length === 1 ? channelIds[0] : null
-}
-
-async function assertSourceQueueScope(channelId: string, sourceIds: string[]) {
-  if (sourceIds.length === 0) return
-  const sourceChannelId = await resolveSingleChannelIdForSources(sourceIds)
-  if (!sourceChannelId) {
-    throw new Error('QUEUE_SOURCES_REQUIRE_ONE_CHANNEL')
-  }
-  assertChannelQueueScope(channelId, sourceChannelId)
+  return payloads.length
 }
 
 export function createRbhqWorkers() {
   const ingestWorker = new Worker<RbhqIngestJobData, string, 'run-apify-actor'>(
     RBHQ_INGEST_QUEUE_NAME,
     async (job) => {
-      await assertSourceQueueScope(job.data.channelId, job.data.sourceIds ?? [])
+      await validateIngestJobOwnership(ownershipGuard, job.data)
       if (job.data.mode === 'native') {
         const result = await runNativeRbhqIngest({
           sourceIds: job.data.sourceIds,
@@ -144,6 +149,7 @@ export function createRbhqWorkers() {
   const pollWorker = new Worker<RbhqApifyPollJobData, string, 'poll-apify-run'>(
     RBHQ_APIFY_POLL_QUEUE_NAME,
     async (job) => {
+      await validateApifyPollJobOwnership(ownershipGuard, job.data)
       const run = await getApifyRun(job.data.runId)
       if (!TERMINAL_APIFY_STATUSES.has(run.status)) {
         await enqueueRbhqApifyPollJob(job.data, 30_000)
@@ -165,9 +171,8 @@ export function createRbhqWorkers() {
         .map((item) => normalizeApifyItem(job.data.platform, item))
         .filter((item): item is NormalizedSourceItem => Boolean(item))
 
-      const storedCount = await upsertSourceItems(items)
+      const storedCount = await upsertSourceItems(items, job.data.channelId)
       const importBatchId = `apify:${job.data.runId}:${new Date().toISOString()}`
-      await assertSourceQueueScope(job.data.channelId, job.data.sourceIds ?? [])
       const channelId = job.data.channelId
       const normalized = normalizeApifyDatasetItems(rawItems, {
         importBatchId,
@@ -197,6 +202,7 @@ export function createRbhqWorkers() {
   const scoreWorker = new Worker<RbhqScoreJobData, string, 'score-clip'>(
     RBHQ_SCORE_QUEUE_NAME,
     async (job) => {
+      await ownershipGuard.assertEntity(job.data.channelId, 'rbhq_clip', job.data.clipId)
       const { data: clip, error } = await supabaseAdminClient
         .from('rbhq_clips')
         .select('id, channel_id, workflow_state, source_item_id, rbhq_source_items(title, creator, source_platform, raw_payload)')
@@ -206,8 +212,6 @@ export function createRbhqWorkers() {
       if (error || !clip) {
         throw new Error(error?.message || 'CLIP_NOT_FOUND')
       }
-      assertChannelQueueScope(job.data.channelId, clip.channel_id)
-
       const source = Array.isArray(clip.rbhq_source_items)
         ? clip.rbhq_source_items[0]
         : clip.rbhq_source_items
@@ -261,6 +265,7 @@ export function createRbhqWorkers() {
   const postWorker = new Worker<RbhqPostJobData, string, 'post-to-tiktok'>(
     RBHQ_POST_QUEUE_NAME,
     async (job) => {
+      await ownershipGuard.assertEntity(job.data.channelId, 'moderation_clip', job.data.postId)
       const clip = await getClipById(job.data.postId, { includeMetricoolHandoffStatus: false })
 
       if (!clip) {
@@ -269,8 +274,6 @@ export function createRbhqWorkers() {
       if (!clip.channel_id) {
         throw new Error('CLIP_MISSING_CHANNEL_SCOPE')
       }
-      assertChannelQueueScope(job.data.channelId, clip.channel_id)
-
       if (clip.status !== 'approved') {
         throw new Error(`CLIP_NOT_APPROVED:${clip.status}`)
       }
@@ -303,6 +306,7 @@ export function createRbhqWorkers() {
   const analyticsWorker = new Worker<RbhqAnalyticsJobData, string, 'poll-tiktok-analytics'>(
     RBHQ_ANALYTICS_QUEUE_NAME,
     async (job) => {
+      await ownershipGuard.assertEntity(job.data.channelId, 'post', job.data.postId)
       const { data: post, error } = await supabaseAdminClient
         .from('posts')
         .select('channel_id')
@@ -311,7 +315,6 @@ export function createRbhqWorkers() {
       if (error || !post?.channel_id) {
         throw new Error(error?.message || 'ANALYTICS_POST_NOT_FOUND')
       }
-      assertChannelQueueScope(job.data.channelId, post.channel_id)
       await recordTikTokAnalyticsSnapshot({
         postId: job.data.postId,
         views: 0,

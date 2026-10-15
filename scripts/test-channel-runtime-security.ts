@@ -5,15 +5,17 @@ import path from 'node:path'
 import { resolveConfiguredSessionAccess } from '../lib/app-users'
 import {
   createChannelOwnershipGuard,
+  createSupabaseChannelOwnershipGuard,
   type ChannelEntityType,
   type ChannelOwnershipRepository,
 } from '../lib/channel-ownership'
 import { ChannelAccessError } from '../lib/channel-access'
+import { deleteStoredPlatformMp4Asset } from '../lib/media-storage'
 import {
   validateApifyPollJobOwnership,
   validateClipGenerationJobOwnership,
   validateIngestJobOwnership,
-} from '../workers/job-ownership'
+} from '../lib/channel-job-ownership'
 
 const CHANNEL_A = 'a1000000-0000-4000-8000-000000000001'
 const CHANNEL_B = 'a1000000-0000-4000-8000-000000000002'
@@ -53,6 +55,52 @@ const repository: ChannelOwnershipRepository = {
   },
 }
 
+class MemoryOwnershipQuery {
+  private readonly filters: Array<{ key: string; value: unknown }> = []
+
+  constructor(private readonly rows: Array<Record<string, unknown>>) {}
+
+  select() {
+    return this
+  }
+
+  eq(keyName: string, value: unknown) {
+    this.filters.push({ key: keyName, value })
+    return this
+  }
+
+  async maybeSingle() {
+    const data = this.rows.find((row) =>
+      this.filters.every((filter) => row[filter.key] === filter.value),
+    ) ?? null
+    return { data, error: null }
+  }
+}
+
+function createIndirectOwnershipDb() {
+  const rows: Record<string, Array<Record<string, unknown>>> = {
+    channels: [{ id: CHANNEL_A }, { id: CHANNEL_B }],
+    posts: [
+      { id: 'post-a', channel_id: CHANNEL_A },
+      { id: 'post-b', channel_id: CHANNEL_B },
+    ],
+    reply_sessions: [
+      { id: REPLY_A, post_id: 'post-a' },
+      { id: REPLY_B, post_id: 'post-b' },
+    ],
+    reply_feedback: [
+      { id: 'feedback-a', reply_session_id: REPLY_A },
+      { id: 'feedback-b', reply_session_id: REPLY_B },
+    ],
+  }
+  return {
+    from(table: string) {
+      assert.ok(rows[table], `Unexpected ownership table: ${table}`)
+      return new MemoryOwnershipQuery(rows[table])
+    },
+  }
+}
+
 function assertChannelError(error: unknown, code: string) {
   assert(error instanceof ChannelAccessError)
   assert.equal(error.code, code)
@@ -86,6 +134,12 @@ async function main() {
   await guard.assertEntity(CHANNEL_A, 'reply_session', REPLY_A)
   await assert.rejects(
     guard.assertEntity(CHANNEL_A, 'reply_session', REPLY_B),
+    (error) => assertChannelError(error, 'CROSS_CHANNEL_ENTITY_ACCESS'),
+  )
+  const indirectGuard = createSupabaseChannelOwnershipGuard(createIndirectOwnershipDb())
+  await indirectGuard.assertEntity(CHANNEL_A, 'reply_feedback', 'feedback-a')
+  await assert.rejects(
+    indirectGuard.assertEntity(CHANNEL_A, 'reply_feedback', 'feedback-b'),
     (error) => assertChannelError(error, 'CROSS_CHANNEL_ENTITY_ACCESS'),
   )
 
@@ -139,6 +193,23 @@ async function main() {
     (error) => assertChannelError(error, 'CROSS_CHANNEL_ENTITY_ACCESS'),
   )
 
+  await assert.rejects(
+    deleteStoredPlatformMp4Asset({
+      channelId: CHANNEL_A,
+      objectKey: `channels/${CHANNEL_B}/platform-packages/test/clip.mp4`,
+      storageMode: 'r2',
+    }),
+    (error) => assertChannelError(error, 'CROSS_CHANNEL_STORAGE_ACCESS'),
+  )
+  await assert.rejects(
+    deleteStoredPlatformMp4Asset({
+      channelId: CHANNEL_A,
+      objectKey: 'platform-packages/legacy/clip.mp4',
+      storageMode: 'r2',
+    }),
+    (error) => assertChannelError(error, 'CROSS_CHANNEL_STORAGE_ACCESS'),
+  )
+
   const previousUsers = process.env.APP_USERS_JSON
   process.env.APP_USERS_JSON = JSON.stringify([
     {
@@ -175,6 +246,7 @@ async function main() {
   }
 
   const rls = migrations[2]
+  assert.match(rls, /as restrictive/i, 'RBHQ isolation policies must constrain unrelated permissive policies')
   assert.doesNotMatch(
     rls,
     /select policyname[\s\S]*drop policy %i/i,
@@ -208,6 +280,18 @@ async function main() {
   )
   assert.match(clipService, /buildChannelStorageKey/)
   assert.doesNotMatch(clipService, /storagePath = `\$\{input\.channelId\}\//)
+
+  const ingestRoute = readFileSync(path.join(root, 'app/api/ingest/run/route.ts'), 'utf8')
+  assert.ok(
+    ingestRoute.indexOf('ownershipGuard.assertSources') < ingestRoute.indexOf('jobId: await enqueueIngestJob'),
+    'ingest API ownership must be resolved before queue side effects',
+  )
+  const decisionRoute = readFileSync(path.join(root, 'app/api/posts/[postId]/decision/route.ts'), 'utf8')
+  assert.ok(
+    decisionRoute.indexOf("await ownershipGuard.assertEntity(clip.channel_id, 'clip_candidate'") <
+      decisionRoute.indexOf('const refreshed = await refreshClipPrepForCandidate'),
+    'candidate ownership must be resolved before clip-prep or package side effects',
+  )
 
   console.log('PASS executable poisoned-job, indirect ownership, migration, auth, and side-effect ordering security tests')
 }

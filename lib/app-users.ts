@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 
 import type { SessionUser } from './auth'
-import { getChannelMeta, listChannelMeta } from './channel-meta'
+import { listChannelMeta } from './channel-meta'
 import { isProductionRuntime } from './security'
 import { supabaseAdminClient } from './supabase-admin'
 
@@ -34,33 +34,13 @@ type NormalizedAppUser = {
   pinHash: string | null
 }
 
-const RB_ARENA_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000002'
-const RB_FUTBOL_CHANNEL_ID = 'a1000000-0000-0000-0000-000000000005'
-const MATT_ASSIGNED_CHANNEL_IDS = [RB_ARENA_CHANNEL_ID]
-const EXTRA_APP_CHANNEL_IDS = new Set([RB_FUTBOL_CHANNEL_ID])
-
-// Matt — Gaming / Esports operator (@runnitbackgaming). Recognizes both the
-// email login (production) and the bare username alias (local / legacy).
-const MATT_USERNAMES = new Set(['matt', 'matt@runnitbackhq.com'])
-
-// ---------------------------------------------------------------------------
-// Future operators — NOT active. Do not add credentials until each person
-// has been onboarded and their APP_USERS_JSON entry has been created.
-//
-// Manny  — rb_sports / @runnitbacksports   — manny@runnitbackhq.com
-//   channelId: a1000000-0000-0000-0000-000000000001
-//
-// Thomas — rb_cfb   / @runnitbackcfb       — thomas@runnitbackhq.com
-//   channelId: 93484eef-06d8-46fd-bce2-ce252422c58e
-// ---------------------------------------------------------------------------
-
-function normalizeRole(value: string | undefined): Role {
+function normalizeRole(value: string | undefined): Role | null {
   if (value === 'super_admin') return 'admin'
   if (value === 'admin' || value === 'operator' || value === 'user') {
     return value
   }
 
-  return 'operator'
+  return null
 }
 
 function normalizeChannelIds(value: unknown): string[] {
@@ -75,7 +55,7 @@ function normalizeChannelIds(value: unknown): string[] {
     }
 
     const channelId = entry.trim()
-    if (channelId && isKnownAppChannelId(channelId)) {
+    if (channelId) {
       channelIds.add(channelId)
     }
   }
@@ -99,12 +79,14 @@ function normalizeAppUser(entry: RawAppUser): NormalizedAppUser | null {
   if (!plainPassword && !passwordHash && !plainPin && !pinHash) {
     return null
   }
+  const role = normalizeRole(entry.role)
+  if (!role) return null
 
   return {
     userId: entry.userId?.trim() || entry.id?.trim() || `env:${username}`,
     username,
     email,
-    role: normalizeRole(entry.role),
+    role,
     channelIds: normalizeChannelIds(entry.channelIds),
     plainPassword,
     passwordHash,
@@ -214,11 +196,7 @@ export async function authenticateAppUserByEmailPassword(
 }
 
 function canConfiguredUserAuthenticate(user: NormalizedAppUser): boolean {
-  if (user.role === 'admin') {
-    return true
-  }
-
-  return resolveSessionChannelIds(user).length === 1
+  return user.role === 'admin'
 }
 
 export async function authenticateAppUserByPin(secret: string): Promise<SessionUser | null> {
@@ -281,8 +259,9 @@ export function resolveConfiguredSessionAccess(
   )
   if (!user) return null
 
+  if (!canConfiguredUserAuthenticate(user)) return null
+
   const channelIds = resolveSessionChannelIds(user)
-  if (user.role !== 'admin' && channelIds.length !== 1) return null
 
   return { role: user.role, channelIds }
 }
@@ -306,6 +285,7 @@ async function authenticateDatabaseAppUser(
   }
 
   const role = normalizeRole(user.role)
+  if (!role) return null
   const channelIds = await loadUserChannelIds(user.id)
   if (!canDatabaseUserAuthenticate({ username: user.username, role, channelIds })) {
     return null
@@ -315,7 +295,7 @@ async function authenticateDatabaseAppUser(
     userId: user.id,
     username: user.username,
     role,
-    channelIds: resolveSessionChannelIds({ username: user.username, role, channelIds }),
+    channelIds: resolveSessionChannelIds({ role, channelIds }),
   }
 }
 
@@ -344,6 +324,7 @@ async function authenticateDatabaseAppUserByEmailPassword(
   }
 
   const role = normalizeRole(user.role)
+  if (!role) return null
   const channelIds = await loadUserChannelIds(user.id)
   if (!canDatabaseUserAuthenticate({ username: user.username, role, channelIds })) {
     return null
@@ -353,23 +334,14 @@ async function authenticateDatabaseAppUserByEmailPassword(
     userId: user.id,
     username: user.username,
     role,
-    channelIds: resolveSessionChannelIds({ username: user.username, role, channelIds }),
+    channelIds: resolveSessionChannelIds({ role, channelIds }),
   }
 }
 
-function resolveSessionChannelIds(user: Pick<NormalizedAppUser, 'username' | 'role' | 'channelIds'>): string[] {
+function resolveSessionChannelIds(user: Pick<NormalizedAppUser, 'role' | 'channelIds'>): string[] {
   if (user.role === 'admin') return listChannelMeta().map((channel) => channel.id)
-  if (isMattUser(user.username)) return MATT_ASSIGNED_CHANNEL_IDS
 
   return user.channelIds
-}
-
-function isMattUser(username: string): boolean {
-  return MATT_USERNAMES.has(username.trim().toLowerCase())
-}
-
-function isKnownAppChannelId(channelId: string): boolean {
-  return Boolean(getChannelMeta(channelId) || EXTRA_APP_CHANNEL_IDS.has(channelId))
 }
 
 async function loadUserChannelIds(userId: string): Promise<string[]> {
@@ -383,7 +355,7 @@ async function loadUserChannelIds(userId: string): Promise<string[]> {
   return [...new Set(
     (data ?? [])
       .map((row: { channel_id: string | null }) => row.channel_id)
-      .filter((value): value is string => Boolean(value && getChannelMeta(value))),
+      .filter((value): value is string => Boolean(value)),
   )]
 }
 

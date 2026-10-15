@@ -49,6 +49,10 @@ export function resolveChannelAccess(
     }
   }
 
+  if (facts.identitySource === 'trusted_configuration') {
+    return null
+  }
+
   const operatorChannelIds = uniqueChannelIds(facts.operatorChannelIds)
   if ((role !== 'operator' && role !== 'user') || operatorChannelIds.length !== 1) {
     return null

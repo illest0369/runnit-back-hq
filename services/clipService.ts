@@ -3,12 +3,16 @@ import path from 'node:path'
 
 import { getSourceSuggestion, saveGeneratedClipRecord, updateProcessedVideoStatus, updateSourceSuggestionStatus } from '../lib/clip-worker-db'
 import { getChannelMeta } from '../lib/channel-meta'
+import { validateClipGenerationJobOwnership } from '../lib/channel-job-ownership'
+import { createSupabaseChannelOwnershipGuard } from '../lib/channel-ownership'
+import { buildChannelStorageKey } from '../lib/channel-scope'
 import { uploadGeneratedClip } from '../lib/clip-storage'
 import { completeModerationClipRender, markModerationClipRenderFailed } from '../lib/clip-render'
 import { parseFinalJudgeDecision } from '../lib/final-judge'
 import { markGeneratedClipsReadyForPublish } from '../lib/publish-relay'
 import { transitionClipState } from '../lib/state-machine'
 import { validateSystemGuard } from '../lib/system-guard'
+import { supabaseAdminClient } from '../lib/supabase-admin'
 import {
   type ClipGenerationJobProgress,
   type ClipGenerationJobResult,
@@ -45,6 +49,7 @@ type SavedClipRecord = {
 }
 
 const MIN_CLIP_QUALITY_SCORE = 65
+const ownershipGuard = createSupabaseChannelOwnershipGuard(supabaseAdminClient)
 
 function toProgress(step: string, percent: number, message: string): ClipGenerationJobProgress {
   return {
@@ -135,6 +140,7 @@ export async function generateClipsFromVideo(
   input: GenerateClipInput,
   reportProgress?: ProgressReporter,
 ): Promise<ClipGenerationJobResult> {
+  await validateClipGenerationJobOwnership(ownershipGuard, input)
   await ensureClipDirectories()
   await updateSourceSuggestionStatus(input.sourceSuggestionId, 'processing')
   await reportProgress?.(toProgress('download', 10, 'Downloading source video.'))
@@ -183,7 +189,11 @@ export async function generateClipsFromVideo(
       const clip = clipsToProcess[index]
       const filename = `${filePrefix}-clip-${index + 1}.mp4`
       const localOutputPath = path.join(generatedClipDir, filename)
-      const storagePath = `${input.channelId}/${filename}`
+      const storagePath = buildChannelStorageKey({
+        channelId: input.channelId,
+        category: 'generated-clips',
+        segments: [filename],
+      })
       let localUrl: string | null = null
 
       localFiles.push(localOutputPath)

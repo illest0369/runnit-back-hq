@@ -3,7 +3,7 @@ import { ChannelAccessError } from './channel-access'
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const SAFE_SEGMENT_PATTERN = /^[a-zA-Z0-9._-]+$/
 
-function assertChannelId(channelId: string): string {
+export function assertChannelId(channelId: string): string {
   const normalized = channelId.trim().toLowerCase()
   if (!UUID_PATTERN.test(normalized)) {
     throw new ChannelAccessError('INVALID_CHANNEL_SCOPE', 'A valid channel scope is required.', 400)

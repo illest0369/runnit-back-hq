@@ -87,8 +87,7 @@ const configuredOperator = resolveChannelAccess(session({
   allChannelIds: [CHANNEL_A, CHANNEL_B],
   identitySource: 'trusted_configuration',
 })
-assert(configuredOperator)
-assert.deepEqual(configuredOperator.channelIds, [CHANNEL_A])
+assert.equal(configuredOperator, null, 'configuration-backed operators must never authorize a channel')
 
 assert.equal(resolveChannelAccess(session({
   userId: 'env:operator-a',
