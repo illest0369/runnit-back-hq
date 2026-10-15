@@ -82,10 +82,10 @@
     "worker:post:dry-run": "node dist/workers/startPostDryRunWorker.js",
     "worker:post:dry-run:local": "RBHQ_POST_QUEUE_NAME=rbhq-post-local-dry-run node dist/workers/startPostDryRunWorker.js",
     "smoke:rb-women-youtube-acquisition": "tsx scripts/smoke-rb-women-youtube-acquisition.ts",
-    "smoke:rb-women-gemini-resilience": "tsx scripts/smoke-rb-women-gemini-resilience.ts"
-    ,"test:channel-isolation": "tsx scripts/test-channel-isolation.ts"
-    ,"test:channel-security": "tsx scripts/test-channel-isolation-security.ts"
-    ,"test:phase1-channel-isolation": "npm run test:channel-isolation && npm run test:channel-security"
+    "smoke:rb-women-gemini-resilience": "tsx scripts/smoke-rb-women-gemini-resilience.ts",
+    "test:channel-isolation": "tsx scripts/test-channel-isolation.ts",
+    "test:channel-security": "tsx scripts/test-channel-isolation-security.ts",
+    "test:phase1-channel-isolation": "npm run test:channel-isolation && npm run test:channel-security"
   },
   "engines": {
     "node": "22.x"
