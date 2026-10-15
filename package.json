@@ -85,7 +85,8 @@
     "smoke:rb-women-gemini-resilience": "tsx scripts/smoke-rb-women-gemini-resilience.ts",
     "test:channel-isolation": "tsx scripts/test-channel-isolation.ts",
     "test:channel-security": "tsx scripts/test-channel-isolation-security.ts",
-    "test:phase1-channel-isolation": "npm run test:channel-isolation && npm run test:channel-security"
+    "test:channel-runtime-security": "tsx scripts/test-channel-runtime-security.ts",
+    "test:phase1-channel-isolation": "npm run test:channel-isolation && npm run test:channel-security && npm run test:channel-runtime-security"
   },
   "engines": {
     "node": "22.x"
