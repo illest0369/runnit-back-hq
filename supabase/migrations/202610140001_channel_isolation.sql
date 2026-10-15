@@ -345,5 +345,5 @@ END
 $credential_policies$;
 
 REVOKE ALL ON public.operator_channel_assignments FROM anon;
-GRANT SELECT ON public.operator_channel_assignments TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.operator_channel_assignments TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.operator_channel_assignments TO service_role;
