@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import runpy
 import subprocess
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -285,3 +286,12 @@ def test_process_job_renders_uploads_and_removes_temporary_files(
 def test_process_job_requires_runpod_job_shape() -> None:
     with pytest.raises(ValueError, match="job input is required"):
         process_job({"id": "runpod-job-1"})
+
+
+@patch("runpod.serverless.start")
+def test_conventional_entrypoint_starts_the_worker(start: Mock) -> None:
+    entrypoint = Path(__file__).parents[1] / "handler.py"
+
+    runpy.run_path(str(entrypoint), run_name="__main__")
+
+    start.assert_called_once_with({"handler": process_job})
