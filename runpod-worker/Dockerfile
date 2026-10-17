@@ -9,9 +9,10 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY requirements.txt ./
+COPY runpod-worker/requirements.txt ./
 RUN pip install --no-cache-dir --requirement requirements.txt
 
-COPY rbhq_runpod ./rbhq_runpod
+COPY runpod-worker/rbhq_runpod ./rbhq_runpod
+COPY runpod-worker/handler.py ./handler.py
 
-CMD ["python", "-u", "-m", "rbhq_runpod.handler"]
+CMD ["python", "-u", "handler.py"]
