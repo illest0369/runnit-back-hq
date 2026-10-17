@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import os
 import subprocess
 import tempfile
 from dataclasses import dataclass
@@ -24,6 +25,13 @@ class RenderRequest:
     @property
     def duration_seconds(self) -> float:
         return self.end_seconds - self.start_seconds
+
+
+@dataclass(frozen=True)
+class TranscribeRequest:
+    """Validated input for one source transcription."""
+
+    source_url: str
 
 
 def _required_string(payload: dict[str, Any], name: str) -> str:
@@ -102,11 +110,21 @@ def validate_input(payload: dict[str, Any]) -> RenderRequest:
     )
 
 
+def validate_transcribe_input(payload: dict[str, Any]) -> TranscribeRequest:
+    """Validate a source-only transcription request."""
+
+    if not isinstance(payload, dict):
+        raise ValueError("job input must be an object")
+    source_url = _required_string(payload, "source_url")
+    _validate_public_https_url(source_url, "source_url")
+    return TranscribeRequest(source_url=source_url)
+
+
 def _run(command: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(command, check=True, capture_output=True, text=True)
 
 
-def download_source(request: RenderRequest, work_dir: Path) -> Path:
+def download_source(request: RenderRequest | TranscribeRequest, work_dir: Path) -> Path:
     """Download a single public source video with yt-dlp."""
 
     output_template = work_dir / "source.%(ext)s"
@@ -131,6 +149,47 @@ def download_source(request: RenderRequest, work_dir: Path) -> Path:
     if work_dir.resolve() not in source_path.parents or not source_path.is_file():
         raise RuntimeError("yt-dlp did not produce a source file in the job workspace")
     return source_path
+
+
+def transcribe_source(source_path: Path) -> dict[str, Any]:
+    """Transcribe source media on RunPod so Railway remains orchestration-only."""
+
+    from faster_whisper import WhisperModel
+
+    model_name = os.environ.get("RBHQ_WHISPER_MODEL", "tiny.en").strip() or "tiny.en"
+    model_dir = os.environ.get("RBHQ_WHISPER_MODEL_DIR", "/models").strip() or "/models"
+    device = os.environ.get("RBHQ_WHISPER_DEVICE", "cpu").strip() or "cpu"
+    compute_type = os.environ.get(
+        "RBHQ_WHISPER_COMPUTE_TYPE",
+        "float16" if device == "cuda" else "int8",
+    ).strip()
+    model = WhisperModel(
+        model_name,
+        device=device,
+        compute_type=compute_type,
+        download_root=model_dir,
+    )
+    generated, info = model.transcribe(str(source_path), beam_size=1, vad_filter=True)
+    segments = [
+        {
+            "start": round(float(segment.start), 3),
+            "end": round(float(segment.end), 3),
+            "text": segment.text.strip(),
+        }
+        for segment in generated
+        if segment.text.strip() and float(segment.end) > float(segment.start)
+    ]
+    if not segments:
+        raise RuntimeError("faster-whisper returned an empty transcript")
+
+    duration_seconds = float(getattr(info, "duration", 0) or segments[-1]["end"])
+    return {
+        "text": " ".join(str(segment["text"]) for segment in segments),
+        "segments": segments,
+        "duration_seconds": round(duration_seconds, 3),
+        "language": str(getattr(info, "language", "") or "unknown"),
+        "model": model_name,
+    }
 
 
 def create_caption_image(caption_text: str, output_path: Path) -> None:
@@ -315,6 +374,16 @@ def process_job(job: dict[str, Any]) -> dict[str, Any]:
     payload = job.get("input") if isinstance(job, dict) else None
     if not isinstance(payload, dict):
         raise ValueError("job input is required")
+    task = payload.get("task", "render")
+    if task not in {"render", "transcribe"}:
+        raise ValueError("task must be render or transcribe")
+
+    if task == "transcribe":
+        request = validate_transcribe_input(payload)
+        with tempfile.TemporaryDirectory(prefix="rbhq-runpod-") as temporary_dir:
+            source_path = download_source(request, Path(temporary_dir))
+            return {"status": "transcribed", **transcribe_source(source_path)}
+
     request = validate_input(payload)
 
     with tempfile.TemporaryDirectory(prefix="rbhq-runpod-") as temporary_dir:

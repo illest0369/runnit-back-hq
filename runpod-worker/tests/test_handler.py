@@ -9,6 +9,7 @@ import pytest
 
 from rbhq_runpod.handler import (
     RenderRequest,
+    TranscribeRequest,
     build_ffmpeg_command,
     create_caption_image,
     download_source,
@@ -18,6 +19,7 @@ from rbhq_runpod.handler import (
     render_vertical_clip,
     upload_file,
     validate_input,
+    validate_transcribe_input,
 )
 
 
@@ -32,12 +34,25 @@ def valid_input() -> dict[str, object]:
     }
 
 
+def valid_transcribe_input() -> dict[str, object]:
+    return {
+        "task": "transcribe",
+        "source_url": "https://media.example.com/source.mp4",
+    }
+
+
 def test_validate_input_accepts_a_scoped_render_request() -> None:
     request = validate_input(valid_input())
 
     assert request.source_url == "https://media.example.com/source.mp4"
     assert request.duration_seconds == 10
     assert request.caption_text == "Fourth-quarter comeback"
+
+
+def test_validate_transcribe_input_accepts_a_public_source() -> None:
+    request = validate_transcribe_input(valid_transcribe_input())
+
+    assert request == TranscribeRequest(source_url="https://media.example.com/source.mp4")
 
 
 @pytest.mark.parametrize(
@@ -286,6 +301,48 @@ def test_process_job_renders_uploads_and_removes_temporary_files(
 def test_process_job_requires_runpod_job_shape() -> None:
     with pytest.raises(ValueError, match="job input is required"):
         process_job({"id": "runpod-job-1"})
+
+
+@patch("rbhq_runpod.handler.transcribe_source")
+@patch("rbhq_runpod.handler.download_source")
+def test_process_job_transcribes_source_and_removes_temporary_files(
+    download_source: Mock,
+    transcribe_source: Mock,
+) -> None:
+    temporary_paths: list[Path] = []
+
+    def fake_download(request: TranscribeRequest, work_dir: Path) -> Path:
+        temporary_paths.append(work_dir)
+        source_path = work_dir / "source.mp4"
+        source_path.write_bytes(b"source")
+        return source_path
+
+    download_source.side_effect = fake_download
+    transcribe_source.return_value = {
+        "text": "The final shot won the game.",
+        "segments": [{"start": 0.0, "end": 4.0, "text": "The final shot won the game."}],
+        "duration_seconds": 4.0,
+        "language": "en",
+        "model": "tiny.en",
+    }
+
+    result = process_job({"id": "runpod-job-2", "input": valid_transcribe_input()})
+
+    assert result == {
+        "status": "transcribed",
+        "text": "The final shot won the game.",
+        "segments": [{"start": 0.0, "end": 4.0, "text": "The final shot won the game."}],
+        "duration_seconds": 4.0,
+        "language": "en",
+        "model": "tiny.en",
+    }
+    transcribe_source.assert_called_once()
+    assert all(not path.exists() for path in temporary_paths)
+
+
+def test_process_job_rejects_unknown_task() -> None:
+    with pytest.raises(ValueError, match="task must be render or transcribe"):
+        process_job({"id": "runpod-job-3", "input": {**valid_input(), "task": "delete"}})
 
 
 @patch("runpod.serverless.start")

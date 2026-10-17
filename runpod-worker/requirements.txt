@@ -1,4 +1,5 @@
 Pillow==13.0.0
+faster-whisper==1.2.1
 requests==2.34.2
 runpod==1.12.0
 yt-dlp==2026.8.19
