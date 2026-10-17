@@ -41,6 +41,17 @@ def valid_transcribe_input() -> dict[str, object]:
     }
 
 
+def test_requirements_pin_pyav_below_metadata_errors_breakage() -> None:
+    requirements_path = Path(__file__).parents[1] / "requirements.txt"
+    requirements = {
+        line.strip()
+        for line in requirements_path.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+    assert "av<19" in requirements
+
+
 def test_validate_input_accepts_a_scoped_render_request() -> None:
     request = validate_input(valid_input())
 
