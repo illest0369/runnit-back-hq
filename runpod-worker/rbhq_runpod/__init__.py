@@ -1,0 +1,1 @@
+"""RBHQ RunPod rendering worker."""
