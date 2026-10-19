@@ -236,6 +236,7 @@ async function main() {
     '202610140001_channel_isolation_schema.sql',
     '202610140002_channel_assignment_backfill.sql',
     '202610140003_channel_isolation_rls.sql',
+    '202610160001_source_suggestions_store.sql',
   ]
   const migrations = migrationFiles.map((filename) =>
     readFileSync(path.join(root, 'supabase/migrations', filename), 'utf8'),
@@ -264,9 +265,52 @@ async function main() {
     /publish_jobs[\s\S]*posts/i,
     /publish_events[\s\S]*posts/i,
     /rbhq_analytics_snapshots[\s\S]*posts/i,
+    /publish_logs[\s\S]*posts/i,
+    /rbhq_posts[\s\S]*rbhq_clips/i,
+    /rbhq_posted_clips[\s\S]*rbhq_clips/i,
   ]) {
     assert.match(rls, relation, `RLS migration is missing an indirect ownership policy: ${relation}`)
   }
+  for (const directRelation of ['comments', 'channel_sources', 'channel_programming']) {
+    assert.match(
+      rls,
+      new RegExp(`rbhq_install_direct_policy\\('${directRelation}', 'channel_id'\\)`),
+      `${directRelation} must be directly channel scoped`,
+    )
+  }
+  const sourceSuggestions = migrations[3]
+  assert.match(sourceSuggestions, /create table if not exists public\.source_suggestions/i)
+  assert.match(sourceSuggestions, /channel_id uuid not null references public\.channels/i)
+  assert.match(sourceSuggestions, /operator_id uuid not null references public\.users/i)
+  assert.match(sourceSuggestions, /alter table public\.source_suggestions force row level security/i)
+  assert.match(
+    sourceSuggestions,
+    /create policy rbhq_channel_isolation[\s\S]*private\.rbhq_can_access_channel\(channel_id\)/i,
+  )
+  assert.doesNotMatch(
+    migrations.join('\n'),
+    /alter\s+publication\s+supabase_realtime\s+add\s+table/i,
+    'Phase 1 must not enable Postgres Changes replication',
+  )
+  assert.match(migrations[0], /alter table public\.rbhq_clips[\s\S]*add column if not exists channel_id/i)
+  assert.match(migrations[1], /RBHQ_OPERATOR_ASSIGNMENT_REQUIRED/i)
+  const assignmentMigration = migrations[1]
+  assert.match(assignmentMigration, /\$owner_confirmed_thomas_assignment\$/i)
+  assert.match(assignmentMigration, /d661928a-95a7-40e6-862d-fb18e78bf583/i)
+  assert.match(assignmentMigration, /93484eef-06d8-46fd-bce2-ce252422c58e/i)
+  assert.match(assignmentMigration, /lower\(coalesce\(role::text, ''\)\) = 'operator'/i)
+  assert.match(assignmentMigration, /RBHQ_OWNER_CONFIRMED_ASSIGNMENT_INVALID/i)
+  assert.ok(
+    assignmentMigration.indexOf('$owner_confirmed_thomas_assignment$') <
+      assignmentMigration.indexOf('select legacy.user_id, min(legacy.channel_id::text)::uuid'),
+    'owner-confirmed Thomas assignment must be installed before the legacy backfill',
+  )
+  const ownerAssignmentBlock = assignmentMigration.match(
+    /do \$owner_confirmed_thomas_assignment\$[\s\S]*?\$owner_confirmed_thomas_assignment\$;/i,
+  )?.[0]
+  assert.ok(ownerAssignmentBlock, 'owner-confirmed Thomas assignment block is required')
+  assert.doesNotMatch(ownerAssignmentBlock, /update\s+public\.users/i)
+  assert.doesNotMatch(ownerAssignmentBlock, /update\s+public\.user_settings/i)
 
   const workerSource = readFileSync(path.join(root, 'workers/rbhqWorker.ts'), 'utf8')
   assert.ok(

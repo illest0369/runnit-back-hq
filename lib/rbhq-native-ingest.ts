@@ -295,6 +295,7 @@ async function sourceEntries(source: CuratedSourceRow): Promise<RssEntry[]> {
 function toSourceItem(video: EnrichedVideo) {
   const platform = platformForUrl(video.canonicalUrl)
   return {
+    channel_id: video.source.channel_id,
     source_platform: platform,
     source_url: video.canonicalUrl,
     source_external_id: video.externalId,

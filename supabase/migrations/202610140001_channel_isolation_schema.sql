@@ -19,9 +19,9 @@ create table if not exists public.operator_channel_assignments (
 create index if not exists operator_channel_assignments_channel_id_idx
   on public.operator_channel_assignments (channel_id);
 
--- New source-item writes are channel-scoped. Existing null rows are reconciled
--- only when their clip relationships prove a single owner in stage 2.
-do $source_item_scope$
+-- Additive ownership columns required by the live schema. Existing null rows
+-- are reconciled conservatively in stage 2 and remain fail-closed otherwise.
+do $channel_owned_workflow_scope$
 begin
   if to_regclass('public.rbhq_source_items') is not null then
     alter table public.rbhq_source_items
@@ -29,8 +29,24 @@ begin
     create index if not exists rbhq_source_items_channel_id_idx
       on public.rbhq_source_items (channel_id);
   end if;
+
+  if to_regclass('public.rbhq_clips') is not null then
+    alter table public.rbhq_clips
+      add column if not exists channel_id uuid references public.channels(id) on delete restrict;
+    create index if not exists rbhq_clips_channel_id_idx
+      on public.rbhq_clips (channel_id);
+  end if;
+
+  if to_regclass('public.clip_sources') is not null then
+    alter table public.clip_sources
+      add column if not exists channel_id uuid references public.channels(id) on delete restrict;
+    create index if not exists clip_sources_channel_id_idx
+      on public.clip_sources (channel_id);
+    create unique index if not exists clip_sources_channel_name_type_key
+      on public.clip_sources (channel_id, source_name, source_type);
+  end if;
 end
-$source_item_scope$;
+$channel_owned_workflow_scope$;
 
 create or replace function private.rbhq_is_super_admin()
 returns boolean

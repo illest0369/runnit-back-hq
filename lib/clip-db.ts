@@ -118,19 +118,6 @@ type IngestDescriptionMetadata = {
   duration_seconds?: number | null
 }
 
-type SaveSourceSuggestionInput = {
-  channelId: string
-  operatorId: string
-  sourceUrl: string
-  title: string
-  author: string | null
-  durationSeconds: number | null
-  thumbnailUrl: string | null
-  initialScore: number
-  reasoning: string[]
-  metadata: Record<string, unknown>
-}
-
 type SaveGeneratedPostInput = {
   channelId: string
   requestedByUserId: string
@@ -326,23 +313,6 @@ function initDatabase(db: DatabaseSync) {
       updated_at TEXT
     );
 
-    CREATE TABLE IF NOT EXISTS source_suggestions (
-      id TEXT PRIMARY KEY,
-      channel_id TEXT NOT NULL,
-      operator_id TEXT NOT NULL,
-      source_url TEXT NOT NULL,
-      source_title TEXT NOT NULL,
-      source_author TEXT,
-      duration_seconds REAL,
-      thumbnail_url TEXT,
-      initial_score REAL NOT NULL DEFAULT 0,
-      reasoning TEXT,
-      metadata TEXT,
-      status TEXT NOT NULL DEFAULT 'suggested',
-      created_at TEXT NOT NULL,
-      updated_at TEXT
-    );
-
     CREATE TABLE IF NOT EXISTS posts (
       id TEXT PRIMARY KEY,
       clip_id TEXT,
@@ -399,9 +369,6 @@ function initDatabase(db: DatabaseSync) {
 
     CREATE UNIQUE INDEX IF NOT EXISTS processed_videos_video_url_idx
       ON processed_videos (video_url);
-
-    CREATE INDEX IF NOT EXISTS source_suggestions_channel_idx
-      ON source_suggestions (channel_id, created_at DESC);
 
     CREATE TABLE IF NOT EXISTS post_performance (
       id TEXT PRIMARY KEY,
@@ -684,82 +651,6 @@ export function listExistingSourceVideoUrls(channelId: string): Set<string> {
       .map((row) => row.source_video_url?.trim())
       .filter((value): value is string => Boolean(value)),
   )
-}
-
-export function saveSourceSuggestion(input: SaveSourceSuggestionInput): string {
-  const suggestionId = randomUUID()
-  const createdAt = new Date().toISOString()
-
-  getClipDb()
-    .prepare(
-      `
-        INSERT INTO source_suggestions (
-          id, channel_id, operator_id, source_url, source_title, source_author,
-          duration_seconds, thumbnail_url, initial_score, reasoning, metadata,
-          status, created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'suggested', ?, ?)
-      `,
-    )
-    .run(
-      suggestionId,
-      input.channelId,
-      input.operatorId,
-      input.sourceUrl,
-      input.title,
-      input.author,
-      input.durationSeconds,
-      input.thumbnailUrl,
-      input.initialScore,
-      serializeJson(input.reasoning),
-      serializeJson(input.metadata),
-      createdAt,
-      createdAt,
-    )
-
-  return suggestionId
-}
-
-export function getSourceSuggestion(suggestionId: string): {
-  id: string
-  source_title: string
-  initial_score: number
-} | null {
-  const row = getClipDb()
-    .prepare(
-      `
-        SELECT id, source_title, initial_score
-        FROM source_suggestions
-        WHERE id = ?
-      `,
-    )
-    .get(suggestionId) as
-    | {
-        id: string
-        source_title: string
-        initial_score: number
-      }
-    | undefined
-
-  return row ?? null
-}
-
-export function updateSourceSuggestionStatus(
-  suggestionId: string | null | undefined,
-  status: 'suggested' | 'processing' | 'ready' | 'failed',
-) {
-  if (!suggestionId) {
-    return
-  }
-
-  getClipDb()
-    .prepare(
-      `
-        UPDATE source_suggestions
-        SET status = ?, updated_at = ?
-        WHERE id = ?
-      `,
-    )
-    .run(status, new Date().toISOString(), suggestionId)
 }
 
 export function persistIngestCandidate(input: PersistIngestRowInput): string {

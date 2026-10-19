@@ -4,9 +4,11 @@ import path from 'node:path'
 
 const root = process.cwd()
 const migrationPaths = [
+  'supabase/migrations/202607310001_asset_retention.sql',
   'supabase/migrations/202610140001_channel_isolation_schema.sql',
   'supabase/migrations/202610140002_channel_assignment_backfill.sql',
   'supabase/migrations/202610140003_channel_isolation_rls.sql',
+  'supabase/migrations/20261019025640_revoke_anon_public_access.sql',
 ]
 const migrations = migrationPaths.map((migrationPath) =>
   readFileSync(path.join(root, migrationPath), 'utf8'),
@@ -23,13 +25,26 @@ const requiredSql = [
   /alter table public\.channels enable row level security/i,
   /alter table public\.operator_channel_assignments enable row level security/i,
   /rbhq_install_direct_policy\('clips', 'channel_id'\)/i,
+  /rbhq_install_direct_policy\('comments', 'channel_id'\)/i,
+  /rbhq_install_direct_policy\('channel_sources', 'channel_id'\)/i,
+  /rbhq_install_direct_policy\('channel_programming', 'channel_id'\)/i,
   /rbhq_install_direct_policy\('source_channels', 'target_rbhq_channel_id'\)/i,
   /alter table public\.ingested_videos enable row level security/i,
   /alter table public\.video_transcripts enable row level security/i,
   /rbhq_install_direct_policy\('clip_candidates', 'target_channel_id'\)/i,
   /rbhq_install_direct_policy\('mac_mini_clip_packages', 'target_channel_id'\)/i,
   /having count\(distinct legacy\.channel_id\) = 1/i,
+  /RBHQ_OPERATOR_ASSIGNMENT_REQUIRED/i,
+  /add column if not exists channel_id uuid references public\.channels/i,
+  /clip_sources_channel_name_type_key/i,
+  /rbhq_install_post_child_policy\('publish_logs', 'post_id'\)/i,
+  /rbhq_install_rbhq_clip_child_policy\('rbhq_posts', 'clip_id'\)/i,
+  /rbhq_install_rbhq_clip_child_policy\('rbhq_posted_clips', 'clip_id'\)/i,
+  /rbhq_legacy_assignments_select_scope/i,
+  /rbhq_install_admin_only_policy\('learning_weights'\)/i,
   /force row level security/i,
+  /execute format\('revoke all on public\.%I from anon', target_table_name\)/i,
+  /revoke all on public\.reply_feedback from anon/i,
   /as restrictive/i,
   /create policy rbhq_authenticated_gate/i,
   /rbhq_channel_isolation/i,
@@ -48,6 +63,42 @@ for (const [index, sql] of migrations.entries()) {
   assert.match(sql, /^begin;/im, `${migrationPaths[index]} must begin a transaction`)
   assert.match(sql, /commit;\s*$/im, `${migrationPaths[index]} must commit its transaction`)
 }
+
+const anonAccessMigration = migrations[4]
+assert.match(anonAccessMigration, /revoke usage on schema public from anon/i)
+assert.match(
+  anonAccessMigration,
+  /revoke all privileges on all tables in schema public from anon/i,
+)
+assert.match(
+  anonAccessMigration,
+  /revoke execute on all functions in schema public from public, anon/i,
+)
+assert.match(
+  anonAccessMigration,
+  /alter default privileges for role postgres in schema public[\s\S]*revoke all privileges on tables from anon/i,
+)
+assert.doesNotMatch(
+  anonAccessMigration,
+  /revoke\s+(?:all privileges|select|insert|update|delete|execute|usage)[\s\S]*?from\s+(?:authenticated|service_role)/i,
+  'anonymous containment must not revoke authenticated or service-role access',
+)
+
+const anonAccessRollback = readFileSync(
+  path.join(root, 'supabase/rollback/20261019025640_revoke_anon_public_access.sql'),
+  'utf8',
+)
+assert.match(anonAccessRollback, /^begin;/im)
+assert.match(anonAccessRollback, /grant usage on schema public to anon/i)
+assert.match(
+  anonAccessRollback,
+  /grant all privileges on all tables in schema public to anon/i,
+)
+assert.match(
+  anonAccessRollback,
+  /grant execute on all functions in schema public to public, anon/i,
+)
+assert.match(anonAccessRollback, /commit;\s*$/im)
 
 assert.doesNotMatch(
   migration,
@@ -105,6 +156,13 @@ assert.match(worker, /validateIngestJobOwnership/)
 assert.match(worker, /validateApifyPollJobOwnership/)
 assert.match(worker, /ownershipGuard\.assertEntity/)
 assert.match(worker, /\.eq\('channel_id', job\.data\.channelId\)/)
+
+const nativeIngest = readFileSync(path.join(root, 'lib/rbhq-native-ingest.ts'), 'utf8')
+assert.match(
+  nativeIngest,
+  /function toSourceItem[\s\S]*channel_id: video\.source\.channel_id/,
+  'native source-item writes must persist their channel owner',
+)
 
 const clipWorkerDb = readFileSync(path.join(root, 'lib/clip-worker-db.ts'), 'utf8')
 assert.match(clipWorkerDb, /\.eq\('channel_id', channelId\)/)

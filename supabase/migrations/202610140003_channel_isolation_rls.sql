@@ -93,6 +93,41 @@ create policy rbhq_assignments_delete_scope on public.operator_channel_assignmen
 revoke all on public.operator_channel_assignments from anon;
 grant select, insert, update, delete on public.operator_channel_assignments to authenticated, service_role;
 
+-- The legacy assignment relation remains in the live schema for compatibility,
+-- but operators may only see their own row and only super admins may mutate it.
+do $legacy_user_channels_policy$
+begin
+  if to_regclass('public.user_channels') is not null then
+    alter table public.user_channels enable row level security;
+    alter table public.user_channels force row level security;
+    revoke all on public.user_channels from anon;
+    grant select, insert, update, delete on public.user_channels to authenticated, service_role;
+    drop policy if exists rbhq_authenticated_gate on public.user_channels;
+    drop policy if exists rbhq_legacy_assignments_select_scope on public.user_channels;
+    drop policy if exists rbhq_legacy_assignments_insert_scope on public.user_channels;
+    drop policy if exists rbhq_legacy_assignments_update_scope on public.user_channels;
+    drop policy if exists rbhq_legacy_assignments_delete_scope on public.user_channels;
+    create policy rbhq_authenticated_gate on public.user_channels
+      as permissive for all to authenticated
+      using ((select auth.uid()) is not null)
+      with check ((select auth.uid()) is not null);
+    create policy rbhq_legacy_assignments_select_scope on public.user_channels
+      as restrictive for select to authenticated
+      using ((select private.rbhq_is_super_admin()) or user_id = (select auth.uid()));
+    create policy rbhq_legacy_assignments_insert_scope on public.user_channels
+      as restrictive for insert to authenticated
+      with check ((select private.rbhq_is_super_admin()));
+    create policy rbhq_legacy_assignments_update_scope on public.user_channels
+      as restrictive for update to authenticated
+      using ((select private.rbhq_is_super_admin()))
+      with check ((select private.rbhq_is_super_admin()));
+    create policy rbhq_legacy_assignments_delete_scope on public.user_channels
+      as restrictive for delete to authenticated
+      using ((select private.rbhq_is_super_admin()));
+  end if;
+end
+$legacy_user_channels_policy$;
+
 -- Migration-local installers are invoked with an explicit table/column list.
 create function pg_temp.rbhq_install_direct_policy(target_table_name text, target_channel_column text)
 returns void language plpgsql as $$
@@ -108,6 +143,7 @@ begin
 
   execute format('alter table public.%I enable row level security', target_table_name);
   execute format('alter table public.%I force row level security', target_table_name);
+  execute format('revoke all on public.%I from anon', target_table_name);
   execute format('grant select, insert, update, delete on public.%I to authenticated, service_role', target_table_name);
   execute format('drop policy if exists rbhq_authenticated_gate on public.%I', target_table_name);
   execute format('drop policy if exists rbhq_channel_isolation on public.%I', target_table_name);
@@ -128,6 +164,9 @@ select pg_temp.rbhq_install_direct_policy('clips', 'channel_id');
 select pg_temp.rbhq_install_direct_policy('sources', 'channel_id');
 select pg_temp.rbhq_install_direct_policy('posts', 'channel_id');
 select pg_temp.rbhq_install_direct_policy('queue_jobs', 'channel_id');
+select pg_temp.rbhq_install_direct_policy('comments', 'channel_id');
+select pg_temp.rbhq_install_direct_policy('channel_sources', 'channel_id');
+select pg_temp.rbhq_install_direct_policy('channel_programming', 'channel_id');
 select pg_temp.rbhq_install_direct_policy('source_suggestions', 'channel_id');
 select pg_temp.rbhq_install_direct_policy('source_channels', 'target_rbhq_channel_id');
 select pg_temp.rbhq_install_direct_policy('clip_candidates', 'target_channel_id');
@@ -137,7 +176,6 @@ select pg_temp.rbhq_install_direct_policy('n8n_handoffs', 'channel_id');
 select pg_temp.rbhq_install_direct_policy('clip_sources', 'channel_id');
 select pg_temp.rbhq_install_direct_policy('post_log', 'channel_id');
 select pg_temp.rbhq_install_direct_policy('processed_videos', 'channel_id');
-select pg_temp.rbhq_install_direct_policy('publish_logs', 'channel_id');
 select pg_temp.rbhq_install_direct_policy('rbhq_clips', 'channel_id');
 select pg_temp.rbhq_install_direct_policy('rbhq_source_items', 'channel_id');
 
@@ -147,6 +185,7 @@ begin
   if to_regclass('public.ingested_videos') is not null then
     alter table public.ingested_videos enable row level security;
     alter table public.ingested_videos force row level security;
+    revoke all on public.ingested_videos from anon;
     grant select, insert, update, delete on public.ingested_videos to authenticated, service_role;
     drop policy if exists rbhq_authenticated_gate on public.ingested_videos;
     drop policy if exists rbhq_ingested_videos_channel_isolation on public.ingested_videos;
@@ -181,6 +220,7 @@ begin
   if to_regclass('public.video_transcripts') is not null then
     alter table public.video_transcripts enable row level security;
     alter table public.video_transcripts force row level security;
+    revoke all on public.video_transcripts from anon;
     grant select, insert, update, delete on public.video_transcripts to authenticated, service_role;
     drop policy if exists rbhq_authenticated_gate on public.video_transcripts;
     drop policy if exists rbhq_video_transcripts_channel_isolation on public.video_transcripts;
@@ -227,6 +267,7 @@ begin
 
   execute format('alter table public.%I enable row level security', target_table_name);
   execute format('alter table public.%I force row level security', target_table_name);
+  execute format('revoke all on public.%I from anon', target_table_name);
   execute format('grant select, insert, update, delete on public.%I to authenticated, service_role', target_table_name);
   execute format('drop policy if exists rbhq_authenticated_gate on public.%I', target_table_name);
   execute format('drop policy if exists rbhq_post_channel_isolation on public.%I', target_table_name);
@@ -247,6 +288,8 @@ $$;
 select pg_temp.rbhq_install_post_child_policy('publish_jobs', 'clip_id');
 -- publish_events -> posts through post_id.
 select pg_temp.rbhq_install_post_child_policy('publish_events', 'post_id');
+-- publish_logs -> posts through post_id in the live schema.
+select pg_temp.rbhq_install_post_child_policy('publish_logs', 'post_id');
 -- rbhq_analytics_snapshots -> posts through post_id.
 select pg_temp.rbhq_install_post_child_policy('rbhq_analytics_snapshots', 'post_id');
 -- reply_sessions -> posts through post_id.
@@ -260,6 +303,7 @@ begin
   if to_regclass('public.reply_feedback') is not null then
     alter table public.reply_feedback enable row level security;
     alter table public.reply_feedback force row level security;
+    revoke all on public.reply_feedback from anon;
     grant select, insert, update, delete on public.reply_feedback to authenticated, service_role;
     drop policy if exists rbhq_authenticated_gate on public.reply_feedback;
     drop policy if exists rbhq_reply_feedback_channel_isolation on public.reply_feedback;
@@ -292,12 +336,48 @@ begin
 end
 $reply_feedback_policy$;
 
+-- RBHQ workflow post relations inherit ownership through rbhq_clips.
+create function pg_temp.rbhq_install_rbhq_clip_child_policy(target_table_name text, target_clip_column text)
+returns void language plpgsql as $$
+begin
+  if to_regclass(format('public.%I', target_table_name)) is null or not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and information_schema.columns.table_name = target_table_name
+      and column_name = target_clip_column
+  ) then
+    return;
+  end if;
+
+  execute format('alter table public.%I enable row level security', target_table_name);
+  execute format('alter table public.%I force row level security', target_table_name);
+  execute format('revoke all on public.%I from anon', target_table_name);
+  execute format('grant select, insert, update, delete on public.%I to authenticated, service_role', target_table_name);
+  execute format('drop policy if exists rbhq_authenticated_gate on public.%I', target_table_name);
+  execute format('drop policy if exists rbhq_clip_child_channel_isolation on public.%I', target_table_name);
+  execute format(
+    'create policy rbhq_authenticated_gate on public.%I as permissive for all to authenticated using ((select auth.uid()) is not null) with check ((select auth.uid()) is not null)',
+    target_table_name
+  );
+  execute format(
+    'create policy rbhq_clip_child_channel_isolation on public.%I as restrictive for all to authenticated using ((select private.rbhq_is_super_admin()) or exists (select 1 from public.rbhq_clips as owner_clip where owner_clip.id = %I and (select private.rbhq_can_access_channel(owner_clip.channel_id)))) with check ((select private.rbhq_is_super_admin()) or exists (select 1 from public.rbhq_clips as owner_clip where owner_clip.id = %I and (select private.rbhq_can_access_channel(owner_clip.channel_id))))',
+    target_table_name,
+    target_clip_column,
+    target_clip_column
+  );
+end
+$$;
+
+select pg_temp.rbhq_install_rbhq_clip_child_policy('rbhq_posts', 'clip_id');
+select pg_temp.rbhq_install_rbhq_clip_child_policy('rbhq_posted_clips', 'clip_id');
+
 -- rbhq_clip_scores -> rbhq_clips through clip_id.
 do $clip_score_policy$
 begin
   if to_regclass('public.rbhq_clip_scores') is not null then
     alter table public.rbhq_clip_scores enable row level security;
     alter table public.rbhq_clip_scores force row level security;
+    revoke all on public.rbhq_clip_scores from anon;
     grant select, insert, update, delete on public.rbhq_clip_scores to authenticated, service_role;
     drop policy if exists rbhq_authenticated_gate on public.rbhq_clip_scores;
     drop policy if exists rbhq_clip_scores_channel_isolation on public.rbhq_clip_scores;
@@ -333,6 +413,7 @@ begin
   if to_regclass(format('public.%I', target_table_name)) is null then return; end if;
   execute format('alter table public.%I enable row level security', target_table_name);
   execute format('alter table public.%I force row level security', target_table_name);
+  execute format('revoke all on public.%I from anon', target_table_name);
   execute format('grant select, insert, update, delete on public.%I to authenticated, service_role', target_table_name);
   execute format('drop policy if exists rbhq_authenticated_gate on public.%I', target_table_name);
   execute format('drop policy if exists rbhq_workflow_channel_isolation on public.%I', target_table_name);
@@ -341,7 +422,7 @@ begin
     target_table_name
   );
   execute format(
-    'create policy rbhq_workflow_channel_isolation on public.%I as restrictive for all to authenticated using ((select private.rbhq_is_super_admin()) or (entity_type = ''source_item'' and exists (select 1 from public.rbhq_source_items x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id)))) or (entity_type = ''clip'' and exists (select 1 from public.rbhq_clips x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id)))) or (entity_type = ''post'' and exists (select 1 from public.posts x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id))))) with check ((select private.rbhq_is_super_admin()) or (entity_type = ''source_item'' and exists (select 1 from public.rbhq_source_items x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id)))) or (entity_type = ''clip'' and exists (select 1 from public.rbhq_clips x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id)))) or (entity_type = ''post'' and exists (select 1 from public.posts x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id)))))',
+    'create policy rbhq_workflow_channel_isolation on public.%I as restrictive for all to authenticated using ((select private.rbhq_is_super_admin()) or (entity_type = ''source_item'' and exists (select 1 from public.rbhq_source_items x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id)))) or (entity_type = ''clip'' and exists (select 1 from public.rbhq_clips x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id)))) or (entity_type = ''post'' and (exists (select 1 from public.posts x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id))) or exists (select 1 from public.rbhq_posts x join public.rbhq_clips owner_clip on owner_clip.id = x.clip_id where x.id = entity_id and (select private.rbhq_can_access_channel(owner_clip.channel_id)))))) with check ((select private.rbhq_is_super_admin()) or (entity_type = ''source_item'' and exists (select 1 from public.rbhq_source_items x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id)))) or (entity_type = ''clip'' and exists (select 1 from public.rbhq_clips x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id)))) or (entity_type = ''post'' and (exists (select 1 from public.posts x where x.id = entity_id and (select private.rbhq_can_access_channel(x.channel_id))) or exists (select 1 from public.rbhq_posts x join public.rbhq_clips owner_clip on owner_clip.id = x.clip_id where x.id = entity_id and (select private.rbhq_can_access_channel(owner_clip.channel_id))))))',
     target_table_name
   );
 end
@@ -356,6 +437,7 @@ begin
   if to_regclass('public.user_settings') is not null then
     alter table public.user_settings enable row level security;
     alter table public.user_settings force row level security;
+    revoke all on public.user_settings from anon;
     grant select, insert, update, delete on public.user_settings to authenticated, service_role;
     drop policy if exists rbhq_authenticated_gate on public.user_settings;
     drop policy if exists rbhq_user_settings_isolation on public.user_settings;
@@ -383,6 +465,7 @@ begin
   if to_regclass(format('public.%I', target_table_name)) is null then return; end if;
   execute format('alter table public.%I enable row level security', target_table_name);
   execute format('alter table public.%I force row level security', target_table_name);
+  execute format('revoke all on public.%I from anon', target_table_name);
   execute format('grant select, insert, update, delete on public.%I to authenticated, service_role', target_table_name);
   execute format('drop policy if exists rbhq_authenticated_gate on public.%I', target_table_name);
   execute format('drop policy if exists rbhq_super_admin_only on public.%I', target_table_name);
@@ -402,5 +485,9 @@ select pg_temp.rbhq_install_admin_only_policy('channel_social_bindings');
 select pg_temp.rbhq_install_admin_only_policy('credential_refs');
 select pg_temp.rbhq_install_admin_only_policy('social_credentials');
 select pg_temp.rbhq_install_admin_only_policy('publishing_credentials');
+select pg_temp.rbhq_install_admin_only_policy('learning_weights');
+select pg_temp.rbhq_install_admin_only_policy('moderation_actions');
+select pg_temp.rbhq_install_admin_only_policy('notifications');
+select pg_temp.rbhq_install_admin_only_policy('publish_log');
 
 commit;

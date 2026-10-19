@@ -2,6 +2,9 @@ import { createHash, createHmac } from 'node:crypto'
 import { copyFile, mkdir, readFile, unlink } from 'node:fs/promises'
 import path from 'node:path'
 
+import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3'
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+
 type UploadResult = {
   publicUrl: string
   cdnUrl: string | null
@@ -122,6 +125,51 @@ function buildPublicUrl(config: R2Config, objectKey: string) {
 
 export function getR2PublicUrl(objectKey: string) {
   return buildPublicUrl(getRequiredR2Config(), buildObjectKey(objectKey))
+}
+
+export async function createGeneratedClipUploadTarget(
+  storagePath: string,
+  options: { expiresInSeconds?: number } = {},
+) {
+  const config = getRequiredR2Config()
+  const objectKey = buildObjectKey(storagePath)
+  const expiresInSeconds = options.expiresInSeconds ?? 900
+
+  if (!Number.isSafeInteger(expiresInSeconds) || expiresInSeconds < 60 || expiresInSeconds > 900) {
+    throw new Error('R2 upload URL expiry must be between 60 and 900 seconds.')
+  }
+  if (!objectKey || objectKey.split('/').some((segment) => segment === '..')) {
+    throw new Error('R2 upload object key is invalid.')
+  }
+
+  const client = new S3Client({
+    region: 'auto',
+    endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
+    forcePathStyle: true,
+    credentials: {
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+    },
+  })
+  let uploadUrl: string
+  try {
+    uploadUrl = await getSignedUrl(
+      client,
+      new PutObjectCommand({
+        Bucket: config.bucket,
+        Key: objectKey,
+        ContentType: 'video/mp4',
+      }),
+      { expiresIn: expiresInSeconds },
+    )
+  } finally {
+    client.destroy()
+  }
+
+  return {
+    uploadUrl,
+    publicUrl: buildPublicUrl(config, objectKey),
+  }
 }
 
 async function performSignedR2Request(input: {

@@ -1,6 +1,8 @@
 -- Durable platform asset retention metadata.
 -- Additive only. Does not delete assets, schedule posts, call Metricool, or alter live publish state.
 
+begin;
+
 ALTER TABLE public.clips
   ADD COLUMN IF NOT EXISTS asset_storage_provider text,
   ADD COLUMN IF NOT EXISTS asset_storage_key text,
@@ -86,3 +88,5 @@ CREATE INDEX IF NOT EXISTS mac_mini_clip_packages_asset_expiry_idx
 CREATE INDEX IF NOT EXISTS mac_mini_clip_packages_asset_storage_key_idx
   ON public.mac_mini_clip_packages (asset_storage_key)
   WHERE asset_storage_key IS NOT NULL;
+
+commit;

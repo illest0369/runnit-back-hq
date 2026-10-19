@@ -11,8 +11,8 @@ type LoginResponse = {
 
 export default function LoginClient() {
   const router = useRouter()
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [identifier, setIdentifier] = useState('')
+  const [secret, setSecret] = useState('')
   const [error, setError] = useState('')
   const [isPending, start] = useTransition()
 
@@ -27,21 +27,23 @@ export default function LoginClient() {
     start(async () => {
       try {
         const csrfToken = await getCsrfToken()
+        const trimmedIdentifier = identifier.trim()
+        const trimmedSecret = secret.trim()
+        const loginPayload = trimmedIdentifier.includes('@')
+          ? { email: trimmedIdentifier, password: trimmedSecret }
+          : { username: trimmedIdentifier, pin: trimmedSecret }
         const response = await fetch('/api/login', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'x-csrf-token': csrfToken,
           },
-          body: JSON.stringify({
-            email,
-            password,
-          }),
+          body: JSON.stringify(loginPayload),
         })
         const data = (await response.json()) as LoginResponse
 
         if (!response.ok) {
-          setError(data.error ?? 'Invalid email or password.')
+          setError(data.error ?? 'Invalid login.')
           return
         }
 
@@ -73,33 +75,33 @@ export default function LoginClient() {
 
         <form className="flex flex-col" onSubmit={submitCredentials} style={{ gap: '16px', marginTop: '28px' }}>
           <label className="block">
-            <span className="block text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--rb-muted)]" style={{ marginBottom: '8px' }}>email</span>
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--rb-muted)]" style={{ marginBottom: '8px' }}>email or username</span>
             <input
-              autoComplete="email"
+              autoComplete="username"
               className="h-12 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-bg)] px-4 text-[15px] text-[var(--rb-text)] outline-none transition placeholder:text-[var(--rb-faint)] focus:border-[var(--rb-accent)] focus:bg-white"
-              inputMode="email"
-              name="email"
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="name@runnitbackhq.com"
+              inputMode="text"
+              name="identifier"
+              onChange={(event) => setIdentifier(event.target.value)}
+              placeholder="name@runnitbackhq.com or username"
               required
               style={{ padding: '0 16px' }}
-              type="email"
-              value={email}
+              type="text"
+              value={identifier}
             />
           </label>
 
           <label className="block">
-            <span className="block text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--rb-muted)]" style={{ marginBottom: '8px' }}>password</span>
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.22em] text-[var(--rb-muted)]" style={{ marginBottom: '8px' }}>password or PIN</span>
             <input
               autoComplete="current-password"
               className="h-12 w-full rounded-[14px] border border-[var(--rb-line)] bg-[var(--rb-bg)] px-4 text-[15px] text-[var(--rb-text)] outline-none transition placeholder:text-[var(--rb-faint)] focus:border-[var(--rb-accent)] focus:bg-white"
-              name="password"
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="password"
+              name="secret"
+              onChange={(event) => setSecret(event.target.value)}
+              placeholder="password or PIN"
               required
               style={{ padding: '0 16px' }}
               type="password"
-              value={password}
+              value={secret}
             />
           </label>
 

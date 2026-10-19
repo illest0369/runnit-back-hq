@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { rm, unlink } from 'node:fs/promises'
 import path from 'node:path'
 
@@ -10,6 +11,11 @@ import { uploadGeneratedClip } from '../lib/clip-storage'
 import { completeModerationClipRender, markModerationClipRenderFailed } from '../lib/clip-render'
 import { parseFinalJudgeDecision } from '../lib/final-judge'
 import { markGeneratedClipsReadyForPublish } from '../lib/publish-relay'
+import {
+  hasRunPodRenderConfig,
+  renderClipWithRunPod,
+  transcribeVideoWithRunPod,
+} from '../lib/runpod-render'
 import { transitionClipState } from '../lib/state-machine'
 import { validateSystemGuard } from '../lib/system-guard'
 import { supabaseAdminClient } from '../lib/supabase-admin'
@@ -143,30 +149,49 @@ export async function generateClipsFromVideo(
   await validateClipGenerationJobOwnership(ownershipGuard, input)
   await ensureClipDirectories()
   await updateSourceSuggestionStatus(input.sourceSuggestionId, 'processing', input.channelId)
-  await reportProgress?.(toProgress('download', 10, 'Downloading source video.'))
 
   let download: Awaited<ReturnType<typeof downloadVideo>> | null = null
   const localFiles: string[] = []
 
   try {
-    download = await downloadVideo(input.videoUrl, input.jobId)
-    console.log('[clip-service] video downloaded', {
-      jobId: input.jobId,
-      sourcePath: download.sourcePath,
-    })
-    const filePrefix = `${input.jobId}-${download.sourceId}`
+    const useRunPod = hasRunPodRenderConfig()
+    let transcript: Awaited<ReturnType<typeof transcribeVideo>> | Awaited<ReturnType<typeof transcribeVideoWithRunPod>>
+    let sourceId: string
+
+    if (useRunPod) {
+      await reportProgress?.(toProgress('transcribe', 20, 'Transcribing source on RunPod.'))
+      const runPodTranscript = await transcribeVideoWithRunPod(input.videoUrl)
+      transcript = runPodTranscript
+      sourceId = createHash('sha256').update(input.videoUrl).digest('hex').slice(0, 16)
+      console.log('[clip-service] transcription complete', {
+        jobId: input.jobId,
+        segments: transcript.segments.length,
+        transcriptionProvider: 'runpod',
+        runPodJobId: runPodTranscript.runPodJobId,
+      })
+    } else {
+      await reportProgress?.(toProgress('download', 10, 'Downloading source video.'))
+      download = await downloadVideo(input.videoUrl, input.jobId)
+      console.log('[clip-service] video downloaded', {
+        jobId: input.jobId,
+        sourcePath: download.sourcePath,
+      })
+      sourceId = download.sourceId
+      await reportProgress?.(toProgress('transcribe', 30, 'Transcribing source video.'))
+      transcript = await transcribeVideo(download.sourcePath, download.workspaceTmpDir)
+      console.log('[clip-service] transcription complete', {
+        jobId: input.jobId,
+        segments: transcript.segments.length,
+        transcriptionProvider: 'local',
+      })
+    }
+
+    const filePrefix = `${input.jobId}-${sourceId}`
     const generatedClipDir = getGeneratedClipDir()
     const learningContext = await getReplyLearningContext()
     const sourceSuggestion = input.sourceSuggestionId
       ? await getSourceSuggestion(input.sourceSuggestionId, input.channelId)
       : null
-
-    await reportProgress?.(toProgress('transcribe', 30, 'Transcribing source video.'))
-    const transcript = await transcribeVideo(download.sourcePath, download.workspaceTmpDir)
-    console.log('[clip-service] transcription complete', {
-      jobId: input.jobId,
-      segments: transcript.segments.length,
-    })
 
     await reportProgress?.(toProgress('segment', 45, 'Scoring real-world clip windows.'))
     const rankedClips = scoreSegments(transcript.segments, 3, learningContext)
@@ -184,7 +209,6 @@ export async function generateClipsFromVideo(
 
     const savedRecords: SavedClipRecord[] = []
     let attachedModerationClip = false
-
     for (let index = 0; index < clipsToProcess.length; index += 1) {
       const clip = clipsToProcess[index]
       const filename = `${filePrefix}-clip-${index + 1}.mp4`
@@ -196,8 +220,10 @@ export async function generateClipsFromVideo(
       })
       let localUrl: string | null = null
 
-      localFiles.push(localOutputPath)
-      localFiles.push(`${localOutputPath}.caption.png`)
+      if (!useRunPod) {
+        localFiles.push(localOutputPath)
+        localFiles.push(`${localOutputPath}.caption.png`)
+      }
 
       try {
         const progressPercent = 55 + Math.floor((index / clipsToProcess.length) * 30)
@@ -209,20 +235,33 @@ export async function generateClipsFromVideo(
           ),
         )
 
-        await cutVerticalClip({
-          inputPath: download.sourcePath,
-          outputPath: localOutputPath,
-          startTime: clip.start,
-          endTime: clip.end,
-          captionText: clip.text,
-        })
-        console.log('[clip-service] clips generated', {
+        const upload = useRunPod
+          ? await renderClipWithRunPod({
+              storagePath,
+              sourceUrl: input.videoUrl,
+              startSeconds: clip.start,
+              endSeconds: clip.end,
+              captionText: clip.text,
+            })
+          : await (async () => {
+              await cutVerticalClip({
+                inputPath: download!.sourcePath,
+                outputPath: localOutputPath,
+                startTime: clip.start,
+                endTime: clip.end,
+                captionText: clip.text,
+              })
+              return uploadGeneratedClip(localOutputPath, storagePath)
+            })()
+        console.log('[clip-service] clip rendered', {
           jobId: input.jobId,
           clipIndex: index + 1,
-          outputPath: localOutputPath,
+          renderProvider: useRunPod ? 'runpod' : 'local',
+          runPodJobId: 'runPodJobId' in upload ? upload.runPodJobId : null,
+          renderWidth: 'width' in upload ? upload.width : null,
+          renderHeight: 'height' in upload ? upload.height : null,
+          renderSizeBytes: 'sizeBytes' in upload ? upload.sizeBytes : null,
         })
-
-        const upload = await uploadGeneratedClip(localOutputPath, storagePath)
         localUrl = upload.localUrl
         const packageAssets = buildGeneratedPostPackage({
           clip,

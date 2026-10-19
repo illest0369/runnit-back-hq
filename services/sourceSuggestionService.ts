@@ -1,4 +1,4 @@
-import { saveSourceSuggestion } from '../lib/clip-db'
+import { saveSourceSuggestion } from '../lib/clip-worker-db'
 import { runCommand } from './processService'
 
 type SourceMetadata = {
@@ -122,7 +122,7 @@ export async function createSourceSuggestion(input: {
   }
 
   const scored = scoreInitialViralPotential(metadata)
-  const sourceSuggestionId = saveSourceSuggestion({
+  const sourceSuggestionId = await saveSourceSuggestion({
     channelId: input.channelId,
     operatorId: input.operatorId,
     sourceUrl: input.sourceUrl,

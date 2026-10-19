@@ -27,6 +27,19 @@ type SaveGeneratedPostInput = {
   transcriptExcerpt: string
 }
 
+type SaveSourceSuggestionInput = {
+  channelId: string
+  operatorId: string
+  sourceUrl: string
+  title: string
+  author: string | null
+  durationSeconds: number | null
+  thumbnailUrl: string | null
+  initialScore: number
+  reasoning: string[]
+  metadata: Record<string, unknown>
+}
+
 function isMissingSchemaObjectError(error: { message?: string } | null | undefined) {
   const message = error?.message ?? ''
 
@@ -35,6 +48,30 @@ function isMissingSchemaObjectError(error: { message?: string } | null | undefin
     message.includes('schema cache') ||
     message.includes('column')
   )
+}
+
+export async function saveSourceSuggestion(input: SaveSourceSuggestionInput): Promise<string> {
+  const suggestionId = randomUUID()
+  const { error } = await supabaseAdminClient.from('source_suggestions').insert({
+    id: suggestionId,
+    channel_id: input.channelId,
+    operator_id: input.operatorId,
+    source_url: input.sourceUrl,
+    source_title: input.title,
+    source_author: input.author,
+    duration_seconds: input.durationSeconds,
+    thumbnail_url: input.thumbnailUrl,
+    initial_score: input.initialScore,
+    reasoning: input.reasoning,
+    metadata: input.metadata,
+    status: 'suggested',
+  })
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return suggestionId
 }
 
 export async function getSourceSuggestion(suggestionId: string, channelId: string): Promise<{
