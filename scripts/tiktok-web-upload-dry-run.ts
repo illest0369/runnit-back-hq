@@ -6,6 +6,8 @@ import { promisify } from 'node:util'
 
 import { chromium, webkit, type Browser, type BrowserContext, type Page } from 'playwright'
 
+import { assertRbCfbLivePublishingAllowed } from '../lib/live-publishing'
+
 type DraftPackage = Record<string, unknown>
 type ChannelKey = 'rb_sports' | 'rb_arena' | 'rb_women' | 'rb_combat' | 'rb_futbol' | 'rb_cfb'
 type RunMode = 'dry-run' | 'live-post' | 'login' | 'session-check' | 'print-profile'
@@ -663,6 +665,7 @@ async function main() {
     if (process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED !== 'true') {
       throw new Error('Live posting requires RBHQ_TIKTOK_LIVE_POSTING_ALLOWED=true.')
     }
+    assertRbCfbLivePublishingAllowed(channelKey)
     if (!options.stageUpload) {
       throw new Error('Live posting requires --stage-upload so the MP4 and caption are verified before clicking Post.')
     }

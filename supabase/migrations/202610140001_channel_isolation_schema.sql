@@ -2,7 +2,10 @@
 -- This migration does not backfill data or replace table policies.
 begin;
 
-create extension if not exists pgcrypto;
+-- Keep extension routines outside the API-exposed public schema. Production
+-- already has pgcrypto; this location is for clean staging/baseline replays.
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 create schema if not exists private;
 revoke all on schema private from public;

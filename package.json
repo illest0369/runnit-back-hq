@@ -13,7 +13,7 @@
     "smoke:v1": "tsx scripts/smoke-v1-flow.ts",
     "smoke:metricool-export": "tsx scripts/smoke-metricool-export-flow.ts",
     "smoke:metricool-scheduler-boundary": "tsx scripts/smoke-metricool-scheduler-boundary.ts",
-    "smoke:n8n-export": "tsx scripts/smoke-n8n-export-flow.ts",
+    "smoke:n8n-export": "NODE_OPTIONS=--conditions=react-server tsx scripts/smoke-n8n-export-flow.ts",
     "smoke:source-ingestion": "tsx scripts/smoke-source-ingestion.ts",
     "smoke:transcript-scout": "tsx scripts/smoke-transcript-scout.ts",
     "smoke:candidate-promotion": "tsx scripts/smoke-candidate-promotion.ts",

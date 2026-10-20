@@ -2,6 +2,7 @@ import { createHmac } from 'node:crypto'
 
 import { buildPublishExportPackage } from './export/build-export'
 import type { ExportableClip } from './export/types'
+import { assertRbCfbLivePublishingAllowed } from './live-publishing'
 import { supabaseAdminClient as supabaseAdmin } from './supabase-admin'
 
 export type PublishProvider = 'manual' | 'metricool' | 'n8n'
@@ -370,6 +371,23 @@ export async function sendClipToN8n(
     }
     await recordN8nHandoff({ clip, result, webhookUrlPresent: false })
     return result
+  }
+
+  if (!config.testMode) {
+    try {
+      assertRbCfbLivePublishingAllowed(clip.channel_id)
+    } catch (error) {
+      const result: N8nHandoffResult = {
+        status: 'n8n_failed',
+        automationStatus: null,
+        payload,
+        responseStatus: null,
+        responseBody: null,
+        error: error instanceof Error ? error.message : 'RB CFB live publishing is inactive.',
+      }
+      await recordN8nHandoff({ clip, result, webhookUrlPresent: true })
+      return result
+    }
   }
 
   const body = JSON.stringify(payload)

@@ -1,5 +1,6 @@
 import { buildPublishExportPackage } from './export/build-export'
 import type { ExportableClip } from './export/types'
+import { assertRbCfbLivePublishingAllowed } from './live-publishing'
 import { isDownloadableMp4Url } from './media-url'
 import { supabaseAdminClient as supabaseAdmin } from './supabase-admin'
 
@@ -685,6 +686,10 @@ export async function sendClipToMetricool(
       }
       await recordMetricoolHandoff({ clip, ...result })
       return result
+    }
+
+    if (configStatus.mode === 'live') {
+      assertRbCfbLivePublishingAllowed(clip.channel_id)
     }
 
     brandId = configStatus.mode === 'live'

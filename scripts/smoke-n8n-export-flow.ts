@@ -55,11 +55,11 @@ function createSupabase() {
   return createClient(supabaseUrl, supabaseServiceKey)
 }
 
-async function createRouteHeaders(role: 'admin' | 'user') {
+async function createRouteHeaders(role: 'admin' | 'user', userId: string) {
   const csrfToken = `smoke-n8n-csrf-${role}`
   const sessionValue = await signSessionPayload(
     JSON.stringify({
-      userId: `smoke-n8n-${role}`,
+      userId,
       username: `smoke_${role}`,
       role,
       channelIds: [SPORTS_CHANNEL_ID],
@@ -74,22 +74,22 @@ async function createRouteHeaders(role: 'admin' | 'user') {
   }
 }
 
-async function callConfigRoute(role: 'admin' | 'user') {
+async function callConfigRoute(role: 'admin' | 'user', userId: string) {
   const response = await n8nConfigRoute(
     new Request('http://smoke.local/api/n8n-export/config', {
       method: 'GET',
-      headers: await createRouteHeaders(role),
+      headers: await createRouteHeaders(role, userId),
     }),
   )
   const body = await response.json()
   return { status: response.status, body }
 }
 
-async function callSendRoute(clipId: string) {
+async function callSendRoute(clipId: string, adminUserId: string) {
   const response = await n8nSendRoute(
     new Request(`http://smoke.local/api/n8n-export/${clipId}/send`, {
       method: 'POST',
-      headers: await createRouteHeaders('admin'),
+      headers: await createRouteHeaders('admin', adminUserId),
       body: JSON.stringify({ action: 'publish_now' }),
     }),
     { params: Promise.resolve({ clipId }) },
@@ -130,6 +130,34 @@ async function insertSmokeClip(supabase: ReturnType<typeof createSupabase>, clip
   }
 }
 
+async function insertSmokeUsers(
+  supabase: ReturnType<typeof createSupabase>,
+  adminUserId: string,
+  operatorUserId: string,
+) {
+  const users = await supabase.from('users').insert([
+    {
+      id: adminUserId,
+      username: `smoke_n8n_admin_${adminUserId}`,
+      role: 'admin',
+      pin_hash: 'smoke-account-no-login',
+    },
+    {
+      id: operatorUserId,
+      username: `smoke_n8n_operator_${operatorUserId}`,
+      role: 'operator',
+      pin_hash: 'smoke-account-no-login',
+    },
+  ])
+  if (users.error) throw new Error(users.error.message)
+
+  const assignment = await supabase.from('operator_channel_assignments').insert({
+    user_id: operatorUserId,
+    channel_id: SPORTS_CHANNEL_ID,
+  })
+  if (assignment.error) throw new Error(assignment.error.message)
+}
+
 async function cleanupN8nHandoffs(supabase: ReturnType<typeof createSupabase>, clipId: string) {
   const { error } = await supabase.from('n8n_handoffs').delete().eq('clip_id', clipId)
   if (error && !error.message.toLowerCase().includes('n8n_handoffs')) {
@@ -147,8 +175,11 @@ async function main() {
   }
   const supabase = createSupabase()
   const clipId = randomUUID()
+  const adminUserId = randomUUID()
+  const operatorUserId = randomUUID()
 
   try {
+    await insertSmokeUsers(supabase, adminUserId, operatorUserId)
     await insertSmokeClip(supabase, clipId)
 
     delete process.env.PUBLISH_PROVIDER
@@ -157,16 +188,16 @@ async function main() {
     delete process.env.N8N_TEST_MODE
     delete process.env.N8N_TIMEOUT_MS
 
-    const nonAdminConfig = await callConfigRoute('user')
+    const nonAdminConfig = await callConfigRoute('user', operatorUserId)
     assert(nonAdminConfig.status === 403, `Non-admin config returned ${nonAdminConfig.status}, expected 403.`)
 
-    const adminConfig = await callConfigRoute('admin')
+    const adminConfig = await callConfigRoute('admin', adminUserId)
     assert(adminConfig.status === 200 && adminConfig.body?.ok, 'Admin config route failed.')
     assert(adminConfig.body.data.provider === 'manual', 'Default provider should be manual.')
     assert(adminConfig.body.data.webhookUrlPresent === false, 'Missing n8n webhook URL was not reported.')
     assert(adminConfig.body.data.secretPresent === false, 'Missing n8n secret was not reported.')
 
-    const notConfiguredSend = await callSendRoute(clipId)
+    const notConfiguredSend = await callSendRoute(clipId, adminUserId)
     assert(notConfiguredSend.status === 200 && notConfiguredSend.body?.ok, 'Missing n8n env should not crash send route.')
     assert(notConfiguredSend.body.data.n8nStatus === 'n8n_not_configured', 'Missing n8n env did not return n8n_not_configured.')
 
@@ -174,7 +205,7 @@ async function main() {
     process.env.N8N_TEST_MODE = 'true'
     delete process.env.N8N_WEBHOOK_URL
 
-    const testModeSend = await callSendRoute(clipId)
+    const testModeSend = await callSendRoute(clipId, adminUserId)
     assert(testModeSend.status === 200 && testModeSend.body?.ok, 'n8n test mode send route failed.')
     assert(testModeSend.body.data.n8nStatus === 'n8n_test_mode', 'n8n test mode did not return n8n_test_mode.')
 
@@ -208,6 +239,8 @@ async function main() {
     restoreEnv('N8N_TIMEOUT_MS', originalEnv.timeoutMs)
     await cleanupN8nHandoffs(supabase, clipId).catch(() => undefined)
     await supabase.from('clips').delete().eq('id', clipId)
+    await supabase.from('operator_channel_assignments').delete().eq('user_id', operatorUserId)
+    await supabase.from('users').delete().in('id', [adminUserId, operatorUserId])
   }
 }
 

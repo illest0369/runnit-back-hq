@@ -126,6 +126,8 @@ async function runCase(input: {
   const recordedRequests: RecordedRequest[] = []
   const uploaderCalls: string[][] = []
   const previousEnv = process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED
+  const previousRbCfbEnv = process.env.RBHQ_RB_CFB_LIVE_POSTING_ALLOWED
+  delete process.env.RBHQ_RB_CFB_LIVE_POSTING_ALLOWED
   if (input.envAllowed === undefined) {
     delete process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED
   } else {
@@ -256,6 +258,11 @@ async function runCase(input: {
     } else {
       process.env.RBHQ_TIKTOK_LIVE_POSTING_ALLOWED = previousEnv
     }
+    if (previousRbCfbEnv === undefined) {
+      delete process.env.RBHQ_RB_CFB_LIVE_POSTING_ALLOWED
+    } else {
+      process.env.RBHQ_RB_CFB_LIVE_POSTING_ALLOWED = previousRbCfbEnv
+    }
   }
 }
 
@@ -327,7 +334,7 @@ async function main() {
       allowFinalPost: true,
       envAllowed: 'true',
     }),
-    /RB CFB live posting is inactive/i,
+    /RB CFB live publishing is inactive/i,
   )
 
   const livePost = await runCase({

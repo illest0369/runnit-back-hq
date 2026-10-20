@@ -3,6 +3,8 @@ import { mkdir, stat, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { promisify } from 'node:util'
 
+import { assertRbCfbLivePublishingAllowed } from './live-publishing'
+
 const execFileAsync = promisify(execFile)
 
 type JsonObject = Record<string, unknown>
@@ -355,6 +357,10 @@ export async function runMacMiniDryRunWorker(
       error: null,
       safety: baseSafety,
     }
+  }
+
+  if (options.livePost) {
+    assertRbCfbLivePublishingAllowed(pkg.browserChannelKey)
   }
 
   const workerId = options.workerId || 'mac-mini-local-worker'

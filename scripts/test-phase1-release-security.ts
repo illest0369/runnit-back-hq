@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 
+import { isRbCfbLivePublishingAllowed, RB_CFB_CHANNEL_ID } from '../lib/live-publishing'
+
 const root = process.cwd()
 const migrationsDir = path.join(root, 'supabase/migrations')
 const rollbackDir = path.join(root, 'supabase/rollback')
@@ -48,6 +50,9 @@ assert.match(hardening, /set search_path = ''/i)
 assert.match(hardening, /update public\.clip_sources/i)
 assert.match(hardening, /from public\.clips/i)
 assert.match(hardening, /perform public\.refresh_clip_source_counts/i)
+assert.match(hardening, /create table if not exists public\.publish_events/i)
+assert.match(hardening, /alter table public\.publish_events force row level security/i)
+assert.match(hardening, /create policy rbhq_post_channel_isolation on public\.publish_events/i)
 assert.match(hardening, /revoke execute on all functions in schema public from public, anon/i)
 assert.match(hardening, /revoke all privileges on all tables in schema public from anon/i)
 
@@ -73,6 +78,9 @@ for (const legacyPolicy of [
 
 assert.match(hardening, /RBHQ_RLS_DISABLED/i)
 assert.match(hardening, /RBHQ_RLS_POLICY_MISSING/i)
+assert.match(hardening, /RBHQ_ANON_RELATION_PRIVILEGE/i)
+assert.match(hardening, /RBHQ_ANON_SEQUENCE_PRIVILEGE/i)
+assert.match(hardening, /RBHQ_ANON_FUNCTION_EXECUTE/i)
 assert.doesNotMatch(hardening, /grant\s+.+\s+to\s+anon/i)
 
 const rollbackFiles = readdirSync(rollbackDir).filter((filename) => filename.endsWith('.sql'))
@@ -95,5 +103,34 @@ assert.doesNotMatch(hostedRls, /thomas/i, 'hosted RLS verification must not depe
 assert.match(hostedRls, /rb-cfb/i)
 assert.match(hostedRls, /createSmokeOperator/i)
 assert.match(hostedRls, /verifyAdminAccess/i)
+
+const previousRbCfbLivePublishing = process.env.RBHQ_RB_CFB_LIVE_POSTING_ALLOWED
+try {
+  delete process.env.RBHQ_RB_CFB_LIVE_POSTING_ALLOWED
+  assert.equal(isRbCfbLivePublishingAllowed('rb_cfb'), false)
+  assert.equal(isRbCfbLivePublishingAllowed(RB_CFB_CHANNEL_ID), false)
+  assert.equal(isRbCfbLivePublishingAllowed('rb_sports'), true)
+  process.env.RBHQ_RB_CFB_LIVE_POSTING_ALLOWED = 'true'
+  assert.equal(isRbCfbLivePublishingAllowed('rb_cfb'), true)
+} finally {
+  if (previousRbCfbLivePublishing === undefined) {
+    delete process.env.RBHQ_RB_CFB_LIVE_POSTING_ALLOWED
+  } else {
+    process.env.RBHQ_RB_CFB_LIVE_POSTING_ALLOWED = previousRbCfbLivePublishing
+  }
+}
+
+for (const liveProviderPath of [
+  'lib/mac-mini-dry-run-worker.ts',
+  'lib/metricool.ts',
+  'lib/n8n-publisher.ts',
+  'scripts/tiktok-web-upload-dry-run.ts',
+]) {
+  assert.match(
+    readFileSync(path.join(root, liveProviderPath), 'utf8'),
+    /assertRbCfbLivePublishingAllowed/,
+    `${liveProviderPath} must enforce the RB CFB live-publishing gate`,
+  )
+}
 
 console.log('PASS release ledger, hardening, rollback, and simulated-session security controls')

@@ -8,7 +8,7 @@ const migrationPaths = [
   'supabase/migrations/202610140001_channel_isolation_schema.sql',
   'supabase/migrations/202610140002_channel_assignment_backfill.sql',
   'supabase/migrations/202610140003_channel_isolation_rls.sql',
-  'supabase/migrations/20261019025640_revoke_anon_public_access.sql',
+  'supabase/migrations/20261020013758_revoke_anon_public_access.sql',
 ]
 const migrations = migrationPaths.map((migrationPath) =>
   readFileSync(path.join(root, migrationPath), 'utf8'),
@@ -17,6 +17,8 @@ const migration = migrations.join('\n')
 
 const requiredSql = [
   /create table if not exists public\.operator_channel_assignments/i,
+  /create schema if not exists extensions/i,
+  /create extension if not exists pgcrypto with schema extensions/i,
   /user_id uuid primary key/i,
   /channel_id uuid not null/i,
   /create or replace function private\.rbhq_is_super_admin/i,
@@ -59,6 +61,12 @@ for (const pattern of requiredSql) {
   assert.match(migration, pattern, `migration is missing security control ${pattern}`)
 }
 
+assert.doesNotMatch(
+  migrations[1],
+  /create extension if not exists pgcrypto\s*;/i,
+  'clean replays must not install pgcrypto routines into the public schema',
+)
+
 for (const [index, sql] of migrations.entries()) {
   assert.match(sql, /^begin;/im, `${migrationPaths[index]} must begin a transaction`)
   assert.match(sql, /commit;\s*$/im, `${migrationPaths[index]} must commit its transaction`)
@@ -85,20 +93,13 @@ assert.doesNotMatch(
 )
 
 const anonAccessRollback = readFileSync(
-  path.join(root, 'supabase/rollback/20261019025640_revoke_anon_public_access.sql'),
+  path.join(root, 'supabase/rollback/20261020013758_revoke_anon_public_access.sql'),
   'utf8',
 )
 assert.match(anonAccessRollback, /^begin;/im)
-assert.match(anonAccessRollback, /grant usage on schema public to anon/i)
-assert.match(
-  anonAccessRollback,
-  /grant all privileges on all tables in schema public to anon/i,
-)
-assert.match(
-  anonAccessRollback,
-  /grant execute on all functions in schema public to public, anon/i,
-)
-assert.match(anonAccessRollback, /commit;\s*$/im)
+assert.match(anonAccessRollback, /RBHQ_UNSAFE_ROLLBACK_BLOCKED/i)
+assert.doesNotMatch(anonAccessRollback, /grant\s+.+\s+to\s+anon/i)
+assert.match(anonAccessRollback, /rollback;\s*$/im)
 
 assert.doesNotMatch(
   migration,
