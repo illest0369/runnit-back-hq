@@ -89,6 +89,7 @@
     "test:hosted-rls": "tsx scripts/test-hosted-rls.ts",
     "test:hosted-render-e2e": "tsx scripts/test-hosted-render-e2e.ts",
     "test:runpod": "tsx --test tests/runpod-render.test.ts tests/clip-storage-presign.test.ts",
+    "test:phase1-release-security": "tsx scripts/test-phase1-release-security.ts",
     "test:phase1-channel-isolation": "npm run test:channel-isolation && npm run test:channel-security && npm run test:channel-runtime-security"
   },
   "engines": {

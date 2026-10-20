@@ -53,10 +53,15 @@ function clipPrepFixture() {
   }
 }
 
-function packageFixture(input: { id: string; mediaPath?: string | null }) {
+function packageFixture(input: {
+  id: string
+  mediaPath?: string | null
+  browserChannelKey?: 'rb_sports' | 'rb_cfb'
+}) {
+  const browserChannelKey = input.browserChannelKey ?? 'rb_sports'
   return {
     id: input.id,
-    browserChannelKey: 'rb_sports',
+    browserChannelKey,
     sourceUrl: 'https://www.youtube.com/watch?v=MACMINIDRYRUN',
     sourceTitle: 'ESPN trade reaction source video',
     caption: 'Fans are losing it after the final play.',
@@ -75,7 +80,7 @@ function packageFixture(input: { id: string; mediaPath?: string | null }) {
       lane: {
         label: 'RB Sports',
         slug: 'sports',
-        browserChannelKey: 'rb_sports',
+        browserChannelKey,
         targetChannelId: 'a1000000-0000-0000-0000-000000000001',
       },
       source: {
@@ -116,6 +121,7 @@ async function runCase(input: {
   livePost?: boolean
   allowFinalPost?: boolean
   envAllowed?: string | undefined
+  browserChannelKey?: 'rb_sports' | 'rb_cfb'
 }) {
   const recordedRequests: RecordedRequest[] = []
   const uploaderCalls: string[][] = []
@@ -134,7 +140,14 @@ async function runCase(input: {
     recordedRequests.push({ url: requestUrl, method, body })
 
     if (requestUrl.includes('/api/mac-mini/packages?')) {
-      return responseJson({ ok: true, data: [packageFixture({ id: input.id, mediaPath: input.mediaPath })] })
+      return responseJson({
+        ok: true,
+        data: [packageFixture({
+          id: input.id,
+          mediaPath: input.mediaPath,
+          browserChannelKey: input.browserChannelKey,
+        })],
+      })
     }
     if (requestUrl.includes(`/api/mac-mini/packages/${input.id}/dry-run`)) {
       return responseJson({ ok: true, data: { id: input.id, packageStatus: 'dry_run_complete' } })
@@ -303,6 +316,18 @@ async function main() {
   await assert.rejects(
     () => runCase({ id: 'live-no-flag-package', mediaPath, livePost: true, envAllowed: 'true' }),
     /--allow-final-post/,
+  )
+
+  await assert.rejects(
+    () => runCase({
+      id: 'rb-cfb-live-inactive-package',
+      mediaPath,
+      browserChannelKey: 'rb_cfb',
+      livePost: true,
+      allowFinalPost: true,
+      envAllowed: 'true',
+    }),
+    /RB CFB live posting is inactive/i,
   )
 
   const livePost = await runCase({
