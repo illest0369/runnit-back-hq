@@ -77,3 +77,26 @@ test('worker startup gates ingest, Apify polling, and scoring behind Gemini capa
   assert.match(source, /getRbhqWorkerCapabilities/)
   assert.match(source, /capabilities\.geminiScoring/)
 })
+
+test('direct queue and import entrypoints enforce the Gemini gate before side effects', async () => {
+  const [queueSource, nativeIngestSource, apifyImportSource] = await Promise.all([
+    readFile(new URL('../lib/queue.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../lib/rbhq-native-ingest.ts', import.meta.url), 'utf8'),
+    readFile(new URL('../lib/apify/import-runner.ts', import.meta.url), 'utf8'),
+  ])
+
+  for (const getter of ['getRbhqIngestQueue', 'getRbhqApifyPollQueue', 'getRbhqScoreQueue']) {
+    assert.match(
+      queueSource,
+      new RegExp(`function ${getter}\\(\\) \\{\\s*assertGeminiScoringEnabled\\(\\)`),
+    )
+  }
+  assert.match(
+    nativeIngestSource,
+    /runNativeRbhqIngest[\s\S]*?\{\s*assertGeminiScoringEnabled\(\)/,
+  )
+  assert.match(
+    apifyImportSource,
+    /runApifyImport[\s\S]*?\{\s*assertGeminiScoringEnabled\(\)/,
+  )
+})
