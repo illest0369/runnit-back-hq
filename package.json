@@ -6,6 +6,7 @@
     "dev": "next dev",
     "dev:local-dry-run": "RBHQ_POST_QUEUE_NAME=rbhq-post-local-dry-run next dev",
     "lint": "next typegen && tsc --noEmit",
+    "test:login": "tsx scripts/test-login-name-pin.ts",
     "build": "next build && npm run build:worker",
     "build:worker": "tsc -p tsconfig.worker.json",
     "start": "next start",
