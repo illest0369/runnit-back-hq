@@ -24,6 +24,8 @@ RB CFB authorization tests. The tests create disposable simulated identities.
 
 - Production migration ledger: eight legacy migrations plus
   `20261020013758_revoke_anon_public_access`.
+- A production-linked `db push --include-all --dry-run --skip-vault` reported
+  exactly the six expected pending files; the remote ledger remained unchanged.
 - Production containment remains effective: anonymous table access and public
   application-function execution are denied.
 - Production and the clean replay both keep `pgcrypto` in the non-exposed
@@ -91,8 +93,9 @@ the owner approves production migration/deployment.
    sample into isolation.
 3. Run `supabase migration list` and require the production ledger to end at
    `20261020013758_revoke_anon_public_access` before Phase 1.
-4. Run `supabase db push --include-all --dry-run`. Require exactly these six
-   pending migrations, in this order:
+4. Run
+   `supabase db push --project-ref jcrgqvcmpguomyjfjvtl --include-all --dry-run --skip-vault`.
+   Require exactly these six pending migrations, in this order:
    1. `202607310001_asset_retention.sql`
    2. `202610140001_channel_isolation_schema.sql`
    3. `202610140002_channel_assignment_backfill.sql`
@@ -101,8 +104,10 @@ the owner approves production migration/deployment.
    6. `20261020015306_phase1_release_security.sql`
 5. Stop if containment appears pending, if any unexpected migration appears,
    or if the assignment gate reports a missing/multiple operator assignment.
-6. With approval, run `supabase db push --include-all` once. Do not run a
-   separate ledger repair.
+6. With approval, run
+   `supabase db push --project-ref jcrgqvcmpguomyjfjvtl --include-all --skip-vault`
+   once. Do not run a separate ledger repair and do not permit the migration
+   command to synchronize Vault secrets.
 7. Immediately verify: migration ledger, all public-table RLS/policy counts,
    anonymous REST/RPC denial, GraphQL data isolation, admin all-channel access,
    simulated RB CFB one-channel access, service-role worker reads/writes, and

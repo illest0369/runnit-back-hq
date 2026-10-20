@@ -36,7 +36,9 @@ separate migration-history repair for containment.
 Five pending Phase 1 migrations sort before the recorded containment version;
 the sixth pending migration is the post-containment release-security gate.
 After approval, production deployment must therefore use
-`supabase db push --include-all` and must first verify its `--dry-run` output.
+`supabase db push --include-all --skip-vault` and must first verify its
+`--dry-run` output. `--skip-vault` prevents the migration command from changing
+Vault-managed secrets.
 The expected pending list is:
 
 - 202607310001_asset_retention.sql
