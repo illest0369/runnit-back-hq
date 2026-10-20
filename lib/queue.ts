@@ -7,6 +7,7 @@ import { assertChannelQueueScope } from './channel-scope'
 import { createSupabaseChannelOwnershipGuard } from './channel-ownership'
 import { getMaxAgentRetries, isWarRoomEnabled } from './war-room-runtime'
 import { supabaseAdminClient } from './supabase-admin'
+import { assertGeminiScoringEnabled } from './gemini/runtime'
 import {
   validateApifyPollJobOwnership,
   validateClipGenerationJobOwnership,
@@ -158,6 +159,7 @@ function defaultRbhqJobOptions() {
 }
 
 export function getRbhqIngestQueue() {
+  assertGeminiScoringEnabled()
   if (!globalThis.__rbhqIngestQueue) {
     globalThis.__rbhqIngestQueue = new Queue<RbhqIngestJobData, string, 'run-apify-actor'>(
       RBHQ_INGEST_QUEUE_NAME,
@@ -168,6 +170,7 @@ export function getRbhqIngestQueue() {
 }
 
 export function getRbhqApifyPollQueue() {
+  assertGeminiScoringEnabled()
   if (!globalThis.__rbhqApifyPollQueue) {
     globalThis.__rbhqApifyPollQueue = new Queue<RbhqApifyPollJobData, string, 'poll-apify-run'>(
       RBHQ_APIFY_POLL_QUEUE_NAME,
@@ -178,6 +181,7 @@ export function getRbhqApifyPollQueue() {
 }
 
 export function getRbhqScoreQueue() {
+  assertGeminiScoringEnabled()
   if (!globalThis.__rbhqScoreQueue) {
     globalThis.__rbhqScoreQueue = new Queue<RbhqScoreJobData, string, 'score-clip'>(
       RBHQ_SCORE_QUEUE_NAME,

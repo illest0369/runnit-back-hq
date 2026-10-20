@@ -1,6 +1,7 @@
 import { getApifyDatasetItems, getApifyRunDatasetId, runApifyActor } from './client'
 import { normalizeApifyDatasetItems, type ApifyNormalizationFailure } from './normalize'
 import { scoreClipsWithGemini } from '../gemini/score'
+import { assertGeminiScoringEnabled } from '../gemini/runtime'
 
 type ImportRunnerInput = {
   actorId?: string
@@ -72,6 +73,7 @@ async function postImport(input: {
 }
 
 export async function runApifyImport(input: ImportRunnerInput): Promise<ApifyImportRunnerResult> {
+  assertGeminiScoringEnabled()
   let datasetId = input.datasetId
   let actorSource = datasetId ? `dataset:${datasetId}` : 'unknown'
 

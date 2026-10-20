@@ -27,6 +27,7 @@ import {
 } from '../lib/queue'
 import { recordTikTokAnalyticsSnapshot } from '../lib/analytics/tiktok'
 import { scoreClipsWithGemini, scoreClipWithGemini } from '../lib/gemini/scoring'
+import { getRbhqWorkerCapabilities } from '../lib/gemini/runtime'
 import { getClipById, importClips } from '../lib/moderation-queue'
 import { getStoredTikTokAnalysis, hasTikTokPostingReadiness } from '../lib/tiktok-analyzer'
 import { markSourcesIngestStarted, updateSourcesIngestHealth } from '../lib/rbhq-source-ingest'
@@ -115,7 +116,14 @@ async function upsertSourceItems(items: NormalizedSourceItem[], channelId: strin
 }
 
 export function createRbhqWorkers() {
-  const ingestWorker = new Worker<RbhqIngestJobData, string, 'run-apify-actor'>(
+  const capabilities = getRbhqWorkerCapabilities()
+  if (!capabilities.geminiScoring) {
+    console.log(
+      `[rbhq-worker] Gemini scoring ${capabilities.geminiScoringMode}; ingest, Apify poll, and scoring queues are paused`,
+    )
+  }
+
+  const ingestWorker = capabilities.ingest ? new Worker<RbhqIngestJobData, string, 'run-apify-actor'>(
     RBHQ_INGEST_QUEUE_NAME,
     async (job) => {
       await validateIngestJobOwnership(ownershipGuard, job.data)
@@ -144,9 +152,9 @@ export function createRbhqWorkers() {
       return run.id
     },
     { connection: createWorkerConnection(), concurrency: 1 },
-  )
+  ) : null
 
-  const pollWorker = new Worker<RbhqApifyPollJobData, string, 'poll-apify-run'>(
+  const pollWorker = capabilities.apifyPoll ? new Worker<RbhqApifyPollJobData, string, 'poll-apify-run'>(
     RBHQ_APIFY_POLL_QUEUE_NAME,
     async (job) => {
       await validateApifyPollJobOwnership(ownershipGuard, job.data)
@@ -191,15 +199,15 @@ export function createRbhqWorkers() {
         sourceIds: job.data.sourceIds ?? [],
         fetched: rawItems.length,
         imported: imported.inserted_count,
-        success: true,
+        success: normalized.failed.length === 0 && scored.failed.length === 0,
       })
 
       return `stored:${storedCount}:inserted:${imported.inserted_count}:skipped:${imported.skipped_count}:failed:${normalized.failed.length + scored.failed.length + imported.failed_count}`
     },
     { connection: createWorkerConnection(), concurrency: 1 },
-  )
+  ) : null
 
-  const scoreWorker = new Worker<RbhqScoreJobData, string, 'score-clip'>(
+  const scoreWorker = capabilities.geminiScoring ? new Worker<RbhqScoreJobData, string, 'score-clip'>(
     RBHQ_SCORE_QUEUE_NAME,
     async (job) => {
       await ownershipGuard.assertEntity(job.data.channelId, 'rbhq_clip', job.data.clipId)
@@ -261,7 +269,7 @@ export function createRbhqWorkers() {
       return `scored:${clip.id}`
     },
     { connection: createWorkerConnection(), concurrency: 1 },
-  )
+  ) : null
 
   const postWorker = new Worker<RbhqPostJobData, string, 'post-to-tiktok'>(
     RBHQ_POST_QUEUE_NAME,
@@ -334,4 +342,5 @@ export function createRbhqWorkers() {
   )
 
   return [ingestWorker, pollWorker, scoreWorker, postWorker, analyticsWorker]
+    .filter((worker) => worker !== null)
 }

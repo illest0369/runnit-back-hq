@@ -4,6 +4,7 @@ import { validateCsrfRequest } from '@/lib/csrf'
 import { resolveApifyToken } from '@/lib/apify/client'
 import { getSessionFromRequest } from '@/lib/auth'
 import { createSupabaseChannelOwnershipGuard } from '@/lib/channel-ownership'
+import { resolveGeminiScoringRuntime } from '@/lib/gemini/runtime'
 import { buildCuratedSourceJobs, listCuratedSources, type RbhqIngestMode } from '@/lib/rbhq-source-ingest'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -101,6 +102,19 @@ export async function POST(request: Request) {
 
     if (!validateCsrfRequest(request)) {
       return NextResponse.json({ error: 'Invalid CSRF token.' }, { status: 403 })
+    }
+
+    const geminiRuntime = resolveGeminiScoringRuntime()
+    if (!geminiRuntime.enabled) {
+      return NextResponse.json(
+        {
+          error: 'Gemini scoring is unavailable; ingestion remains paused.',
+          code: geminiRuntime.mode === 'misconfigured'
+            ? 'GEMINI_SCORING_MISCONFIGURED'
+            : 'GEMINI_SCORING_DISABLED',
+        },
+        { status: 503 },
+      )
     }
 
     const body = (await request.json().catch(() => ({}))) as {

@@ -18,6 +18,7 @@ test('Gemini scoring is disabled by default while non-AI worker duties stay avai
     ingest: false,
     apifyPoll: false,
     geminiScoring: false,
+    geminiScoringMode: 'disabled',
     postDryRun: true,
     analytics: true,
   })

@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
 import { scoreClipsWithGemini } from './gemini/scoring'
+import { assertGeminiScoringEnabled } from './gemini/runtime'
 import type { GeminiScoreClipInput } from './gemini/score'
 import { importClips } from './moderation-queue'
 import {
@@ -371,6 +372,7 @@ async function upsertNativeSourceItems(videos: EnrichedVideo[]) {
 }
 
 export async function runNativeRbhqIngest(input: { sourceIds?: string[]; limit?: number }) {
+  assertGeminiScoringEnabled()
   const sources = (await listCuratedSources({
     sourceIds: input.sourceIds,
     limit: Math.min(MAX_SOURCES_PER_JOB, Math.max(1, input.limit ?? MAX_SOURCES_PER_JOB)),
@@ -419,19 +421,7 @@ export async function runNativeRbhqIngest(input: { sourceIds?: string[]; limit?:
   )
 
   const scored = await scoreClipsWithGemini(candidates.map((candidate) => candidate.clip))
-  const clipsForImport = scored.scored.length > 0
-    ? scored.scored
-    : candidates.map((candidate) => ({
-        ...candidate.clip,
-        virality_score: candidate.clip.ai_score ?? 0,
-        hook_strength: candidate.clip.ai_score ?? 0,
-        emotion: 'unknown',
-        sports_category: candidate.clip.sport ?? 'sports',
-        recommended_hook: candidate.clip.hook ?? candidate.clip.title,
-        risk_flags: ['gemini_unavailable_fallback'],
-        moderation_notes: ['Gemini scoring was unavailable during ingest; queued with source-priority score.'],
-        gemini_processed_at: null,
-      }))
+  const clipsForImport = scored.scored
 
   clipsForImport.sort((left, right) => {
     const scoreDelta = Number(right.ai_score ?? 0) - Number(left.ai_score ?? 0)
@@ -450,7 +440,7 @@ export async function runNativeRbhqIngest(input: { sourceIds?: string[]; limit?:
     sourceIds,
     fetched: discovered.length,
     imported: imported.inserted_count,
-    success: sourceResults.some((result) => !result.error),
+    success: sourceResults.some((result) => !result.error) && scored.failed.length === 0,
   })
 
   return {

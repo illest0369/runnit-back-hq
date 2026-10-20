@@ -9,6 +9,7 @@ import {
   type ClipGenerationJobResult,
 } from '../lib/queue'
 import { generateClipsFromVideo } from '../services/clipService'
+import { getRbhqWorkerCapabilities } from '../lib/gemini/runtime'
 import { createRbhqWorkers } from './rbhqWorker'
 
 config({ path: '.env.local' })
@@ -23,7 +24,11 @@ function startHealthServer(): Server | null {
   const server = createServer((request, response) => {
     if (request.url === '/health') {
       response.writeHead(200, { 'content-type': 'application/json' })
-      response.end(JSON.stringify({ ok: true, service: 'runnit-back-worker' }))
+      response.end(JSON.stringify({
+        ok: true,
+        service: 'runnit-back-worker',
+        capabilities: getRbhqWorkerCapabilities(),
+      }))
       return
     }
 
